@@ -1,0 +1,416 @@
+.dragbar {
+	z-index: 1000000;
+	position: fixed;
+	width: 100vw;
+	height: 2rem;
+	app-region: drag;
+	background-color: #1d1a2ffc !important;
+	padding: 0.3rem 0.8rem !important;
+	color: #ffffff !important;
+	user-select: none !important;
+	-webkit-user-select: none !important;
+	-moz-user-select: none !important;
+	-ms-user-select: none !important;
+	font-weight: 700;
+}
+
+#APPLICATION_NAVBAR_TITLE {
+	color: rgba(255,255,255,0.95)
+}
+
+#APPLICATION_CONTAINER {
+	position: absolute;
+	width: 100%;
+	height: calc(100%-2rem);
+	overflow: auto;
+	display: grid;
+	grid-template-rows: auto 1fr;
+	background: radial-gradient(circle at 50% 80%, #151232 0%, #0c091c 100%) !important;
+}
+
+#APPLICATION {
+	height: max(100%, 100vh);
+	padding-top: 2rem !important;
+	user-select: none !important;
+	-webkit-user-select: none !important;
+	-moz-user-select: none !important;
+	-ms-user-select: none !important;
+	background: transparent !important;
+}
+
+#APPLICATION_CONTENT {
+	padding: 1rem;
+	display: flex;
+	height: auto;
+	justify-content: center;
+}
+
+#STATUS_BAR {
+	position: fixed;
+	bottom: -2rem;
+	left: 50%;
+	transform: translateX(-50%);
+	width: auto;
+	padding: 0 1rem;
+	height: 2rem;
+	background-color: #3d3d3f;
+	z-index: 1000;
+	border-radius: 0.5rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: rgba(255, 255, 255, 0.3);
+	font-weight: 700;
+	transition-duration: 500ms;
+	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+	opacity: 0;
+}
+
+.STATUS_BAR_ACTIVE {
+	opacity: 1 !important;
+	bottom: 1rem !important;
+	color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.nav {
+	position: fixed;
+	bottom: 1rem;
+	right: 1rem;
+	/* transform: translateX(-50%); */
+	background: rgba(255, 255, 255, 0.1) !important;
+	padding: 0.5rem;
+	border-radius: 50px;
+	user-select: none !important;
+	-webkit-user-select: none !important;
+	-moz-user-select: none !important;
+	-ms-user-select: none !important;
+}
+
+.rounded-3 {
+	border-radius: 0.5rem !important;
+}
+
+.btn {
+	border: none !important;
+	border-radius: 0.5rem !important;
+	transition-duration: 100ms;
+}
+
+.btn-ghost {
+	background-color: rgba(255, 255, 255, 0.03) !important;
+}
+
+.btn-ghost:hover {
+	background-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+.btn-light {
+	background-color: rgba(255, 255, 255, 0.1) !important;
+	color: white !important;
+}
+
+.btn-light:hover {
+	background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.bg-ghost {
+	background-color: rgba(255, 255, 255, 0.03) !important;
+}
+
+.bg-ghost-light {
+	background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.GROUP_TITLE {
+	writing-mode: vertical-rl;
+	transform: rotate(180deg);
+	font-weight: 700;
+	letter-spacing: 0.1rem;
+	color: rgba(255, 255, 255, 0.6);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	text-transform: uppercase;
+}
+
+.GROUP_TITLE_CLICKABLE {
+	background-color: rgba(255, 255, 255, 0.1) !important;
+	cursor: pointer !important;
+}
+
+.GROUP_TITLE_CLICKABLE:hover {
+	background-color: rgba(255, 255, 255, 0.2) !important;
+	border-radius: 0.3rem;
+}
+
+.GROUP_CREATE_BUTTON {
+	writing-mode: vertical-rl;
+	transform: rotate(180deg);
+	font-weight: 700;
+	/* letter-spacing: 0.1rem; */
+	color: rgba(255, 255, 255, 0.6);
+	/* overflow: hidden; */
+	/* text-overflow: ellipsis; */
+	/* white-space: nowrap; */
+	text-transform: uppercase;
+}
+
+.GROUP_CREATE_BUTTON:hover {
+	background-color: rgba(255, 255, 255, 0.1) !important;
+	border-radius: 0.3rem;
+}
+
+.SHOWTRAK_CLIENT_PENDING_ADOPTION {
+	background-color: rgba(255, 255, 255, 0.03);
+}
+
+.text-bold {
+	font-weight: 600 !important;
+}
+
+.card-title {
+	font-weight: 800 !important;
+}
+
+.card-text {
+	font-weight: 500 !important;
+}
+
+.progress {
+	height: 5px !important;
+	border-radius: 5px;
+	background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.SHOWTRAK_BTN_ROUNDED {
+	font-weight: 600;
+}
+
+#NAVBAR_CORE_BUTTON {
+	width: 48px;
+	height: 48px;
+	cursor: pointer;
+	background: rgb(28 28 28 / 67%);
+	border-radius: 50%;
+	padding: 0.4rem;
+	transition-duration: 300ms;
+}
+
+#NAVBAR_CORE_BUTTON:hover {
+	background: rgb(28 28 28 / 87%);
+	scale: 1.05;
+	animation: spin 3s;
+}
+
+@keyframes spin {
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+#APPLICATION_NAVBAR_STATUS {
+	color: rgba(255, 255, 255, 0.5);
+}
+
+#SHOWTRAK_CONTEXT_MENU {
+	display: none;
+	position: absolute;
+	z-index: 100000;
+	background-color: #2a273b !important;
+	color: white;
+	border: none !important;
+	border-radius: 0.5rem;
+	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+	padding: 0.5rem;
+	user-select: none !important;
+	-webkit-user-select: none !important;
+	-moz-user-select: none !important;
+	-ms-user-select: none !important;
+}
+
+#SHOWTRAK_CONTEXT_MENU > a {
+	color: white;
+	text-decoration: none !important;
+	user-select: none !important;
+	-webkit-user-select: none !important;
+	-moz-user-select: none !important;
+	-ms-user-select: none !important;
+}
+#SHOWTRAK_CONTEXT_MENU > a:hover {
+	background-color: rgba(255, 255, 255, 0.1) !important;
+	border-radius: 0.3rem;
+}
+
+.SHOWTRAK_CONTEXTMENU_BUTTON {
+	cursor: pointer;
+}
+
+#APPLICATION_NAVBAR_LOGO {
+	width: 18px;
+	height: 18px;
+}
+
+.modal-dialog {
+	padding-top: 2rem !important;
+}
+
+.modal-content {
+	background-color: #1e1643 !important;
+	color: white;
+	border-radius: 1rem !important;
+}
+
+.modal-body {
+	/* background-color: #0c091c !important; */
+	color: white;
+	display: grid;
+	gap: 0.5rem;
+}
+
+.SHOWTRAK_MODEL_CORE_LOGO {
+	width: 84px;
+	height: 84px;
+}
+
+small,
+.text-sm {
+	font-size: 10px;
+}
+
+/* Custom Scrollbar Styles */
+::-webkit-scrollbar {
+	width: 8px;
+	background: #18181b;
+	border-radius: 1rem;
+}
+
+::-webkit-scrollbar-thumb {
+	background: #35353a;
+	border-radius: 12px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: #505055;
+}
+
+::-webkit-scrollbar-corner {
+	background: #18181b;
+}
+
+/* Firefox */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: #35353a #18181b;
+}
+
+.form-control,
+.form-select {
+	background-color: rgba(255, 255, 255, 0.03) !important;
+	color: white !important;
+	border: none !important;
+	border-radius: 0.5rem !important;
+}
+
+.form-control:focus,
+.form-select:focus {
+	color: #212529;
+	background-color: #ffffff1d !important;
+	outline: 0;
+	box-shadow: none !important;
+}
+
+.form-switch .form-check-input {
+    width: 2.5em;
+    margin-left: -2.5em;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e") !important;
+    background-position: left center;
+    border-radius: 2em;
+    transition: background-position .15s ease-in-out;
+    height: 1.5em;
+    background-color: rgba(154, 171, 255, 0.43);
+    border-color: transparent !important;
+	box-shadow: none !important;
+}
+
+option {
+	background-color: #212124 !important;
+	color: white !important;
+	border: none !important;
+}
+
+.cursor-pointer {
+	cursor: pointer !important;
+}
+
+.SHOWTRAK_TIMER {
+	width: 500px;
+	display: grid;
+	gap: 0;
+	padding: 1rem;
+	border-radius: 0.5rem;
+	border: transparent 2px solid;
+	transition-duration: 200ms;
+	background-color: rgba(255, 255, 255, 0.05);
+	cursor: pointer !important;
+}
+
+.SHOWTRAK_TIMER:hover {
+	border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.SHOWTRAK_TIMER.SELECTED {
+	border-color: rgba(255, 255, 255, 1) !important;
+}
+
+.SHOWTRAK_TIMER.ONLINE {
+	background-color: rgba(26, 255, 0, 0.25) !important;
+}
+
+.TIMER_ID {
+	position: absolute;
+	top: 0.6rem;
+	left: 0.6rem;
+	/* width: 120px; */
+	padding: 0 0.8rem;
+	height: 30px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 1rem;
+	font-weight: 700;
+	border-radius: 0.4rem;
+	background-color: rgba(255,255,255,0.05);
+}
+
+.TIMER_CONTROLS {
+	position: absolute;
+	top: 0.6rem;
+	right: 0.6rem;
+	/* width: 120px; */
+	padding: 0 0.8rem;
+	height: 30px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 1rem;
+	font-weight: 700;
+	border-radius: 0.4rem;
+	background-color: rgba(255,255,255,0.05);
+}
+
+
+.STANDBY {
+	background-color: hsl(38, 72%, 14%);
+}
+
+.RUNNING {
+	background-color: hsl(223, 61%, 15%);
+}
+
+.PAUSED {
+	background-color: hsl(0, 60%, 15%);
+}
+
+.COMPLETE {
+	background-color: hsl(111, 61%, 15%);
+}
