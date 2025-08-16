@@ -14,7 +14,9 @@ const dbPath = path.join(DatabasePath, DatabaseFileName);
 // Ensure the storage directory exists before opening the database
 try {
   fs.mkdirSync(DatabasePath, { recursive: true });
-} catch {}
+} catch (_e) {
+  // Directory may already exist or not be creatable; proceed and let DB open fail if needed
+}
 
 // Readiness gate: resolve after schema is initialized
 let readyResolve;
@@ -34,7 +36,9 @@ const DB = new sqlite3.Database(dbPath, async (err) => {
   Manager._ready = true;
   try {
     if (readyResolve) readyResolve();
-  } catch {}
+  } catch (_e) {
+    // ignore
+  }
 });
 
 const Manager = {};
@@ -44,7 +48,9 @@ Manager.WhenReady = async () => {
   if (Manager._ready) return;
   try {
     await readyPromise;
-  } catch {}
+  } catch (_e) {
+    // ignore
+  }
 };
 
 Manager.InitializeSchema = async () => {
@@ -78,10 +84,11 @@ Manager.InitializeSchema = async () => {
 };
 
 Manager.Get = async (Query, Params) => {
-  return new Promise(async (resolve, _reject) => {
-    if (!Manager._initializing) {
-      await Manager.WhenReady();
-    }
+  const ensureReady = async () => {
+    if (!Manager._initializing) await Manager.WhenReady();
+  };
+  await ensureReady();
+  return new Promise((resolve) => {
     DB.get(Query, Params, (err, row) => {
       if (err) {
         Logger.databaseError('Error fetching data:', err);
@@ -93,10 +100,11 @@ Manager.Get = async (Query, Params) => {
 };
 
 Manager.All = async (Query, Params) => {
-  return new Promise(async (resolve, _reject) => {
-    if (!Manager._initializing) {
-      await Manager.WhenReady();
-    }
+  const ensureReady = async () => {
+    if (!Manager._initializing) await Manager.WhenReady();
+  };
+  await ensureReady();
+  return new Promise((resolve) => {
     DB.all(Query, Params, (err, rows) => {
       if (err) {
         Logger.databaseError('Error fetching data:', err);
@@ -108,10 +116,11 @@ Manager.All = async (Query, Params) => {
 };
 
 Manager.Run = async (Query, Params) => {
-  return new Promise(async (resolve, _reject) => {
-    if (!Manager._initializing) {
-      await Manager.WhenReady();
-    }
+  const ensureReady = async () => {
+    if (!Manager._initializing) await Manager.WhenReady();
+  };
+  await ensureReady();
+  return new Promise((resolve) => {
     DB.run(Query, Params, function (err) {
       if (err) {
         Logger.databaseError('Error running query:', err);

@@ -68,7 +68,8 @@ Manager.GetAll = async () => {
   if (!Manager.Initialized) await Manager.Init();
   // Strip function fields (e.g., Validate) to keep IPC payloads cloneable
   return Array.from(Settings.values()).map((s) => {
-    const { Validate, ...rest } = s;
+    // Drop function fields (e.g., Validate) for IPC payload
+    const { Validate: _Validate, ...rest } = s;
     return { ...rest };
   });
 };
@@ -84,7 +85,7 @@ Manager.Get = async (Key) => {
   if (!Manager.Initialized) Manager.Init();
   const s = Settings.get(Key);
   if (!s) return null;
-  const { Validate, ...rest } = s;
+  const { Validate: _Validate, ...rest } = s;
   return { ...rest };
 };
 
@@ -109,7 +110,9 @@ Manager.Set = async (Key, Value) => {
         if (!ok) {
           try {
             BroadcastManager.emit('Notify', message || 'Invalid setting value', 'error', 4000);
-          } catch {}
+          } catch (_e0) {
+            // ignore notify error
+          }
           return [message || 'Invalid value', null];
         }
       }
@@ -117,7 +120,9 @@ Manager.Set = async (Key, Value) => {
       const msg = e && e.message ? e.message : 'Validation failed';
       try {
         BroadcastManager.emit('Notify', msg, 'error', 4000);
-      } catch {}
+      } catch (_e1) {
+        // ignore notify error
+      }
       return [msg, null];
     }
   }
@@ -141,7 +146,7 @@ Manager.Set = async (Key, Value) => {
   if (Setting.OnUpdateEvent) BroadcastManager.emit(Setting.OnUpdateEvent);
 
   // Return a cloneable version (no functions)
-  const { Validate, ...rest } = Setting;
+  const { Validate: _Validate, ...rest } = Setting;
   return [null, { ...rest }];
 };
 

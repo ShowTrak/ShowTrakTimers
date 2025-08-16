@@ -85,7 +85,9 @@ Manager.Start = async () => {
             emitTimer = null;
             try {
               io.emit('timers:update', pendingPayload || []);
-            } catch {}
+            } catch (_e) {
+              // ignore
+            }
             lastEmitAt = Date.now();
             pendingPayload = null;
           }, wait);
@@ -109,7 +111,9 @@ Manager.Start = async () => {
             'success',
             2000
           );
-        } catch {}
+        } catch (_e) {
+          // ignore
+        }
         resolve();
       });
     });
@@ -124,7 +128,9 @@ Manager.Start = async () => {
           `Web dashboard port ${await Settings.GetValue('WEB_DASHBOARD_PORT')} is in use.`,
           'error'
         );
-      } catch {}
+      } catch (_e) {
+        // ignore
+      }
     } else if (code === 'EADDRNOTAVAIL') {
       try {
         Broadcast.emit(
@@ -132,7 +138,9 @@ Manager.Start = async () => {
           `Invalid bind address: ${await Settings.GetValue('WEB_DASHBOARD_BIND')}`,
           'error'
         );
-      } catch {}
+      } catch (_e) {
+        // ignore
+      }
     }
     Logger.error('Failed to start web dashboard:', err);
     return [String(err && err.message ? err.message : err), null];
@@ -147,14 +155,14 @@ Manager.Stop = async () => {
         Broadcast.off('TimersUpdated', timersUpdatedHandler);
         timersUpdatedHandler = null;
       }
-    } catch (_) {
-      /* ignore */
+    } catch (_e) {
+      // ignore
     }
     await new Promise((resolve) => server.close(() => resolve()));
     try {
       if (io) io.removeAllListeners();
-    } catch (_) {
-      /* ignore */
+    } catch (_e) {
+      // ignore
     }
     io = null;
     app = null;

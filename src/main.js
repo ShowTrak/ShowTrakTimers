@@ -15,8 +15,6 @@ if (!gotTheLock) {
 }
 
 const { Config } = require('./Modules/Config');
-const { Manager: FileSelectorManager } = require('./Modules/FileSelectorManager');
-const { Manager: BackupManager } = require('./Modules/BackupManager');
 const { Manager: BroadcastManager } = require('./Modules/Broadcast');
 const { Manager: SettingsManager } = require('./Modules/SettingsManager');
 const { Manager: TimerManager } = require('./Modules/TimerManager');
@@ -99,7 +97,9 @@ app.whenReady().then(async () => {
     // Broadcast current mode after UI ready (if listeners)
     try {
       MainWindow.webContents.send('Mode:Updated', AppMode);
-    } catch {}
+    } catch (_e) {
+      // ignore
+    }
 
     // After window shows, nudge the user with network service info (2.5s)
     setTimeout(async () => {
@@ -141,38 +141,7 @@ app.whenReady().then(async () => {
     else if (ok) Logger.log('OSC server started');
   })();
 
-  RPC.handle('BackupConfig', async () => {
-    let { canceled, filePath } = await FileSelectorManager.SaveDialog(
-      'Export ShowTrak Configuration'
-    );
-    if (canceled || !filePath) {
-      Logger.log('BackupConfig canceled');
-      return ['Cancelled By User', null];
-    }
-    Logger.log('Backing up configuration to:', filePath);
-    let [Err, Result] = await BackupManager.ExportConfig(filePath);
-    if (Err) return [Err, null];
-    return [null, Result];
-  });
-
-  RPC.handle('ImportConfig', async () => {
-    let { canceled, filePaths } = await FileSelectorManager.SelectFile(
-      'Select ShowTrak Configuration File to Import'
-    );
-    if (canceled || !filePaths) {
-      console.log(canceled, filePaths);
-      Logger.log('ImportConfig canceled');
-      return ['Cancelled By User', null];
-    }
-    if (filePaths.length === 0) {
-      Logger.log('No files selected for import');
-      return ['No files selected for import', null];
-    }
-    Logger.log('Importing configuration from:', filePaths[0]);
-    let [Err, Result] = await BackupManager.ImportConfig(filePaths[0]);
-    if (Err) return [Err, null];
-    return [null, Result];
-  });
+  // Backup/Import functionality removed (was unused and server-specific)
 
   RPC.handle('Config:Get', async () => {
     return Config;
@@ -194,7 +163,9 @@ app.whenReady().then(async () => {
       AppMode = NewMode;
       try {
         MainWindow.webContents.send('Mode:Updated', AppMode);
-      } catch {}
+      } catch (_e) {
+        // ignore
+      }
     }
     return AppMode;
   });
@@ -369,19 +340,6 @@ async function UpdateSettings() {
 
 BroadcastManager.on('SettingsUpdated', UpdateSettings);
 
-async function ReinitializeSystem() {
-  if (!MainWindow || MainWindow.isDestroyed()) return;
-  Logger.log('Reinitializing system...');
-  await ClientManager.ClearCache();
-  await AdoptionManager.ClearAllDevicesPendingAdopption();
-  let [ClientsErr, Clients] = await ClientManager.GetAll();
-  if (ClientsErr) return Logger.error('Failed to fetch full client list:', ClientsErr);
-  let [GroupsErr, Groups] = await GroupManager.GetAll();
-  if (GroupsErr) return Logger.error('Failed to fetch client groups:', GroupsErr);
-  MainWindow.webContents.send('SetFullClientList', Clients, Groups);
-}
-BroadcastManager.on('ReinitializeSystem', ReinitializeSystem);
-
 async function UpdateOSCList() {
   if (!MainWindow || MainWindow.isDestroyed()) return;
   let Routes = OSC.GetRoutes();
@@ -413,7 +371,9 @@ async function HandleUpdateTimerList(Timers) {
     // Send immediately
     try {
       MainWindow.webContents.send('SetTimers', pendingTimersSnapshot);
-    } catch {}
+    } catch (_e) {
+      // ignore
+    }
     lastTimersSendAt = Date.now();
     pendingTimersSnapshot = null;
   } else {
@@ -425,7 +385,9 @@ async function HandleUpdateTimerList(Timers) {
       if (!MainWindow || MainWindow.isDestroyed()) return;
       try {
         MainWindow.webContents.send('SetTimers', pendingTimersSnapshot || []);
-      } catch {}
+      } catch (_e) {
+        // ignore
+      }
       lastTimersSendAt = Date.now();
       pendingTimersSnapshot = null;
     }, wait);
@@ -509,5 +471,7 @@ app.on('will-quit', (_event) => {
   Logger.log('App is closing, performing cleanup...');
   try {
     OSCManager.Stop();
-  } catch {}
+  } catch (_e) {
+    // ignore
+  }
 });

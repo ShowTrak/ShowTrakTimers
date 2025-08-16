@@ -66,7 +66,9 @@ const DefaultSettings = [
               done = true;
               try {
                 sock.close();
-              } catch {}
+              } catch (_e2) {
+                // ignore
+              }
               reject(err);
             }
           });
@@ -75,7 +77,7 @@ const DefaultSettings = [
               done = true;
               try {
                 sock.close(() => resolve());
-              } catch {
+              } catch (_e3) {
                 resolve();
               }
             }
@@ -85,13 +87,14 @@ const DefaultSettings = [
               done = true;
               try {
                 sock.close(() => resolve());
-              } catch {
+              } catch (_e4) {
                 resolve();
               }
             }
           }, 150);
         });
-      } catch (e) {
+      } catch (_e) {
+        // Port appears to be in use or cannot be pre-bound
         return [false, `Port ${n} appears to be in use.`];
       }
       return [true, null];
@@ -124,7 +127,9 @@ const DefaultSettings = [
               done = true;
               try {
                 sock.close();
-              } catch {}
+              } catch (_e5) {
+                // ignore
+              }
               reject(err);
             }
           });
@@ -133,7 +138,7 @@ const DefaultSettings = [
               done = true;
               try {
                 sock.close(() => resolve());
-              } catch {
+              } catch (_e6) {
                 resolve();
               }
             }
@@ -143,7 +148,7 @@ const DefaultSettings = [
               done = true;
               try {
                 sock.close(() => resolve());
-              } catch {
+              } catch (_e7) {
                 resolve();
               }
             }
@@ -190,7 +195,9 @@ const DefaultSettings = [
               done = true;
               try {
                 srv.close();
-              } catch {}
+              } catch (_e8) {
+                // ignore
+              }
               reject(err);
             }
           });
@@ -199,7 +206,7 @@ const DefaultSettings = [
               done = true;
               try {
                 srv.close(() => resolve());
-              } catch {
+              } catch (_e9) {
                 resolve();
               }
             }
@@ -209,13 +216,14 @@ const DefaultSettings = [
               done = true;
               try {
                 srv.close(() => resolve());
-              } catch {
+              } catch (_e10) {
                 resolve();
               }
             }
           }, 150);
         });
-      } catch (e) {
+      } catch (_e) {
+        // Port appears to be in use or cannot be pre-bound
         return [false, `Port ${n} appears to be in use.`];
       }
       return [true, null];
@@ -248,7 +256,9 @@ const DefaultSettings = [
               done = true;
               try {
                 srv.close();
-              } catch {}
+              } catch (_e11) {
+                // ignore
+              }
               reject(err);
             }
           });
@@ -257,7 +267,7 @@ const DefaultSettings = [
               done = true;
               try {
                 srv.close(() => resolve());
-              } catch {
+              } catch (_e12) {
                 resolve();
               }
             }
@@ -267,7 +277,7 @@ const DefaultSettings = [
               done = true;
               try {
                 srv.close(() => resolve());
-              } catch {
+              } catch (_e13) {
                 resolve();
               }
             }

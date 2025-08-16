@@ -1,10 +1,5 @@
 var Config = {};
 
-let Selected = [];
-let AllClients = [];
-let ScriptList = [];
-const GroupUUIDCache = new Map();
-
 let SettingsGroups = [];
 let Settings = [];
 let Timers = [];
@@ -673,17 +668,7 @@ async function CloseAllModals() {
   return;
 }
 
-async function ImportConfig() {
-  console.log('Starting import');
-  await window.API.ImportConfig();
-  await Notify('Restored from backup.', 'success');
-}
-
-async function BackupConfig() {
-  console.log('Starting backup');
-  await window.API.BackupConfig();
-  await Notify('Backup completed.', 'success');
-}
+// Backup/Import removed (server-only feature)
 
 async function Wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -903,16 +888,7 @@ async function ConfirmationDialog(Message) {
   });
 }
 
-function ToggleSelection(UUID) {
-  if (Selected.includes(UUID)) {
-    Selected = Selected.filter((id) => id !== UUID);
-    $(`.SHOWTRAK_PC[data-uuid='${UUID}']`).removeClass('SELECTED');
-  } else {
-    Selected.push(UUID);
-    $(`.SHOWTRAK_PC[data-uuid='${UUID}']`).addClass('SELECTED');
-  }
-  UpdateSelectionCount();
-}
+// Removed legacy selection helpers (not used in Timers app)
 
 async function Init() {
   Config = await window.API.GetConfig();
@@ -937,11 +913,11 @@ async function Init() {
   });
 
   $('#SHOWTRAK_MODEL_CORE_BACKUPCONFIG').on('click', async () => {
-    await BackupConfig();
+    Notify('Backup is not available in Timers app.', 'warning');
   });
 
   $('#SHOWTRAK_MODEL_CORE_IMPORTCONFIG').on('click', async () => {
-    await ImportConfig();
+    Notify('Import is not available in Timers app.', 'warning');
   });
 
   $('#SHOWTRAK_MODEL_CORE_SUPPORTDISCORD').on('click', async () => {

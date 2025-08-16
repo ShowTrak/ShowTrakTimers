@@ -7,8 +7,7 @@ contextBridge.exposeInMainWorld('API', {
   Loaded: () => ipcRenderer.invoke('Loaded'),
   Shutdown: () => ipcRenderer.invoke('Shutdown'),
   OpenLogsFolder: async () => ipcRenderer.invoke('OpenLogsFolder'),
-  BackupConfig: async () => ipcRenderer.invoke('BackupConfig'),
-  ImportConfig: async () => ipcRenderer.invoke('ImportConfig'),
+  // Backup/Import removed in Timers app
   // Optional mode APIs (no-op if main doesn't handle)
   GetMode: async () => ipcRenderer.invoke('Mode:Get'),
   SetMode: async (Mode) => ipcRenderer.invoke('Mode:Set', Mode),

@@ -50,7 +50,9 @@ onOscMessage = async function (Route) {
     if (RequestComplete === false) continue;
     try {
       Broadcast.emit('Notify', `OSC Processed Successfully`, 'success', 1200);
-    } catch {}
+    } catch (_e) {
+      // notification failed; non-fatal
+    }
     return Logger.success(`OSC Complete: ${Route[0]}`);
   }
   return Logger.warn(`OSC Incomplete but has matching path: ${Route[0]}`);
@@ -77,10 +79,14 @@ OSC.CreateRoute(
     Logger.warn('Received shutdown command via OSC');
     try {
       Broadcast.emit('Notify', 'Shutting down (via OSC)…', 'warn');
-    } catch {}
+    } catch (_e) {
+      // ignore
+    }
     try {
       app.quit();
-    } catch {}
+    } catch (_e) {
+      // ignore
+    }
     return true;
   },
   'Close the ShowTrak Timers Application'
@@ -234,7 +240,9 @@ const Manager = {
           Logger.success(`OSC Server listening on ${host}:${port}`);
           try {
             Broadcast.emit('Notify', `OSC listening on ${host}:${port}`, 'success', 2000);
-          } catch {}
+          } catch (_e) {
+            // ignore
+          }
         });
       } catch (e) {
         // node-osc may throw synchronously for invalid bind
@@ -242,11 +250,15 @@ const Manager = {
         if (code === 'EADDRINUSE') {
           try {
             Broadcast.emit('Notify', `OSC port ${port} is in use.`, 'error');
-          } catch {}
+          } catch (_e) {
+            // ignore
+          }
         } else if (code === 'EADDRNOTAVAIL') {
           try {
             Broadcast.emit('Notify', `Invalid OSC bind address: ${host}`, 'error');
-          } catch {}
+          } catch (_e) {
+            // ignore
+          }
         }
         throw e;
       }
@@ -257,11 +269,15 @@ const Manager = {
         if (code === 'EADDRINUSE') {
           try {
             Broadcast.emit('Notify', `OSC port ${port} is in use.`, 'error');
-          } catch {}
+          } catch (_e) {
+            // ignore
+          }
         } else if (code === 'EADDRNOTAVAIL') {
           try {
             Broadcast.emit('Notify', `Invalid OSC bind address: ${host}`, 'error');
-          } catch {}
+          } catch (_e) {
+            // ignore
+          }
         }
         Logger.error(`OSC Server error: ${err && err.message ? err.message : err}`);
       });
