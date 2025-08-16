@@ -1,116 +1,172 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ShowTrak Timers - Dashboard</title>
-  <link rel="stylesheet" href="/ui/vendors/bootstrap/css/bootstrap.min.css" />
-  <link rel="stylesheet" href="/ui/vendors/bootstrap-icons/font/bootstrap-icons.css" />
-  <link rel="stylesheet" type="text/css" href="/ui/vendors/toastify/index.min.css" />
-  <link rel="stylesheet" href="/ui/css/main.css" />
-  <style>
-    body { background: transparent !important; }
-    #APPLICATION_CONTAINER { height: 100vh !important; }
-    /* Dashboard grid mimics card spacing of app */
-  .dashboard-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
-    .badge { font-size: 10px; padding: 2px 6px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); }
-  /* Web portal: disable hover effects on timers */
-  .SHOWTRAK_TIMER { cursor: default !important; transition: none !important; }
-  .SHOWTRAK_TIMER:hover { border-color: transparent !important; }
-  .SHOWTRAK_TIMER:hover .timer-controls-overlay { opacity: 0 !important; pointer-events: none !important; }
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ShowTrak Timers - Dashboard</title>
+    <link rel="stylesheet" href="/ui/vendors/bootstrap/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/ui/vendors/bootstrap-icons/font/bootstrap-icons.css" />
+    <link rel="stylesheet" type="text/css" href="/ui/vendors/toastify/index.min.css" />
+    <link rel="stylesheet" href="/ui/css/main.css" />
+    <style>
+      body {
+        background: transparent !important;
+      }
+      #APPLICATION_CONTAINER {
+        height: 100vh !important;
+      }
+      /* Dashboard grid mimics card spacing of app */
+      .dashboard-grid {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+      }
+      .badge {
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.06);
+      }
+      /* Web portal: disable hover effects on timers */
+      .SHOWTRAK_TIMER {
+        cursor: default !important;
+        transition: none !important;
+      }
+      .SHOWTRAK_TIMER:hover {
+        border-color: transparent !important;
+      }
+      .SHOWTRAK_TIMER:hover .timer-controls-overlay {
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
       /* Mobile optimizations */
-      html, body { overflow-x: hidden; }
+      html,
+      body {
+        overflow-x: hidden;
+      }
       @media (max-width: 768px) {
         /* Make cards full-width on tablets/phones */
-        .SHOWTRAK_TIMER { width: 100% !important; box-sizing: border-box; }
+        .SHOWTRAK_TIMER {
+          width: 100% !important;
+          box-sizing: border-box;
+        }
       }
       @media (max-width: 420px) {
         /* Slightly compact badges at very small widths */
-        .TIMER_ID, .TIMER_CONTROLS { height: 26px; font-size: 0.9rem; }
-        .SHOWTRAK_TIMER { padding: 0.75rem !important; }
-      }
-
-
-  </style>
-</head>
-<body>
-  <div id="APPLICATION_CONTAINER" class="h-100">
-    <div id="APPLICATION" class="container-fluid text-center text-light p-0">
-      <div id="APPLICATION_CONTENT" class="p-3 gap-3 flex-wrap">
-        <div id="grid" class="dashboard-grid w-100"></div>
-      </div>
-    </div>
-  </div>
-
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const grid = document.getElementById('grid');
-
-    function h(tag, attrs={}, children=[]) {
-      const el = document.createElement(tag);
-      Object.entries(attrs).forEach(([k,v]) => {
-        if (k === 'class') el.className = v; else el.setAttribute(k, v);
-      });
-      (Array.isArray(children) ? children : [children]).forEach(c => {
-        if (c == null) return;
-        el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
-      });
-      return el;
-    }
-
-    function render(timers) {
-      grid.innerHTML = '';
-      (timers || []).sort((a,b) => (a.Name||'').localeCompare(b.Name||'')).forEach(t => {
-        const isStopwatch = (t.Type === 'STOPWATCH');
-        const elapsed = Number(t?.State?.ElapsedTime || 0);
-        const durationMs = isStopwatch ? NaN : coerceDurationMs(t?.Duration);
-        const pct = (!isStopwatch && Number.isFinite(durationMs) && durationMs > 0)
-          ? Math.max(0, Math.min(100, (elapsed / durationMs) * 100))
-          : 0;
-
-        const line = isStopwatch
-          ? (t.State?.ElapsedTimeReadable || '00:00')
-          : `${t.State?.ElapsedTimeReadable || '00:00'} / ${t.TotalTimeReadable || '00:00'}`;
-
-        const card = h('div', { class: `SHOWTRAK_TIMER card p-2 ${t.Status || 'STANDBY'}`, id: `TIMER_${t.ID}` }, [
-          h('h5', { class: 'card-title mb-0' }, t.Name || 'Timer'),
-          h('p', { class: 'card-text mb-0 text-muted' }, line),
-          h('div', { class: 'progress mt-2' }, [
-            h('div', { class: 'progress-bar bg-light', role: 'progressbar', style: `width: ${pct}%`, id: `TIMER_PROGRESS_${t.ID}` })
-          ]),
-          h('span', { class: 'TIMER_CONTROLS' }, t.Status || ''),
-          h('span', { class: 'TIMER_ID' }, `ID: ${t.ID}`),
-        ]);
-        grid.appendChild(card);
-      });
-    }
-
-    const socket = io({ transports: ['websocket', 'polling'] });
-    socket.on('connect', () => {
-      console.log('Connected to ShowTrak dashboard');
-    });
-    socket.on('timers:update', (timers) => {
-      render(timers);
-    });
-    socket.on('disconnect', () => {
-      console.log('Disconnected from dashboard');
-    });
-
-    function coerceDurationMs(value) {
-      if (typeof value === 'number' && Number.isFinite(value)) return value;
-      if (value == null) return NaN;
-      if (typeof value === 'string') {
-        const v = value.trim();
-        if (/^\d+$/.test(v)) { const n = Number(v); return Number.isFinite(n) ? n : NaN; }
-        if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(v)) {
-          const parts = v.split(":").map(Number);
-          if (parts.some(n => !Number.isFinite(n))) return NaN;
-          let h=0,m=0,s=0; if (parts.length===2) { [m,s]=parts; } else { [h,m,s]=parts; }
-          return (h*3600 + m*60 + s) * 1000;
+        .TIMER_ID,
+        .TIMER_CONTROLS {
+          height: 26px;
+          font-size: 0.9rem;
+        }
+        .SHOWTRAK_TIMER {
+          padding: 0.75rem !important;
         }
       }
-      return NaN;
-    }
-  </script>
-</body>
+    </style>
+  </head>
+  <body>
+    <div id="APPLICATION_CONTAINER" class="h-100">
+      <div id="APPLICATION" class="container-fluid text-center text-light p-0">
+        <div id="APPLICATION_CONTENT" class="p-3 gap-3 flex-wrap">
+          <div id="grid" class="dashboard-grid w-100"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const grid = document.getElementById('grid');
+
+      function h(tag, attrs = {}, children = []) {
+        const el = document.createElement(tag);
+        Object.entries(attrs).forEach(([k, v]) => {
+          if (k === 'class') el.className = v;
+          else el.setAttribute(k, v);
+        });
+        (Array.isArray(children) ? children : [children]).forEach((c) => {
+          if (c == null) return;
+          el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+        });
+        return el;
+      }
+
+      function render(timers) {
+        grid.innerHTML = '';
+        (timers || [])
+          .sort((a, b) => (a.Name || '').localeCompare(b.Name || ''))
+          .forEach((t) => {
+            const isStopwatch = t.Type === 'STOPWATCH';
+            const elapsed = Number(t?.State?.ElapsedTime || 0);
+            const durationMs = isStopwatch ? NaN : coerceDurationMs(t?.Duration);
+            const pct =
+              !isStopwatch && Number.isFinite(durationMs) && durationMs > 0
+                ? Math.max(0, Math.min(100, (elapsed / durationMs) * 100))
+                : 0;
+
+            const line = isStopwatch
+              ? t.State?.ElapsedTimeReadable || '00:00'
+              : `${t.State?.ElapsedTimeReadable || '00:00'} / ${t.TotalTimeReadable || '00:00'}`;
+
+            const card = h(
+              'div',
+              { class: `SHOWTRAK_TIMER card p-2 ${t.Status || 'STANDBY'}`, id: `TIMER_${t.ID}` },
+              [
+                h('h5', { class: 'card-title mb-0' }, t.Name || 'Timer'),
+                h('p', { class: 'card-text mb-0 text-muted' }, line),
+                h('div', { class: 'progress mt-2' }, [
+                  h('div', {
+                    class: 'progress-bar bg-light',
+                    role: 'progressbar',
+                    style: `width: ${pct}%`,
+                    id: `TIMER_PROGRESS_${t.ID}`,
+                  }),
+                ]),
+                h('span', { class: 'TIMER_CONTROLS' }, t.Status || ''),
+                h('span', { class: 'TIMER_ID' }, `ID: ${t.ID}`),
+              ]
+            );
+            grid.appendChild(card);
+          });
+      }
+
+      const socket = io({ transports: ['websocket', 'polling'] });
+      socket.on('connect', () => {
+        console.log('Connected to ShowTrak dashboard');
+      });
+      socket.on('timers:update', (timers) => {
+        render(timers);
+      });
+      socket.on('disconnect', () => {
+        console.log('Disconnected from dashboard');
+      });
+
+      function coerceDurationMs(value) {
+        if (typeof value === 'number' && Number.isFinite(value)) return value;
+        if (value == null) return NaN;
+        if (typeof value === 'string') {
+          const v = value.trim();
+          if (/^\d+$/.test(v)) {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : NaN;
+          }
+          if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(v)) {
+            const parts = v.split(':').map(Number);
+            if (parts.some((n) => !Number.isFinite(n))) return NaN;
+            let h = 0,
+              m = 0,
+              s = 0;
+            if (parts.length === 2) {
+              [m, s] = parts;
+            } else {
+              [h, m, s] = parts;
+            }
+            return (h * 3600 + m * 60 + s) * 1000;
+          }
+        }
+        return NaN;
+      }
+    </script>
+  </body>
 </html>

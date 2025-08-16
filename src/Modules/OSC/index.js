@@ -1,12 +1,12 @@
 const { CreateLogger } = require('../Logger');
 const Logger = CreateLogger('OSC');
 
-const { Server } = require("node-osc");
+const { Server } = require('node-osc');
 
-const { Manager: Broadcast } = require("../Broadcast");
-const { Manager: TimerManager } = require("../TimerManager");
-const { Manager: Settings } = require("../SettingsManager");
-const { app } = require("electron");
+const { Manager: Broadcast } = require('../Broadcast');
+const { Manager: TimerManager } = require('../TimerManager');
+const { Manager: Settings } = require('../SettingsManager');
+const { app } = require('electron');
 
 let OSCServer = null;
 let onOscMessage = null;
@@ -15,227 +15,288 @@ let Routes = [];
 
 const OSC = {};
 
-
 onOscMessage = async function (Route) {
-    let ValidRoutes = [];
+  let ValidRoutes = [];
 
-    Main: for (const PRoute of Routes) {
-        let PRouteParts = PRoute.Path.split('/');
-        let RouteParts = Route[0].split('/');
-        if (PRouteParts.length !== RouteParts.length) continue Main;
-        Sub: for (let i = 0; i < PRouteParts.length; i++) {
-            if (PRouteParts[i] === RouteParts[i] || PRouteParts[i].startsWith(':')) continue Sub;
-            continue Main;
-        }
-        ValidRoutes.push(PRoute);
+  Main: for (const PRoute of Routes) {
+    let PRouteParts = PRoute.Path.split('/');
+    let RouteParts = Route[0].split('/');
+    if (PRouteParts.length !== RouteParts.length) continue Main;
+    Sub: for (let i = 0; i < PRouteParts.length; i++) {
+      if (PRouteParts[i] === RouteParts[i] || PRouteParts[i].startsWith(':')) continue Sub;
+      continue Main;
     }
+    ValidRoutes.push(PRoute);
+  }
 
-    if (!ValidRoutes || ValidRoutes.length == 0) return Logger.error(`Invalid OSC Route: ${Route[0]}`);
+  if (!ValidRoutes || ValidRoutes.length == 0)
+    return Logger.error(`Invalid OSC Route: ${Route[0]}`);
 
-    for (const ValidRoute of ValidRoutes) {
-        Logger.log(`Executing route: ${ValidRoute.Path}`);
+  for (const ValidRoute of ValidRoutes) {
+    Logger.log(`Executing route: ${ValidRoute.Path}`);
 
-        let Req = {};
+    let Req = {};
 
-        let PRouteParts = ValidRoute.Path.split('/');
-        let RouteParts = Route[0].split('/');
+    let PRouteParts = ValidRoute.Path.split('/');
+    let RouteParts = Route[0].split('/');
 
-        for (let i = 0; i < PRouteParts.length; i++) {
-            if (PRouteParts[i].startsWith(':')) {
-                Req[PRouteParts[i].substring(1)] = RouteParts[i];
-            }
-        }
+    for (let i = 0; i < PRouteParts.length; i++) {
+      if (PRouteParts[i].startsWith(':')) {
+        Req[PRouteParts[i].substring(1)] = RouteParts[i];
+      }
+    }
 
     let RequestComplete = await ValidRoute.Callback(Req);
-        if (RequestComplete === false) continue;
-    try { Broadcast.emit('Notify', `OSC Processed Successfully`, 'success', 1200); } catch {}
-        return Logger.success(`OSC Complete: ${Route[0]}`);
-    }
-    return Logger.warn(`OSC Incomplete but has matching path: ${Route[0]}`);
+    if (RequestComplete === false) continue;
+    try {
+      Broadcast.emit('Notify', `OSC Processed Successfully`, 'success', 1200);
+    } catch {}
+    return Logger.success(`OSC Complete: ${Route[0]}`);
+  }
+  return Logger.warn(`OSC Incomplete but has matching path: ${Route[0]}`);
 };
 
 OSC.GetRoutes = () => {
-    return Routes
-}
+  return Routes;
+};
 
-OSC.CreateRoute = (Path, Callback, Title = "Default OSC Route") => {
-    Routes.push({
-        Title: Title,
-        Path: Path,
-        Callback: Callback
-    })
-    return;
+OSC.CreateRoute = (Path, Callback, Title = 'Default OSC Route') => {
+  Routes.push({
+    Title: Title,
+    Path: Path,
+    Callback: Callback,
+  });
+  return;
 };
 
 // Other
 
-OSC.CreateRoute('/ShowTrak/Shutdown', async (_Req) => {
+OSC.CreateRoute(
+  '/ShowTrak/Shutdown',
+  async (_Req) => {
     Logger.warn('Received shutdown command via OSC');
-    try { Broadcast.emit('Notify', 'Shutting down (via OSC)…', 'warn'); } catch {}
-    try { app.quit(); } catch {}
+    try {
+      Broadcast.emit('Notify', 'Shutting down (via OSC)…', 'warn');
+    } catch {}
+    try {
+      app.quit();
+    } catch {}
     return true;
-}, 'Close the ShowTrak Timers Application');
+  },
+  'Close the ShowTrak Timers Application'
+);
 
 // Client
-OSC.CreateRoute('/ShowTrak/Timer/:TimerID/Start', async (Req) => {
+OSC.CreateRoute(
+  '/ShowTrak/Timer/:TimerID/Start',
+  async (Req) => {
     let Timer = await TimerManager.Get(Number(Req.TimerID));
     if (!Timer) {
-        Broadcast.emit('Notify', `OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
-        return false;
+      Broadcast.emit('Notify', `OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
+      return false;
     }
     await Timer.Start();
     Broadcast.emit('TimersUpdated');
     return true;
-}, 'Plays a timer with the given ID');
+  },
+  'Plays a timer with the given ID'
+);
 
-OSC.CreateRoute('/ShowTrak/Timer/:TimerID/Stop', async (Req) => {
+OSC.CreateRoute(
+  '/ShowTrak/Timer/:TimerID/Stop',
+  async (Req) => {
     let Timer = await TimerManager.Get(Number(Req.TimerID));
     if (!Timer) {
-        Broadcast.emit('Notify', `OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
-        return false;
+      Broadcast.emit('Notify', `OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
+      return false;
     }
     await Timer.Stop();
     Broadcast.emit('TimersUpdated');
     return true;
-}, 'Stop & Reset a timer with the given ID');
+  },
+  'Stop & Reset a timer with the given ID'
+);
 
-OSC.CreateRoute('/ShowTrak/Timer/:TimerID/Pause', async (Req) => {
+OSC.CreateRoute(
+  '/ShowTrak/Timer/:TimerID/Pause',
+  async (Req) => {
     let Timer = await TimerManager.Get(Number(Req.TimerID));
     if (!Timer) {
-        Broadcast.emit('Notify', `OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
-        return false;
+      Broadcast.emit('Notify', `OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
+      return false;
     }
     await Timer.Pause();
     Broadcast.emit('TimersUpdated');
     return true;
-}, 'Pause a timer with the given ID');
+  },
+  'Pause a timer with the given ID'
+);
 
-OSC.CreateRoute('/ShowTrak/Timer/:TimerID/Unpause', async (Req) => {
+OSC.CreateRoute(
+  '/ShowTrak/Timer/:TimerID/Unpause',
+  async (Req) => {
     let Timer = await TimerManager.Get(Number(Req.TimerID));
     if (!Timer) {
-        Broadcast.emit('Notify', `OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
-        return false;
+      Broadcast.emit('Notify', `OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
+      return false;
     }
     await Timer.Unpause();
     Broadcast.emit('TimersUpdated');
     return true;
-}, 'Unpauses a timer with the given ID');
+  },
+  'Unpauses a timer with the given ID'
+);
 
-OSC.CreateRoute('/ShowTrak/Timer/:TimerID/JumpToTime/:TimeInMS', async (Req) => {
+OSC.CreateRoute(
+  '/ShowTrak/Timer/:TimerID/JumpToTime/:TimeInMS',
+  async (Req) => {
     let Timer = await TimerManager.Get(Number(Req.TimerID));
     if (!Timer) {
-        Broadcast.emit('Notify', `OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
-        return false;
+      Broadcast.emit('Notify', `OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
+      return false;
     }
     const ms = Number(Req.TimeInMS);
     if (!isFinite(ms) || ms < 0) {
-        Broadcast.emit('Notify', `OSC - Invalid time "${Req.TimeInMS}"`, 'error');
-        return false;
+      Broadcast.emit('Notify', `OSC - Invalid time "${Req.TimeInMS}"`, 'error');
+      return false;
     }
     if (typeof Timer.SetElapsedTime === 'function') await Timer.SetElapsedTime(ms);
     Broadcast.emit('TimersUpdated');
     return true;
-}, 'Jump to a specific time (MS) in a timer with the given ID');
+  },
+  'Jump to a specific time (MS) in a timer with the given ID'
+);
 
 // All
-OSC.CreateRoute('/ShowTrak/All/Start', async (_Req) => {
+OSC.CreateRoute(
+  '/ShowTrak/All/Start',
+  async (_Req) => {
     let Timers = await TimerManager.GetAll();
-    await Promise.all(Timers.map(t => t.Start()));
+    await Promise.all(Timers.map((t) => t.Start()));
     Broadcast.emit('TimersUpdated');
     return true;
-}, 'Start all timers');
+  },
+  'Start all timers'
+);
 
-OSC.CreateRoute('/ShowTrak/All/Stop', async (_Req) => {
+OSC.CreateRoute(
+  '/ShowTrak/All/Stop',
+  async (_Req) => {
     let Timers = await TimerManager.GetAll();
-    await Promise.all(Timers.map(t => t.Stop()));
+    await Promise.all(Timers.map((t) => t.Stop()));
     Broadcast.emit('TimersUpdated');
     return true;
-}, 'Stop & Reset all timers');
+  },
+  'Stop & Reset all timers'
+);
 
-OSC.CreateRoute('/ShowTrak/All/Pause', async (_Req) => {
+OSC.CreateRoute(
+  '/ShowTrak/All/Pause',
+  async (_Req) => {
     let Timers = await TimerManager.GetAll();
-    await Promise.all(Timers.map(t => t.Pause()));
+    await Promise.all(Timers.map((t) => t.Pause()));
     Broadcast.emit('TimersUpdated');
     return true;
-}, 'Pause all timers');
+  },
+  'Pause all timers'
+);
 
-OSC.CreateRoute('/ShowTrak/All/Unpause', async (_Req) => {
+OSC.CreateRoute(
+  '/ShowTrak/All/Unpause',
+  async (_Req) => {
     let Timers = await TimerManager.GetAll();
-    await Promise.all(Timers.map(t => t.Unpause()));
+    await Promise.all(Timers.map((t) => t.Unpause()));
     Broadcast.emit('TimersUpdated');
     return true;
-}, 'Unpause all timers');
+  },
+  'Unpause all timers'
+);
 
 module.exports = { OSC };
 // Manager to control OSC server lifecycle
 const Manager = {
-    async Start() {
-        try {
-            // If already running, stop first
-            if (OSCServer) await Manager.Stop();
+  async Start() {
+    try {
+      // If already running, stop first
+      if (OSCServer) await Manager.Stop();
 
-            const enabled = await Settings.GetValue("OSC_ENABLE");
-            if (!enabled) {
-                Logger.log("OSC disabled in settings");
-                return [null, false];
-            }
+      const enabled = await Settings.GetValue('OSC_ENABLE');
+      if (!enabled) {
+        Logger.log('OSC disabled in settings');
+        return [null, false];
+      }
 
-            const port = Number(await Settings.GetValue("OSC_PORT")) || 3333;
-            const host = (await Settings.GetValue("OSC_BIND")) || "0.0.0.0";
+      const port = Number(await Settings.GetValue('OSC_PORT')) || 3333;
+      const host = (await Settings.GetValue('OSC_BIND')) || '0.0.0.0';
 
-            try {
-                OSCServer = new Server(port, host, () => {
-                    Logger.success(`OSC Server listening on ${host}:${port}`);
-                    try { Broadcast.emit('Notify', `OSC listening on ${host}:${port}`, 'success', 2000); } catch {}
-                });
-            } catch (e) {
-                // node-osc may throw synchronously for invalid bind
-                const code = e && e.code ? String(e.code) : '';
-                if (code === 'EADDRINUSE') {
-                    try { Broadcast.emit('Notify', `OSC port ${port} is in use.`, 'error'); } catch {}
-                } else if (code === 'EADDRNOTAVAIL') {
-                    try { Broadcast.emit('Notify', `Invalid OSC bind address: ${host}`, 'error'); } catch {}
-                }
-                throw e;
-            }
-
-            // Attach error handler
-            OSCServer.on('error', (err) => {
-                const code = err && err.code ? String(err.code) : '';
-                if (code === 'EADDRINUSE') {
-                    try { Broadcast.emit('Notify', `OSC port ${port} is in use.`, 'error'); } catch {}
-                } else if (code === 'EADDRNOTAVAIL') {
-                    try { Broadcast.emit('Notify', `Invalid OSC bind address: ${host}`, 'error'); } catch {}
-                }
-                Logger.error(`OSC Server error: ${err && err.message ? err.message : err}`);
-            });
-
-            // Attach message handler
-            if (onOscMessage) OSCServer.on("message", onOscMessage);
-
-            return [null, true];
-        } catch (err) {
-            Logger.error("Failed to start OSC server", err);
-            return [String(err && err.message ? err.message : err), null];
+      try {
+        OSCServer = new Server(port, host, () => {
+          Logger.success(`OSC Server listening on ${host}:${port}`);
+          try {
+            Broadcast.emit('Notify', `OSC listening on ${host}:${port}`, 'success', 2000);
+          } catch {}
+        });
+      } catch (e) {
+        // node-osc may throw synchronously for invalid bind
+        const code = e && e.code ? String(e.code) : '';
+        if (code === 'EADDRINUSE') {
+          try {
+            Broadcast.emit('Notify', `OSC port ${port} is in use.`, 'error');
+          } catch {}
+        } else if (code === 'EADDRNOTAVAIL') {
+          try {
+            Broadcast.emit('Notify', `Invalid OSC bind address: ${host}`, 'error');
+          } catch {}
         }
-    },
-    async Stop() {
-        try {
-            if (!OSCServer) return [null, true];
-            try {
-                if (onOscMessage) OSCServer.off && OSCServer.off("message", onOscMessage);
-            } catch { /* ignore */ }
-            await new Promise((resolve) => {
-                try { OSCServer.close(() => resolve()); }
-                catch { resolve(); }
-            });
-            OSCServer = null;
-            return [null, true];
-        } catch (err) {
-            Logger.error("Failed to stop OSC server", err);
-            return [String(err && err.message ? err.message : err), null];
+        throw e;
+      }
+
+      // Attach error handler
+      OSCServer.on('error', (err) => {
+        const code = err && err.code ? String(err.code) : '';
+        if (code === 'EADDRINUSE') {
+          try {
+            Broadcast.emit('Notify', `OSC port ${port} is in use.`, 'error');
+          } catch {}
+        } else if (code === 'EADDRNOTAVAIL') {
+          try {
+            Broadcast.emit('Notify', `Invalid OSC bind address: ${host}`, 'error');
+          } catch {}
         }
+        Logger.error(`OSC Server error: ${err && err.message ? err.message : err}`);
+      });
+
+      // Attach message handler
+      if (onOscMessage) OSCServer.on('message', onOscMessage);
+
+      return [null, true];
+    } catch (err) {
+      Logger.error('Failed to start OSC server', err);
+      return [String(err && err.message ? err.message : err), null];
     }
+  },
+  async Stop() {
+    try {
+      if (!OSCServer) return [null, true];
+      try {
+        if (onOscMessage) OSCServer.off && OSCServer.off('message', onOscMessage);
+      } catch {
+        /* ignore */
+      }
+      await new Promise((resolve) => {
+        try {
+          OSCServer.close(() => resolve());
+        } catch {
+          resolve();
+        }
+      });
+      OSCServer = null;
+      return [null, true];
+    } catch (err) {
+      Logger.error('Failed to stop OSC server', err);
+      return [String(err && err.message ? err.message : err), null];
+    }
+  },
 };
 
 module.exports = { OSC, Manager };

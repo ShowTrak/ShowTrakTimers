@@ -1,8 +1,8 @@
 const Schema = [];
 
 Schema.push({
-	Name: "Timers",
-	SQL: "CREATE TABLE IF NOT EXISTS `Timers` ( \
+  Name: 'Timers',
+  SQL: 'CREATE TABLE IF NOT EXISTS `Timers` ( \
             ID INTEGER PRIMARY KEY AUTOINCREMENT, \
             Type TEXT, \
             Name TEXT, \
@@ -12,15 +12,15 @@ Schema.push({
             TextAlert BOOLEAN, \
             AudioAlert BOOLEAN, \
             ShowOnWeb BOOLEAN NOT NULL DEFAULT 1 \
-    )",
+    )',
 });
 
 Schema.push({
-	Name: "Settings",
-	SQL: "CREATE TABLE IF NOT EXISTS `Settings` ( \
+  Name: 'Settings',
+  SQL: 'CREATE TABLE IF NOT EXISTS `Settings` ( \
             Key TEXT PRIMARY KEY, \
             Value BLOB \
-    )",
+    )',
 });
 
 module.exports = Schema;
