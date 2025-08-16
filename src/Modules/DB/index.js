@@ -2,6 +2,7 @@ const { CreateLogger } = require("../Logger");
 const Logger = CreateLogger("DB");
 
 const { Manager: AppDataManager } = require("../AppData");
+const fs = require("fs");
 
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
@@ -10,13 +11,30 @@ const DatabasePath = AppDataManager.GetStorageDirectory();
 const DatabaseFileName = "DB.sqlite";
 
 const dbPath = path.join(DatabasePath, DatabaseFileName);
+// Ensure the storage directory exists before opening the database
+try { fs.mkdirSync(DatabasePath, { recursive: true }); } catch {}
+
+// Readiness gate: resolve after schema is initialized
+let readyResolve;
+const readyPromise = new Promise((res) => { readyResolve = res; });
+
 const DB = new sqlite3.Database(dbPath, async (err) => {
 	if (err) return Logger.error("Failed to connect to database:", err);
 	Logger.success("Connected to SQLite database.");
-	await Manager.InitializeSchema();
+	Manager._initializing = true;
+	try { await Manager.InitializeSchema(); }
+	finally { Manager._initializing = false; }
+	Manager._ready = true;
+	try { if (readyResolve) readyResolve(); } catch {}
 });
 
 const Manager = {};
+Manager._ready = false;
+Manager._initializing = false;
+Manager.WhenReady = async () => {
+    if (Manager._ready) return;
+    try { await readyPromise; } catch {}
+};
 
 Manager.InitializeSchema = async () => {
 	let Tables = require("./schema.js");
@@ -29,10 +47,30 @@ Manager.InitializeSchema = async () => {
 			Logger.database(`Table ${Table.Name} created successfully.`);
 		}
 	}
+	// Lightweight migrations for Timers table
+	try {
+		const [e1, cols] = await Manager.All("PRAGMA table_info('Timers')");
+		if (!e1 && Array.isArray(cols)) {
+			const names = cols.map(c => String(c.name));
+			if (!names.includes('Description')) {
+				Logger.database('Migrating: adding Description column to Timers');
+				await Manager.Run("ALTER TABLE Timers ADD COLUMN Description TEXT");
+			}
+			if (!names.includes('ShowOnWeb')) {
+				Logger.database('Migrating: adding ShowOnWeb column to Timers');
+				await Manager.Run("ALTER TABLE Timers ADD COLUMN ShowOnWeb BOOLEAN NOT NULL DEFAULT 1");
+			}
+		}
+	} catch (e) {
+		Logger.databaseError('Migration check failed for Timers table', e);
+	}
 };
 
 Manager.Get = async (Query, Params) => {
-	return new Promise((resolve, _reject) => {
+	return new Promise(async (resolve, _reject) => {
+		if (!Manager._initializing) {
+			await Manager.WhenReady();
+		}
 		DB.get(Query, Params, (err, row) => {
 			if (err) {
 				Logger.databaseError("Error fetching data:", err);
@@ -44,7 +82,10 @@ Manager.Get = async (Query, Params) => {
 };
 
 Manager.All = async (Query, Params) => {
-	return new Promise((resolve, _reject) => {
+	return new Promise(async (resolve, _reject) => {
+		if (!Manager._initializing) {
+			await Manager.WhenReady();
+		}
 		DB.all(Query, Params, (err, rows) => {
 			if (err) {
 				Logger.databaseError("Error fetching data:", err);
@@ -56,7 +97,10 @@ Manager.All = async (Query, Params) => {
 };
 
 Manager.Run = async (Query, Params) => {
-	return new Promise((resolve, _reject) => {
+	return new Promise(async (resolve, _reject) => {
+		if (!Manager._initializing) {
+			await Manager.WhenReady();
+		}
 		DB.run(Query, Params, function (err) {
 			if (err) {
 				Logger.databaseError("Error running query:", err);

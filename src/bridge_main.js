@@ -9,6 +9,10 @@ contextBridge.exposeInMainWorld("API", {
 	OpenLogsFolder: async () => ipcRenderer.invoke("OpenLogsFolder"),
 	BackupConfig: async () => ipcRenderer.invoke("BackupConfig"),
 	ImportConfig: async () => ipcRenderer.invoke("ImportConfig"),
+	// Optional mode APIs (no-op if main doesn't handle)
+	GetMode: async () => ipcRenderer.invoke("Mode:Get"),
+	SetMode: async (Mode) => ipcRenderer.invoke("Mode:Set", Mode),
+	OnModeUpdated: (Callback) => ipcRenderer.on("Mode:Updated", (_e, Mode) => Callback(Mode)),
 	PlaySound: (Callback) =>
 		ipcRenderer.on("PlaySound", (_event, SoundName) => {
 			Callback(SoundName);
@@ -33,4 +37,13 @@ contextBridge.exposeInMainWorld("API", {
 			Callback(Settings, SettingsGroupps);
 		}),
 	SetSetting: async (Key, Value) => ipcRenderer.invoke("SetSetting", Key, Value),
+	// Timer controls
+	TimerStart: async (TimerID) => ipcRenderer.invoke("Timer:Start", TimerID),
+	TimerStop: async (TimerID) => ipcRenderer.invoke("Timer:Stop", TimerID),
+	TimerPause: async (TimerID) => ipcRenderer.invoke("Timer:Pause", TimerID),
+	TimerUnpause: async (TimerID) => ipcRenderer.invoke("Timer:Unpause", TimerID),
+	TimerGet: async (TimerID) => ipcRenderer.invoke("Timer:Get", TimerID),
+	TimerUpdate: async (TimerID, Patch) => ipcRenderer.invoke("Timer:Update", TimerID, Patch),
+	TimerCreate: async (Payload) => ipcRenderer.invoke("Timer:Create", Payload),
+	TimerDelete: async (TimerID) => ipcRenderer.invoke("Timer:Delete", TimerID),
 });

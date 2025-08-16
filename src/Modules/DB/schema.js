@@ -6,10 +6,12 @@ Schema.push({
             ID INTEGER PRIMARY KEY AUTOINCREMENT, \
             Type TEXT, \
             Name TEXT, \
+            Description TEXT, \
             Duration INTEGER, \
             Weight INTEGER NOT NULL DEFAULT 100, \
             TextAlert BOOLEAN, \
-            AudioAlert BOOLEAN \
+            AudioAlert BOOLEAN, \
+            ShowOnWeb BOOLEAN NOT NULL DEFAULT 1 \
     )",
 });
 

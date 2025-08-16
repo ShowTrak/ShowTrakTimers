@@ -11,12 +11,15 @@
       content="default-src 'self'; script-src 'self'"
     /> -->
 		<link rel="stylesheet" href="./vendors/bootstrap/css/bootstrap.min.css" />
+		<link rel="stylesheet" href="./vendors/bootstrap-icons/font/bootstrap-icons.css" />
 		<link rel="stylesheet" type="text/css" href="./vendors/toastify/index.min.css" />
 		<link rel="stylesheet" href="./css/main.css" />
 
 		<title>ShowTrak Timers</title>
 	</head>
 	<body>
+		<!-- Alerts Toast Host (Server-style) -->
+		<div id="ALERTS_TOAST_HOST" class="alert-toast-host" aria-live="polite" aria-label="Notifications"></div>
 		<div class="dragbar bg-light d-flex justify-content-center gap-3 align-items-center p-2">
 			<img id="APPLICATION_NAVBAR_LOGO" src="./img/icon.png" alt="ShowTrak Logo" />
 			<span id="APPLICATION_NAVBAR_TITLE">ShowTrak Timers</span>
@@ -27,13 +30,110 @@
 				<div id="APPLICATION_CONTENT" class="p-3 gap-3 flex-wrap"></div>
 			</div>
 		</div>
-		<div id="STATUS_BAR" class="cursor-pointer" onclick="ClearSelection()">0 Clients Selected</div>
-		<div class="nav d-flex justify-content-center gap-3">
-			<img id="NAVBAR_CORE_BUTTON" src="./img/settings-icon.png" alt="ShowTrak Logo" />
+		<!-- Bottom Bar -->
+		<div id="APP_BOTTOM_BAR">
+			<div class="bar-content">
+				<div class="bar-section left">
+					<div class="mode-group btn-group btn-group-sm" role="group" aria-label="Mode Switch">
+						<button type="button" id="MODE_BTN_SHOW" class="btn btn-outline-light">SHOW</button>
+						<button type="button" id="MODE_BTN_EDIT" class="btn btn-outline-light">EDIT</button>
+					</div>
+				</div>
+				<div class="bar-section center">
+					<!-- Intentionally left empty (no status text) -->
+				</div>
+				<div class="bar-section right">
+					<button id="ADD_TIMER_BUTTON" class="settings-btn" title="Add Timer" aria-label="Add Timer">
+						<i class="bi bi-plus-lg"></i>
+					</button>
+					<button id="NAVBAR_CORE_BUTTON" class="settings-btn" title="Settings" aria-label="Settings">
+						<i class="bi bi-gear-fill"></i>
+					</button>
+				</div>
+			</div>
 		</div>
+		<!-- End Bottom Bar -->
 		<!-- Context Menu -->
 		<div id="SHOWTRAK_CONTEXT_MENU"></div>
 		<!-- End Context Menu -->
+
+		<!-- Timer Edit Modal -->
+		<div class="modal fade" id="TIMER_EDIT_MODAL" tabindex="-1" aria-labelledby="TIMER_EDIT_MODAL_LABEL" aria-hidden="true">
+			<div class="modal-dialog modal-md modal-dialog-centered">
+				<div class="modal-content">
+					<div class="modal-body text-start">
+						<div class="d-flex justify-content-center mb-1">
+							<img class="SHOWTRAK_MODEL_CORE_LOGO" src="./img/icon.png" alt="ShowTrak Logo" />
+						</div>
+						<strong id="TIMER_EDIT_MODAL_LABEL">Edit Timer</strong>
+						<div class="d-grid gap-2 mt-2">
+							<div>
+								<label class="form-label text-sm mb-1">Label</label>
+								<input type="text" class="form-control form-control-sm" id="TIMER_EDIT_NAME" placeholder="Enter name" />
+							</div>
+							<div>
+								<label class="form-label text-sm mb-1">Type</label>
+								<select class="form-select form-select-sm" id="TIMER_EDIT_TYPE">
+									<option value="TIMER">Timer</option>
+									<option value="STOPWATCH">Stopwatch</option>
+								</select>
+							</div>
+							<div id="TIMER_EDIT_DURATION_GROUP">
+								<label class="form-label text-sm mb-1">Duration (mm:ss) for Timers, leave blank for Stopwatch</label>
+								<input type="text" class="form-control form-control-sm" id="TIMER_EDIT_DURATION" placeholder="e.g. 05:00" />
+								<small class="text-sm text-light">Set to mm:ss or hh:mm:ss. For Stopwatch, leave empty.</small>
+							</div>
+							<div class="form-check form-switch mt-2">
+								<input class="form-check-input" type="checkbox" id="TIMER_EDIT_SHOWONWEB" checked>
+								<label class="form-check-label text-sm" for="TIMER_EDIT_SHOWONWEB">Show in Web Panel</label>
+							</div>
+						</div>
+						<div class="row g-2 mt-2">
+							<div class="col-4 d-grid">
+								<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+							</div>
+							<div class="col-4 d-grid">
+								<button type="button" class="btn btn-danger" id="TIMER_EDIT_DELETE">Delete</button>
+							</div>
+							<div class="col-4 d-grid">
+								<button type="button" class="btn btn-light" id="TIMER_EDIT_SAVE">Save</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<!-- End Timer Edit Modal -->
+
+		<!-- Keyboard Shortcuts Modal -->
+		<div
+			class="modal fade"
+			id="SHOWTRAK_MODAL_SHORTCUTS"
+			tabindex="-1"
+			aria-labelledby="SHOWTRAK_MODAL_SHORTCUTS_Label"
+			aria-hidden="true"
+		>
+			<div class="modal-dialog modal-md modal-dialog-centered modal-dialog-scrollable">
+				<div class="modal-content">
+					<div class="modal-body text-center">
+						<div class="d-flex justify-content-center">
+							<img class="SHOWTRAK_MODEL_CORE_LOGO" src="./img/icon.png" alt="ShowTrak Logo" />
+						</div>
+
+						<strong class="mb-0"> Keyboard Shortcuts </strong>
+
+						<div id="KEYBOARD_SHORTCUTS_LIST" class="d-grid gap-2 text-start mt-2"></div>
+
+						<div class="row g-2 mt-2">
+							<div class="col-12 d-grid">
+								<button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<!-- End Keyboard Shortcuts Modal -->
 
 		<div
 			class="modal fade"
@@ -82,9 +182,8 @@
 
 						<div class="card bg-ghost-light border-0 rounded">
 							<div class="card-body text-sm p-2">
-								ShowTrak Server is an open-source project founded by
-								<span class="text-info">Tom Kirkman-Wood</span> &amp;
-								<span class="text-info">Ben Sugrue</span> in 2019.
+								ShowTrak Timers is an open-source project founded by
+								<span class="text-info">Tom Kirkman-Wood</span> in 2025
 							</div>
 						</div>
 					</div>
@@ -127,6 +226,12 @@
 						</div>
 
 						<div id="SETTINGS" class="d-grid gap-2"></div>
+
+						<div class="row g-2 mt-2">
+							<div class="col-12 d-grid">
+								<button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>
