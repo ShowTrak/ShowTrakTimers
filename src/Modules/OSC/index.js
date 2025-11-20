@@ -4,7 +4,7 @@ const Logger = CreateLogger('OSC');
 const { Server } = require('node-osc');
 
 const { Manager: Broadcast } = require('../Broadcast');
-const { Manager: TimerManager } = require('../TimerManager');
+const { Manager: TimerManager, Statuses } = require('../TimerManager');
 const { Manager: Settings } = require('../SettingsManager');
 const { app } = require('electron');
 
@@ -160,6 +160,90 @@ OSC.CreateRoute(
 );
 
 OSC.CreateRoute(
+  '/ShowTrak/Timer/:TimerID/SetLabel/:Name',
+  async (Req) => {
+    const timerId = Number(Req.TimerID);
+    if (!Number.isFinite(timerId)) {
+      emitOscNotify(`OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
+      return false;
+    }
+    let rawName = Req.Name == null ? '' : String(Req.Name);
+    try {
+      rawName = decodeURIComponent(rawName);
+    } catch (_e) {
+      // leave raw value
+    }
+    const trimmed = rawName.trim();
+    if (!trimmed) {
+      emitOscNotify('OSC - Timer name cannot be empty', 'error');
+      return false;
+    }
+    const [err] = await TimerManager.Update(timerId, { Name: trimmed });
+    if (err) {
+      emitOscNotify(`OSC - Failed to rename timer: ${err}`, 'error');
+      return false;
+    }
+    emitOscNotify(`Timer ${timerId} renamed to "${trimmed}"`, 'success', 1500);
+    return true;
+  },
+  'Updates the label (name) of a timer'
+);
+
+OSC.CreateRoute(
+  '/ShowTrak/Timer/:TimerID/SetDuration/:ms',
+  async (Req) => {
+    const timerId = Number(Req.TimerID);
+    if (!Number.isFinite(timerId)) {
+      emitOscNotify(`OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
+      return false;
+    }
+    const timer = await TimerManager.Get(timerId);
+    if (!timer) {
+      emitOscNotify(`OSC - Timer ID "${Req.TimerID}" not found`, 'error');
+      return false;
+    }
+    if (timer.Type === 'STOPWATCH') {
+      emitOscNotify('OSC - Cannot set duration on a stopwatch', 'error');
+      return false;
+    }
+    const durationMs = Number(Req.ms);
+    if (!Number.isFinite(durationMs) || durationMs < 0) {
+      emitOscNotify(`OSC - Invalid duration "${Req.ms}"`, 'error');
+      return false;
+    }
+    const normalized = Math.floor(durationMs);
+    const [err] = await TimerManager.Update(timerId, { Duration: normalized });
+    if (err) {
+      emitOscNotify(`OSC - Failed to update duration: ${err}`, 'error');
+      return false;
+    }
+    emitOscNotify(`Timer ${timerId} duration set to ${normalized}ms`, 'success', 1500);
+    return true;
+  },
+  'Sets the duration (ms) of a timer'
+);
+
+OSC.CreateRoute(
+  '/ShowTrak/Timer/:TimerID/Resume',
+  async (Req) => {
+    const timer = await TimerManager.Get(Number(Req.TimerID));
+    if (!timer) {
+      emitOscNotify(`OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
+      return false;
+    }
+    if (timer.Status !== Statuses.PAUSED) {
+      emitOscNotify('OSC - Timer is not paused', 'info', 1200);
+      return false;
+    }
+    await timer.Unpause();
+    Broadcast.emit('TimersUpdated');
+    emitOscNotify(`Timer ${timer.ID} resumed`, 'success', 1500);
+    return true;
+  },
+  'Resumes a paused timer'
+);
+
+OSC.CreateRoute(
   '/ShowTrak/Timer/:TimerID/JumpToTime/:TimeInMS',
   async (Req) => {
     let Timer = await TimerManager.Get(Number(Req.TimerID));
@@ -206,7 +290,12 @@ OSC.CreateRoute(
   '/ShowTrak/All/Pause',
   async (_Req) => {
     let Timers = await TimerManager.GetAll();
-    await Promise.all(Timers.map((t) => t.Pause()));
+    const running = Timers.filter((t) => t.Status === Statuses.RUNNING);
+    if (running.length === 0) {
+      emitOscNotify('OSC - No running timers to pause', 'info', 1200);
+      return true;
+    }
+    await Promise.all(running.map((t) => t.Pause()));
     Broadcast.emit('TimersUpdated');
     return true;
   },
@@ -222,6 +311,23 @@ OSC.CreateRoute(
     return true;
   },
   'Unpause all timers'
+);
+
+OSC.CreateRoute(
+  '/ShowTrak/All/Resume',
+  async (_Req) => {
+    let Timers = await TimerManager.GetAll();
+    const paused = Timers.filter((t) => t.Status === Statuses.PAUSED);
+    if (paused.length === 0) {
+      emitOscNotify('OSC - No paused timers to resume', 'info', 1200);
+      return true;
+    }
+    await Promise.all(paused.map((t) => t.Unpause()));
+    Broadcast.emit('TimersUpdated');
+    emitOscNotify(`OSC - Resumed ${paused.length} timer(s)`, 'success', 1500);
+    return true;
+  },
+  'Resume all paused timers'
 );
 
 module.exports = { OSC };

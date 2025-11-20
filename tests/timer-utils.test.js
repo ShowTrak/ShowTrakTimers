@@ -9,6 +9,7 @@ const {
   GetFormattedTime,
   normalizeType,
   normalizeDuration,
+  TICK_INTERVAL_MS,
 } = timerUtils;
 
 describe('GetFormattedTime', () => {
@@ -19,6 +20,10 @@ describe('GetFormattedTime', () => {
   it('guards against invalid values', () => {
     expect(GetFormattedTime(undefined)).toBe('00:00:00');
     expect(GetFormattedTime(-5000)).toBe('00:00:00');
+  });
+
+  it('shows HH:MM:SS once hours are present', () => {
+    expect(GetFormattedTime(3661000)).toBe('01:01:01');
   });
 });
 
@@ -35,6 +40,7 @@ describe('normalize helpers', () => {
     expect(normalizeDuration(TIMER_TYPES.COUNTDOWN, undefined, { fallbackToDefault: true })).toBe(
       DEFAULT_DURATION_MS
     );
+    expect(normalizeDuration(TIMER_TYPES.TIMER, 'not-a-number')).toBeNull();
   });
 });
 
@@ -67,6 +73,29 @@ describe('TimerClass', () => {
     await countdown.Start();
     await countdown.SetElapsedTime(60000);
     expect(countdown.Status).toBe(Statuses.COMPLETED);
+  });
+
+  it('increments elapsed time based on tick interval while running', async () => {
+    await countdown.Start();
+    await countdown.Tick();
+    expect(countdown.State.ElapsedTime).toBe(TICK_INTERVAL_MS);
+  });
+
+  it('tracks paused time without changing elapsed time', async () => {
+    await countdown.Start();
+    await countdown.Pause();
+    await countdown.Tick();
+    expect(countdown.State.ElapsedTime).toBe(0);
+    expect(countdown.State.PausedTime).toBe(TICK_INTERVAL_MS);
+  });
+
+  it('resets state when stopped', async () => {
+    await countdown.Start();
+    await countdown.SetElapsedTime(15000);
+    await countdown.Stop();
+    expect(countdown.Status).toBe(Statuses.STANDBY);
+    expect(countdown.State.ElapsedTime).toBe(0);
+    expect(countdown.State.CountdownRemaining).toBe(60000);
   });
 
   it('never auto-completes stopwatches', async () => {
