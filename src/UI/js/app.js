@@ -4,6 +4,7 @@ let SettingsGroups = [];
 let Settings = [];
 let Timers = [];
 let _lastTimersJson = '';
+let _lastTimerOrderSignature = '';
 
 // --- Application Mode (SHOW | EDIT) UI state ---
 let AppMode = 'SHOW'; // default until backend confirms
@@ -187,6 +188,7 @@ window.API.SetTimers(async (NewTimers) => {
   Timers = safe;
   const $host = $('#APPLICATION_CONTENT');
   if (Timers.length === 0) {
+    _lastTimerOrderSignature = '';
     // If empty state already present, skip DOM work
     if (!document.getElementById('EMPTY_STATE')) {
       $host.empty().append(renderEmptyStateHtml());
@@ -226,12 +228,18 @@ window.API.SetTimers(async (NewTimers) => {
     await ProcessTimer(Timer);
   }
   try {
-    const hostEl = document.getElementById('APPLICATION_CONTENT');
-    if (hostEl) {
-      for (const timer of Timers) {
-        const card = document.getElementById(`TIMER_${timer.ID}`);
-        if (card) hostEl.appendChild(card);
+    const orderSignature = Timers.map((t) => t.ID).join(';');
+    if (orderSignature && orderSignature !== _lastTimerOrderSignature) {
+      const hostEl = document.getElementById('APPLICATION_CONTENT');
+      if (hostEl) {
+        const fragment = document.createDocumentFragment();
+        for (const timer of Timers) {
+          const card = document.getElementById(`TIMER_${timer.ID}`);
+          if (card) fragment.appendChild(card);
+        }
+        hostEl.appendChild(fragment);
       }
+      _lastTimerOrderSignature = orderSignature;
     }
   } catch {}
   return;
