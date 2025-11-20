@@ -175,30 +175,39 @@ Manager.Stop = async () => {
 };
 
 function SanitizeTimers(timers) {
-  return (timers || [])
-    .filter((t) => t && (t.ShowOnWeb == null ? true : !!t.ShowOnWeb))
-    .map((t) => {
-      const isStopwatch = t.Type === 'STOPWATCH';
-      const elapsed = Number(t.State?.ElapsedTime || 0);
-      const duration = isStopwatch ? null : coerceDurationMs(t.Duration);
-      const remainingMs =
-        isStopwatch || !Number.isFinite(duration) ? null : Math.max(0, duration - elapsed);
-      return {
-        ID: t.ID,
-        Type: t.Type,
-        Name: t.Name,
-        Description: t.Description,
-        Duration: Number.isFinite(duration) ? duration : t.Duration,
-        TotalTimeReadable: t.TotalTimeReadable,
-        Status: t.Status,
-        State: {
-          ElapsedTime: elapsed,
-          ElapsedTimeReadable: t.State?.ElapsedTimeReadable,
-          RemainingMs: remainingMs,
-          RemainingReadable: remainingMs == null ? null : formatMs(remainingMs),
-        },
-      };
-    });
+  const visible = (timers || []).filter((t) => t && (t.ShowOnWeb == null ? true : !!t.ShowOnWeb));
+  visible.sort(sortByWeightThenId);
+  return visible.map((t) => {
+    const isStopwatch = t.Type === 'STOPWATCH';
+    const elapsed = Number(t.State?.ElapsedTime || 0);
+    const duration = isStopwatch ? null : coerceDurationMs(t.Duration);
+    const remainingMs = isStopwatch || !Number.isFinite(duration) ? null : Math.max(0, duration - elapsed);
+    return {
+      ID: t.ID,
+      Weight: Number.isFinite(t.Weight) ? t.Weight : null,
+      Type: t.Type,
+      Name: t.Name,
+      Description: t.Description,
+      Duration: Number.isFinite(duration) ? duration : t.Duration,
+      TotalTimeReadable: t.TotalTimeReadable,
+      Status: t.Status,
+      State: {
+        ElapsedTime: elapsed,
+        ElapsedTimeReadable: t.State?.ElapsedTimeReadable,
+        RemainingMs: remainingMs,
+        RemainingReadable: remainingMs == null ? null : formatMs(remainingMs),
+      },
+    };
+  });
+}
+
+function sortByWeightThenId(a, b) {
+  const aWeight = Number.isFinite(a?.Weight) ? a.Weight : Number.MAX_SAFE_INTEGER;
+  const bWeight = Number.isFinite(b?.Weight) ? b.Weight : Number.MAX_SAFE_INTEGER;
+  if (aWeight !== bWeight) return aWeight - bWeight;
+  const aId = Number.isFinite(a?.ID) ? a.ID : Number.MAX_SAFE_INTEGER;
+  const bId = Number.isFinite(b?.ID) ? b.ID : Number.MAX_SAFE_INTEGER;
+  return aId - bId;
 }
 
 function formatMs(ms) {

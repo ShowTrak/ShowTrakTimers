@@ -234,6 +234,17 @@ app.whenReady().then(async () => {
     }
   });
 
+  RPC.handle('Timer:Move', async (_e, TimerID, Direction) => {
+    try {
+      const [err, ok] = await TimerManager.Move(TimerID, Direction);
+      if (err) return [String(err), null];
+      return [null, ok];
+    } catch (err) {
+      Logger.error('Timer:Move failed', err);
+      return [String(err && err.message ? err.message : err), null];
+    }
+  });
+
   // Timer Control IPC handlers
   RPC.handle('Timer:Start', async (_e, TimerID) => {
     try {

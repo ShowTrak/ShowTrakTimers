@@ -94,20 +94,25 @@
 
       function render(timers) {
         grid.innerHTML = '';
-        (timers || [])
-          .sort((a, b) => (a.Name || '').localeCompare(b.Name || ''))
-          .forEach((t) => {
+        sortByWeight(timers).forEach((t) => {
             const isStopwatch = t.Type === 'STOPWATCH';
+            const isCountdown = t.Type === 'COUNTDOWN';
             const elapsed = Number(t?.State?.ElapsedTime || 0);
             const durationMs = isStopwatch ? NaN : coerceDurationMs(t?.Duration);
+            const remainingMs = isStopwatch ? null : sanitizeRemainingMs(t?.State?.RemainingMs, durationMs, elapsed);
             const pct =
               !isStopwatch && Number.isFinite(durationMs) && durationMs > 0
-                ? Math.max(0, Math.min(100, (elapsed / durationMs) * 100))
+                ? Math.max(
+                    0,
+                    Math.min(100, (isCountdown && remainingMs != null ? remainingMs : elapsed) / durationMs * 100)
+                  )
                 : 0;
 
             const line = isStopwatch
               ? t.State?.ElapsedTimeReadable || '00:00'
-              : `${t.State?.ElapsedTimeReadable || '00:00'} / ${t.TotalTimeReadable || '00:00'}`;
+              : isCountdown
+                ? t.State?.RemainingReadable || formatMsReadable(remainingMs)
+                : `${t.State?.ElapsedTimeReadable || '00:00'} / ${t.TotalTimeReadable || '00:00'}`;
 
             const card = h(
               'div',
@@ -141,6 +146,40 @@
       socket.on('disconnect', () => {
         console.log('Disconnected from dashboard');
       });
+
+      function sortByWeight(timers) {
+        return (timers || [])
+          .slice()
+          .sort((a, b) => {
+            const aWeight = Number.isFinite(Number(a?.Weight)) ? Number(a.Weight) : Number.MAX_SAFE_INTEGER;
+            const bWeight = Number.isFinite(Number(b?.Weight)) ? Number(b.Weight) : Number.MAX_SAFE_INTEGER;
+            if (aWeight !== bWeight) return aWeight - bWeight;
+            const aId = Number.isFinite(Number(a?.ID)) ? Number(a.ID) : Number.MAX_SAFE_INTEGER;
+            const bId = Number.isFinite(Number(b?.ID)) ? Number(b.ID) : Number.MAX_SAFE_INTEGER;
+            if (aId !== bId) return aId - bId;
+            return (a?.Name || '').localeCompare(b?.Name || '');
+          });
+      }
+
+      function sanitizeRemainingMs(value, durationMs, elapsedMs) {
+        if (Number.isFinite(Number(value))) {
+          return Math.max(0, Number(value));
+        }
+        if (!Number.isFinite(durationMs)) return null;
+        return Math.max(0, durationMs - (Number(elapsedMs) || 0));
+      }
+
+      function formatMsReadable(ms) {
+        if (!Number.isFinite(ms) || ms < 0) ms = 0;
+        const totalSeconds = Math.floor(ms / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        if (hours > 0) {
+          return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+        return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      }
 
       function coerceDurationMs(value) {
         if (typeof value === 'number' && Number.isFinite(value)) return value;

@@ -1,7 +1,7 @@
 {
   "name": "showtrak-timers",
   "productName": "ShowTrak Timers",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "OSC Controlled Timers.",
   "main": "src/main.js",
   "scripts": {

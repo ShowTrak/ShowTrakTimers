@@ -101,12 +101,13 @@
                 <label class="form-label text-sm mb-1">Type</label>
                 <select class="form-select form-select-sm" id="TIMER_EDIT_TYPE">
                   <option value="TIMER">Timer</option>
+                  <option value="COUNTDOWN">Countdown</option>
                   <option value="STOPWATCH">Stopwatch</option>
                 </select>
               </div>
               <div id="TIMER_EDIT_DURATION_GROUP">
                 <label class="form-label text-sm mb-1"
-                  >Duration (mm:ss) for Timers, leave blank for Stopwatch</label
+                  >Duration (mm:ss) for Timer/Countdown, leave blank for Stopwatch</label
                 >
                 <input
                   type="text"
@@ -115,7 +116,7 @@
                   placeholder="e.g. 05:00"
                 />
                 <small class="text-sm text-light"
-                  >Set to mm:ss or hh:mm:ss. For Stopwatch, leave empty.</small
+                  >Set to mm:ss or hh:mm:ss. Countdown timers require a duration.</small
                 >
               </div>
               <div class="form-check form-switch mt-2">

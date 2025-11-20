@@ -46,4 +46,5 @@ contextBridge.exposeInMainWorld('API', {
   TimerUpdate: async (TimerID, Patch) => ipcRenderer.invoke('Timer:Update', TimerID, Patch),
   TimerCreate: async (Payload) => ipcRenderer.invoke('Timer:Create', Payload),
   TimerDelete: async (TimerID) => ipcRenderer.invoke('Timer:Delete', TimerID),
+  TimerMove: async (TimerID, Direction) => ipcRenderer.invoke('Timer:Move', TimerID, Direction),
 });

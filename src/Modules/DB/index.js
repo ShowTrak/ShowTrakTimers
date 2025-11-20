@@ -77,6 +77,10 @@ Manager.InitializeSchema = async () => {
         Logger.database('Migrating: adding ShowOnWeb column to Timers');
         await Manager.Run('ALTER TABLE Timers ADD COLUMN ShowOnWeb BOOLEAN NOT NULL DEFAULT 1');
       }
+      if (!names.includes('Weight')) {
+        Logger.database('Migrating: adding Weight column to Timers');
+        await Manager.Run('ALTER TABLE Timers ADD COLUMN Weight INTEGER NOT NULL DEFAULT 100');
+      }
     }
   } catch (e) {
     Logger.databaseError('Migration check failed for Timers table', e);

@@ -32,7 +32,7 @@ function RenderMode(mode) {
   try {
     const showEdit = AppMode === 'EDIT';
     document
-      .querySelectorAll("#APPLICATION_CONTENT .overlay-btn[data-action='edit']")
+      .querySelectorAll('#APPLICATION_CONTENT .overlay-btn.edit-only')
       .forEach((btn) => btn.classList.toggle('d-none', !showEdit));
   } catch {}
 }
@@ -225,6 +225,15 @@ window.API.SetTimers(async (NewTimers) => {
   for (const Timer of Timers) {
     await ProcessTimer(Timer);
   }
+  try {
+    const hostEl = document.getElementById('APPLICATION_CONTENT');
+    if (hostEl) {
+      for (const timer of Timers) {
+        const card = document.getElementById(`TIMER_${timer.ID}`);
+        if (card) hostEl.appendChild(card);
+      }
+    }
+  } catch {}
   return;
 });
 
@@ -252,6 +261,12 @@ async function ProcessTimer(Timer) {
 					<button type="button" class="overlay-btn edit-only" data-action="edit" title="Edit">
 						<i class="bi bi-gear-fill"></i>
 					</button>
+          <button type="button" class="overlay-btn edit-only" data-action="move-up" title="Move Up">
+            <i class="bi bi-caret-up-fill"></i>
+          </button>
+          <button type="button" class="overlay-btn edit-only" data-action="move-down" title="Move Down">
+            <i class="bi bi-caret-down-fill"></i>
+          </button>
 				</div>
 			</div>
 			<span class="TIMER_CONTROLS"></span>
@@ -282,6 +297,10 @@ async function ProcessTimer(Timer) {
           await Stop(id);
         } else if (action === 'edit') {
           await OpenTimerEditModal(id);
+        } else if (action === 'move-up') {
+          await MoveTimer(id, 'UP');
+        } else if (action === 'move-down') {
+          await MoveTimer(id, 'DOWN');
         }
       } catch {}
     });
@@ -304,9 +323,29 @@ async function ProcessTimer(Timer) {
     }
     TimerElement.find('.TIMER_ID').text(`ID: ${Timer.ID}`);
     TimerElement.find('.TIMER_CONTROLS').text(Timer.Status);
-  }
-
-  if (Timer.Type === 'STOPWATCH') {
+  } else if (Timer.Type === 'COUNTDOWN') {
+    TimerElement.find('.card-title').text(Timer.Name);
+    const elapsedMs = Number(Timer.State?.ElapsedTime || 0);
+    const durationMs = typeof Timer.Duration === 'number' ? Timer.Duration : null;
+    const remainingMs =
+      durationMs == null || !Number.isFinite(durationMs) ? null : Math.max(0, durationMs - elapsedMs);
+    const remainingText =
+      Timer.State?.CountdownRemainingReadable ||
+      (remainingMs == null ? Timer.State?.ElapsedTimeReadable || '00:00' : formatMsToHMS(remainingMs));
+    TimerElement.find('.card-text').eq(0).text(remainingText);
+    let pct = 0;
+    if (Number.isFinite(durationMs) && durationMs > 0 && remainingMs != null) {
+      pct = Math.max(0, Math.min(100, (remainingMs / durationMs) * 100));
+    }
+    const $bar = TimerElement.find('.progress').find('.progress-bar');
+    const prev = $bar.data('w') || -1;
+    const next = Math.round(pct);
+    if (prev !== next) {
+      $bar.css('width', `${next}%`).data('w', next);
+    }
+    TimerElement.find('.TIMER_ID').text(`ID: ${Timer.ID}`);
+    TimerElement.find('.TIMER_CONTROLS').text(Timer.Status);
+  } else if (Timer.Type === 'STOPWATCH') {
     TimerElement.find('.card-title').text(Timer.Name);
     TimerElement.find('.card-text').eq(0).text(`${Timer.State.ElapsedTimeReadable}`);
     // Stopwatch has no duration target; keep the progress static
@@ -347,10 +386,7 @@ async function ProcessTimer(Timer) {
 
   // Show edit cog only in EDIT application mode
   const showEdit = AppMode === 'EDIT';
-  $(`#TIMER_CTRL_CONTAINER_${Timer.ID} button.overlay-btn[data-action='edit']`).toggleClass(
-    'd-none',
-    !showEdit
-  );
+  $(`#TIMER_CTRL_CONTAINER_${Timer.ID} button.overlay-btn.edit-only`).toggleClass('d-none', !showEdit);
 }
 
 async function Start(TimerID) {
@@ -386,6 +422,19 @@ async function Unpause(TimerID) {
     if (err) throw new Error(err);
   } catch (e) {
     Notify(`Failed to resume timer ${TimerID}: ${e.message || e}`, 'error');
+  }
+}
+
+async function MoveTimer(TimerID, Direction) {
+  try {
+    const [err, moved] = await window.API.TimerMove(TimerID, Direction);
+    if (err) throw new Error(err);
+    if (!moved) {
+      const message = Direction === 'UP' ? 'Timer is already at the top' : 'Timer is already at the bottom';
+      Notify(message, 'info', 1500);
+    }
+  } catch (e) {
+    Notify(`Failed to reorder timer ${TimerID}: ${e.message || e}`, 'error');
   }
 }
 
@@ -816,7 +865,8 @@ async function OpenTimerEditModal(TimerID) {
     $('#TIMER_EDIT_NAME').val(timer.Name || '');
     const durationText =
       timer.Type === 'STOPWATCH' || timer.Duration == null ? '' : formatMsToHMS(timer.Duration);
-    $('#TIMER_EDIT_TYPE').val(timer.Type === 'STOPWATCH' ? 'STOPWATCH' : 'TIMER');
+    const modalType = timer.Type === 'COUNTDOWN' ? 'COUNTDOWN' : timer.Type === 'STOPWATCH' ? 'STOPWATCH' : 'TIMER';
+    $('#TIMER_EDIT_TYPE').val(modalType);
     $('#TIMER_EDIT_DURATION').val(durationText);
     $('#TIMER_EDIT_SHOWONWEB').prop('checked', timer.ShowOnWeb == null ? true : !!timer.ShowOnWeb);
     const toggleDuration = () => {
@@ -838,8 +888,16 @@ async function OpenTimerEditModal(TimerID) {
         const patch = { Name: name };
         const selectedType = $('#TIMER_EDIT_TYPE').val();
         patch.Type = selectedType;
-        // For stopwatch, force Duration to null; otherwise use parsed duration (or null if empty)
-        patch.Duration = selectedType === 'STOPWATCH' ? null : rawDur.length === 0 ? null : ms;
+        if (selectedType === 'STOPWATCH') {
+          patch.Duration = null;
+        } else if (selectedType === 'COUNTDOWN') {
+          if (ms == null) {
+            return Notify('Countdown timers require a duration.', 'error');
+          }
+          patch.Duration = ms;
+        } else {
+          patch.Duration = rawDur.length === 0 ? null : ms;
+        }
         patch.ShowOnWeb = $('#TIMER_EDIT_SHOWONWEB').is(':checked');
         const [uErr] = await window.API.TimerUpdate(TimerID, patch);
         if (uErr) return Notify(`Failed to save: ${uErr}`, 'error');
