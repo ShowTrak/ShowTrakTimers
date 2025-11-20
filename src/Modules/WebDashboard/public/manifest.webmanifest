@@ -1,0 +1,22 @@
+{
+  "name": "ShowTrak Timers Dashboard",
+  "short_name": "ShowTrak",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "description": "View-only PWA dashboard that mirrors ShowTrak timer updates in real time.",
+  "background_color": "#0c091c",
+  "theme_color": "#0c091c",
+  "icons": [
+    {
+      "src": "/ui/img/icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/ui/img/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

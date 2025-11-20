@@ -4,6 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ShowTrak Timers</title>
+    <meta name="theme-color" content="#0c091c" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/ui/img/icon.png" />
     <link rel="stylesheet" href="/ui/vendors/bootstrap/css/bootstrap.min.css" />
     <link rel="stylesheet" href="/ui/vendors/bootstrap-icons/font/bootstrap-icons.css" />
     <link rel="stylesheet" type="text/css" href="/ui/vendors/toastify/index.min.css" />
@@ -65,6 +68,24 @@
         width: 18px;
         height: 18px;
       }
+      .status-banner {
+        margin-bottom: 0;
+        position: relative;
+      }
+      .status-banner .card-title {
+        font-size: 0.95rem;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.75);
+      }
+      .status-banner .timer-chip-right {
+        top: 50%;
+        transform: translateY(-50%);
+      }
+      .status-banner .TIMER_CONTROLS {
+        font-size: 0.8rem;
+        height: 26px;
+      }
       /* Dashboard grid mimics card spacing of app */
       .dashboard-grid {
         display: flex;
@@ -73,6 +94,14 @@
         align-items: flex-start;
         align-content: flex-start;
         gap: 12px;
+      }
+      .dashboard-grid.offline .SHOWTRAK_TIMER:not(#connection-status) {
+        opacity: 0.35;
+        filter: grayscale(1);
+        pointer-events: none;
+      }
+      .dashboard-grid.offline .SHOWTRAK_TIMER:not(#connection-status) .progress-bar {
+        background-color: rgba(255, 255, 255, 0.2);
       }
       .badge {
         font-size: 10px;
@@ -126,7 +155,19 @@
     <div id="APPLICATION_CONTAINER" class="h-100">
       <div id="APPLICATION" class="container-fluid text-center text-light p-0">
         <div id="APPLICATION_CONTENT" class="p-3 gap-3 flex-wrap">
-          <div id="grid" class="dashboard-grid w-100"></div>
+          <div id="grid" class="dashboard-grid w-100">
+            <div
+              id="connection-status"
+              class="SHOWTRAK_TIMER card p-2 status-banner d-none"
+              role="status"
+            >
+              <div class="timer-chip-right">
+                <span class="TIMER_ID d-none" id="connection-status-label">LIVE</span>
+                <span class="TIMER_CONTROLS" id="connection-status-chip">Offline</span>
+              </div>
+              <h5 class="card-title mb-0 text-start" id="connection-status-title">Connection Status</h5>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -134,6 +175,25 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
       const grid = document.getElementById('grid');
+      const statusBanner = document.getElementById('connection-status');
+      const statusChip = document.getElementById('connection-status-chip');
+      const statusTitle = document.getElementById('connection-status-title');
+      const LOCAL_STORAGE_KEY = 'showtrak:dashboard:lastTimers';
+      const STATUS_BASE_CLASS = 'SHOWTRAK_TIMER card p-2 status-banner';
+      const STATUS_CLASS = {
+        connected: 'RUNNING',
+        offline: 'PAUSED',
+      };
+      const STATUS_CHIP = {
+        connected: 'Connected',
+        offline: 'Offline',
+      };
+      const STATUS_TITLE_TEXT = 'Connection Status';
+      let isSocketConnected = false;
+
+      if (grid) {
+        grid.classList.add('offline');
+      }
 
       function h(tag, attrs = {}, children = []) {
         const el = document.createElement(tag);
@@ -148,63 +208,178 @@
         return el;
       }
 
-      function render(timers) {
-        grid.innerHTML = '';
-        sortByWeight(timers).forEach((t) => {
-            const isStopwatch = t.Type === 'STOPWATCH';
-            const isCountdown = t.Type === 'COUNTDOWN';
-            const elapsed = Number(t?.State?.ElapsedTime || 0);
-            const durationMs = isStopwatch ? NaN : coerceDurationMs(t?.Duration);
-            const remainingMs = isStopwatch ? null : sanitizeRemainingMs(t?.State?.RemainingMs, durationMs, elapsed);
-            const pct =
-              !isStopwatch && Number.isFinite(durationMs) && durationMs > 0
-                ? Math.max(
-                    0,
-                    Math.min(100, (isCountdown && remainingMs != null ? remainingMs : elapsed) / durationMs * 100)
-                  )
-                : 0;
-
-            const line = isStopwatch
-              ? t.State?.ElapsedTimeReadable || '00:00'
-              : isCountdown
-                ? t.State?.RemainingReadable || formatMsReadable(remainingMs)
-                : `${t.State?.ElapsedTimeReadable || '00:00'} / ${t.TotalTimeReadable || '00:00'}`;
-
-            const timerChips = h('div', { class: 'timer-chip-right' }, [
-              h('span', { class: 'TIMER_ID d-none' }, `ID: ${t.ID}`),
-              h('span', { class: 'TIMER_CONTROLS' }, t.Status || ''),
-            ]);
-            const card = h(
-              'div',
-              { class: `SHOWTRAK_TIMER card p-2 ${t.Status || 'STANDBY'}`, id: `TIMER_${t.ID}` },
-              [
-                timerChips,
-                h('h5', { class: 'card-title mb-0 text-start' }, t.Name || 'Timer'),
-                h('p', { class: 'card-text mb-0 text-start text-white' }, line),
-                h('div', { class: 'progress mt-2' }, [
-                  h('div', {
-                    class: 'progress-bar bg-light',
-                    role: 'progressbar',
-                    style: `width: ${pct}%`,
-                    id: `TIMER_PROGRESS_${t.ID}`,
-                  }),
-                ]),
-              ]
-            );
-            grid.appendChild(card);
-          });
+      function setStatus(state, message) {
+        if (!statusBanner) return;
+        if (!message) {
+          statusBanner.classList.add('d-none');
+          return;
+        }
+        const variant = STATUS_CLASS[state] || STATUS_CLASS.offline;
+        statusBanner.className = `${STATUS_BASE_CLASS} ${variant}`;
+        if (statusTitle) {
+          statusTitle.textContent = STATUS_TITLE_TEXT;
+        }
+        if (statusChip) {
+          statusChip.textContent = STATUS_CHIP[state] || 'Offline';
+        }
+        if (statusBanner) {
+          statusBanner.setAttribute('aria-label', message || 'Connection status');
+        }
+        statusBanner.classList.remove('d-none');
       }
 
-      const socket = io({ transports: ['websocket', 'polling'] });
-      socket.on('connect', () => {
-        console.log('Connected to ShowTrak dashboard');
+      function toggleTimerGreyout(isOnline) {
+        if (!grid) return;
+        grid.classList.toggle('offline', !isOnline);
+      }
+
+      function markOffline() {
+        isSocketConnected = false;
+        toggleTimerGreyout(false);
+        setStatus('offline', 'Offline');
+      }
+
+      function markOnline() {
+        isSocketConnected = true;
+        toggleTimerGreyout(true);
+        setStatus('connected', 'Online');
+      }
+
+      function readCachedTimers() {
+        try {
+          const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+          return raw ? JSON.parse(raw) : [];
+        } catch (_err) {
+          return [];
+        }
+      }
+
+      function cacheTimers(timers) {
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(timers || []));
+        } catch (_err) {
+          // ignore storage quota issues
+        }
+      }
+
+      function render(timers) {
+        grid.innerHTML = '';
+        if (statusBanner) {
+          grid.appendChild(statusBanner);
+        }
+        if (!timers || timers.length === 0) {
+          grid.appendChild(
+            h('div', { class: 'text-muted w-100 text-center py-4' }, 'No timers available yet.')
+          );
+          return;
+        }
+        sortByWeight(timers).forEach((t) => {
+          const isStopwatch = t.Type === 'STOPWATCH';
+          const isCountdown = t.Type === 'COUNTDOWN';
+          const elapsed = Number(t?.State?.ElapsedTime || 0);
+          const durationMs = isStopwatch ? NaN : coerceDurationMs(t?.Duration);
+          const remainingMs = isStopwatch ? null : sanitizeRemainingMs(t?.State?.RemainingMs, durationMs, elapsed);
+          const pct =
+            !isStopwatch && Number.isFinite(durationMs) && durationMs > 0
+              ? Math.max(
+                  0,
+                  Math.min(100, ((isCountdown && remainingMs != null ? remainingMs : elapsed) / durationMs) * 100)
+                )
+              : 0;
+
+          const line = isStopwatch
+            ? t.State?.ElapsedTimeReadable || '00:00'
+            : isCountdown
+              ? t.State?.RemainingReadable || formatMsReadable(remainingMs)
+              : `${t.State?.ElapsedTimeReadable || '00:00'} / ${t.TotalTimeReadable || '00:00'}`;
+
+          const timerChips = h('div', { class: 'timer-chip-right' }, [
+            h('span', { class: 'TIMER_ID d-none' }, `ID: ${t.ID}`),
+            h('span', { class: 'TIMER_CONTROLS' }, t.Status || ''),
+          ]);
+          const card = h(
+            'div',
+            { class: `SHOWTRAK_TIMER card p-2 ${t.Status || 'STANDBY'}`, id: `TIMER_${t.ID}` },
+            [
+              timerChips,
+              h('h5', { class: 'card-title mb-0 text-start' }, t.Name || 'Timer'),
+              h('p', { class: 'card-text mb-0 text-start text-white' }, line),
+              h('div', { class: 'progress mt-2' }, [
+                h('div', {
+                  class: 'progress-bar bg-light',
+                  role: 'progressbar',
+                  style: `width: ${pct}%`,
+                  id: `TIMER_PROGRESS_${t.ID}`,
+                }),
+              ]),
+            ]
+          );
+          grid.appendChild(card);
+        });
+      }
+
+      function hydrateFromCacheIfAvailable() {
+        const cached = readCachedTimers();
+        if (cached.length) {
+          render(cached);
+          markOffline();
+        }
+      }
+
+      hydrateFromCacheIfAvailable();
+      markOffline();
+
+      const socket = io({
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 10000,
       });
+
+      socket.on('connect', () => {
+        markOnline();
+      });
+
       socket.on('timers:update', (timers) => {
         render(timers);
+        cacheTimers(timers);
+        markOnline();
       });
+
+      socket.on('connect_error', () => {
+        markOffline();
+      });
+
       socket.on('disconnect', () => {
-        console.log('Disconnected from dashboard');
+        markOffline();
       });
+
+      socket.io.on('reconnect_attempt', (attempt) => {
+        markOffline();
+      });
+
+      socket.io.on('reconnect_failed', () => {
+        markOffline();
+      });
+
+      window.addEventListener('online', () => {
+        if (!isSocketConnected) {
+          markOffline();
+        }
+      });
+
+      window.addEventListener('offline', () => {
+        markOffline();
+      });
+
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js').catch((err) => {
+            console.warn('Service worker registration failed', err);
+          });
+        });
+      }
 
       function sortByWeight(timers) {
         return (timers || [])
