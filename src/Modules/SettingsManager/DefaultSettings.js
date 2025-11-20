@@ -32,6 +32,23 @@ const DefaultSettings = [
     Type: 'BOOLEAN',
     DefaultValue: true,
   },
+  // Notifications
+  {
+    Group: 'Notifications',
+    Key: 'NOTIFY_SETTINGS_CHANGES',
+    Title: 'Settings Change Alerts',
+    Description: 'Show a toast whenever a setting is changed or saved.',
+    Type: 'BOOLEAN',
+    DefaultValue: true,
+  },
+  {
+    Group: 'Notifications',
+    Key: 'NOTIFY_OSC_DEBUG',
+    Title: 'OSC Debug Alerts',
+    Description: 'Show informational/error notifications originating from the OSC server.',
+    Type: 'BOOLEAN',
+    DefaultValue: true,
+  },
   // OSC
   {
     Group: 'OSC',
@@ -296,6 +313,7 @@ const DefaultSettings = [
 const Groups = [
   // { Name: "UI", Title: "UI" },
   { Name: 'System', Title: 'System Settings' },
+  { Name: 'Notifications', Title: 'Notifications' },
   { Name: 'Web', Title: 'Web Dashboard' },
   { Name: 'OSC', Title: 'OSC' },
 ];

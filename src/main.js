@@ -26,6 +26,43 @@ const path = require('path');
 var MainWindow = null;
 let AppMode = 'SHOW'; // optional UI mode state
 
+const NotificationCategories = {
+  SETTINGS_CHANGE: 'settings-change',
+  OSC_DEBUG: 'osc-debug',
+};
+
+const NotificationPrefs = {
+  [NotificationCategories.SETTINGS_CHANGE]: true,
+  [NotificationCategories.OSC_DEBUG]: true,
+};
+
+function refreshNotificationPrefs(settingsList) {
+  if (!Array.isArray(settingsList)) return;
+  try {
+    const map = new Map(settingsList.map((s) => [s.Key, s.Value]));
+    NotificationPrefs[NotificationCategories.SETTINGS_CHANGE] = map.has(
+      'NOTIFY_SETTINGS_CHANGES'
+    )
+      ? !!map.get('NOTIFY_SETTINGS_CHANGES')
+      : true;
+    NotificationPrefs[NotificationCategories.OSC_DEBUG] = map.has('NOTIFY_OSC_DEBUG')
+      ? !!map.get('NOTIFY_OSC_DEBUG')
+      : true;
+  } catch (_e) {
+    NotificationPrefs[NotificationCategories.SETTINGS_CHANGE] = true;
+    NotificationPrefs[NotificationCategories.OSC_DEBUG] = true;
+  }
+}
+
+function shouldAllowNotification(category) {
+  if (!category) return true;
+  const key = String(category).toLowerCase();
+  if (Object.prototype.hasOwnProperty.call(NotificationPrefs, key)) {
+    return !!NotificationPrefs[key];
+  }
+  return true;
+}
+
 if (app.isPackaged) Menu.setApplicationMenu(null);
 let PreloaderWindow = null;
 app.whenReady().then(async () => {
@@ -345,6 +382,7 @@ app.whenReady().then(async () => {
 async function UpdateSettings() {
   if (!MainWindow || MainWindow.isDestroyed()) return;
   let Settings = await SettingsManager.GetAll();
+  refreshNotificationPrefs(Settings);
   let SettingGroups = await SettingsManager.GetGroups();
   MainWindow.webContents.send('UpdateSettings', Settings, SettingGroups);
 }
@@ -357,9 +395,11 @@ async function UpdateOSCList() {
   MainWindow.webContents.send('SetOSCList', JSON.parse(JSON.stringify(Routes)));
 }
 
-async function Notify(Message, Type = 'info', Duration = 5000) {
+async function Notify(Message, Type = 'info', Duration = 5000, Options = null) {
   if (!MainWindow || MainWindow.isDestroyed()) return;
-  MainWindow.webContents.send('Notify', Message, Type, Duration);
+  const category = Options && Options.category ? String(Options.category).toLowerCase() : null;
+  if (!shouldAllowNotification(category)) return;
+  MainWindow.webContents.send('Notify', Message, Type, Duration, Options || null);
 }
 BroadcastManager.on('Notify', Notify);
 

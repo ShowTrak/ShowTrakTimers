@@ -15,6 +15,16 @@ let Routes = [];
 
 const OSC = {};
 
+const OSC_NOTIFY_OPTIONS = { category: 'osc-debug' };
+
+function emitOscNotify(message, type = 'info', duration) {
+  try {
+    Broadcast.emit('Notify', message, type, duration, OSC_NOTIFY_OPTIONS);
+  } catch (_e) {
+    // notification failure is non-fatal
+  }
+}
+
 onOscMessage = async function (Route) {
   let ValidRoutes = [];
 
@@ -49,7 +59,7 @@ onOscMessage = async function (Route) {
     let RequestComplete = await ValidRoute.Callback(Req);
     if (RequestComplete === false) continue;
     try {
-      Broadcast.emit('Notify', `OSC Processed Successfully`, 'success', 1200);
+      emitOscNotify(`OSC Processed Successfully`, 'success', 1200);
     } catch (_e) {
       // notification failed; non-fatal
     }
@@ -77,11 +87,7 @@ OSC.CreateRoute(
   '/ShowTrak/Shutdown',
   async (_Req) => {
     Logger.warn('Received shutdown command via OSC');
-    try {
-      Broadcast.emit('Notify', 'Shutting down (via OSC)…', 'warn');
-    } catch (_e) {
-      // ignore
-    }
+    emitOscNotify('Shutting down (via OSC)…', 'warn');
     try {
       app.quit();
     } catch (_e) {
@@ -98,7 +104,7 @@ OSC.CreateRoute(
   async (Req) => {
     let Timer = await TimerManager.Get(Number(Req.TimerID));
     if (!Timer) {
-      Broadcast.emit('Notify', `OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
+      emitOscNotify(`OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
       return false;
     }
     await Timer.Start();
@@ -113,7 +119,7 @@ OSC.CreateRoute(
   async (Req) => {
     let Timer = await TimerManager.Get(Number(Req.TimerID));
     if (!Timer) {
-      Broadcast.emit('Notify', `OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
+      emitOscNotify(`OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
       return false;
     }
     await Timer.Stop();
@@ -128,7 +134,7 @@ OSC.CreateRoute(
   async (Req) => {
     let Timer = await TimerManager.Get(Number(Req.TimerID));
     if (!Timer) {
-      Broadcast.emit('Notify', `OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
+      emitOscNotify(`OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
       return false;
     }
     await Timer.Pause();
@@ -143,7 +149,7 @@ OSC.CreateRoute(
   async (Req) => {
     let Timer = await TimerManager.Get(Number(Req.TimerID));
     if (!Timer) {
-      Broadcast.emit('Notify', `OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
+      emitOscNotify(`OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
       return false;
     }
     await Timer.Unpause();
@@ -158,12 +164,12 @@ OSC.CreateRoute(
   async (Req) => {
     let Timer = await TimerManager.Get(Number(Req.TimerID));
     if (!Timer) {
-      Broadcast.emit('Notify', `OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
+      emitOscNotify(`OSC - Invalid Timer ID "${Req.TimerID}"`, 'error');
       return false;
     }
     const ms = Number(Req.TimeInMS);
     if (!isFinite(ms) || ms < 0) {
-      Broadcast.emit('Notify', `OSC - Invalid time "${Req.TimeInMS}"`, 'error');
+      emitOscNotify(`OSC - Invalid time "${Req.TimeInMS}"`, 'error');
       return false;
     }
     if (typeof Timer.SetElapsedTime === 'function') await Timer.SetElapsedTime(ms);
@@ -239,7 +245,7 @@ const Manager = {
         OSCServer = new Server(port, host, () => {
           Logger.success(`OSC Server listening on ${host}:${port}`);
           try {
-            Broadcast.emit('Notify', `OSC listening on ${host}:${port}`, 'success', 2000);
+            emitOscNotify(`OSC listening on ${host}:${port}`, 'success', 2000);
           } catch (_e) {
             // ignore
           }
@@ -249,13 +255,13 @@ const Manager = {
         const code = e && e.code ? String(e.code) : '';
         if (code === 'EADDRINUSE') {
           try {
-            Broadcast.emit('Notify', `OSC port ${port} is in use.`, 'error');
+            emitOscNotify(`OSC port ${port} is in use.`, 'error');
           } catch (_e) {
             // ignore
           }
         } else if (code === 'EADDRNOTAVAIL') {
           try {
-            Broadcast.emit('Notify', `Invalid OSC bind address: ${host}`, 'error');
+            emitOscNotify(`Invalid OSC bind address: ${host}`, 'error');
           } catch (_e) {
             // ignore
           }
@@ -268,13 +274,13 @@ const Manager = {
         const code = err && err.code ? String(err.code) : '';
         if (code === 'EADDRINUSE') {
           try {
-            Broadcast.emit('Notify', `OSC port ${port} is in use.`, 'error');
+            emitOscNotify(`OSC port ${port} is in use.`, 'error');
           } catch (_e) {
             // ignore
           }
         } else if (code === 'EADDRNOTAVAIL') {
           try {
-            Broadcast.emit('Notify', `Invalid OSC bind address: ${host}`, 'error');
+            emitOscNotify(`Invalid OSC bind address: ${host}`, 'error');
           } catch (_e) {
             // ignore
           }

@@ -6,6 +6,47 @@ let Timers = [];
 let _lastTimersJson = '';
 let _lastTimerOrderSignature = '';
 
+const NotificationCategories = {
+  SETTINGS_CHANGE: 'settings-change',
+  OSC_DEBUG: 'osc-debug',
+};
+
+const NotificationPrefs = {
+  [NotificationCategories.SETTINGS_CHANGE]: true,
+  [NotificationCategories.OSC_DEBUG]: true,
+};
+
+function refreshNotificationPrefsFromSettings(settingsList) {
+  if (!Array.isArray(settingsList)) return;
+  try {
+    const map = new Map(settingsList.map((s) => [s.Key, s.Value]));
+    NotificationPrefs[NotificationCategories.SETTINGS_CHANGE] = map.has(
+      'NOTIFY_SETTINGS_CHANGES'
+    )
+      ? !!map.get('NOTIFY_SETTINGS_CHANGES')
+      : true;
+    NotificationPrefs[NotificationCategories.OSC_DEBUG] = map.has('NOTIFY_OSC_DEBUG')
+      ? !!map.get('NOTIFY_OSC_DEBUG')
+      : true;
+  } catch {
+    NotificationPrefs[NotificationCategories.SETTINGS_CHANGE] = true;
+    NotificationPrefs[NotificationCategories.OSC_DEBUG] = true;
+  }
+}
+
+function shouldDisplayNotification(category) {
+  if (!category) return true;
+  const key = String(category).toLowerCase();
+  if (Object.prototype.hasOwnProperty.call(NotificationPrefs, key)) {
+    return !!NotificationPrefs[key];
+  }
+  return true;
+}
+
+function notifySettingsChange(message, type = 'success', duration = 2500) {
+  Notify(message, type, duration, { category: NotificationCategories.SETTINGS_CHANGE });
+}
+
 // --- Application Mode (SHOW | EDIT) UI state ---
 let AppMode = 'SHOW'; // default until backend confirms
 function RenderMode(mode) {
@@ -451,7 +492,10 @@ async function MoveTimer(TimerID, Direction) {
 }
 
 async function GetSettingValue(Key) {
-  if (Settings.length == 0) Settings = await window.API.GetSettings();
+  if (Settings.length == 0) {
+    Settings = await window.API.GetSettings();
+    refreshNotificationPrefsFromSettings(Settings);
+  }
   let Setting = Settings.find((s) => s.Key === Key);
   if (!Setting) return null;
   return Setting.Value;
@@ -480,6 +524,7 @@ window.API.PlaySound(async (SoundName) => {
 window.API.UpdateSettings(async (NewSettings, NewSettingsGroups) => {
   Settings = NewSettings;
   SettingsGroups = NewSettingsGroups;
+  refreshNotificationPrefsFromSettings(Settings);
 
   $('#SETTINGS').html('');
 
@@ -511,7 +556,7 @@ window.API.UpdateSettings(async (NewSettings, NewSettingsGroups) => {
             Set.Value = NewValue;
             Setting.Value = NewValue;
             await window.API.SetSetting(Setting.Key, NewValue);
-            Notify(
+            notifySettingsChange(
               `[${Setting.Title}] ${NewValue ? 'Enabled' : 'Disabled'}`,
               NewValue ? 'success' : 'error'
             );
@@ -544,7 +589,7 @@ window.API.UpdateSettings(async (NewSettings, NewSettingsGroups) => {
                 Notify(err, 'error');
                 return;
               }
-              Notify(`[${Setting.Title}] set to ${pendingVal}`, 'success');
+              notifySettingsChange(`[${Setting.Title}] set to ${pendingVal}`, 'success');
             } catch (e) {
               Notify(String(e && e.message ? e.message : e), 'error');
             }
@@ -572,7 +617,7 @@ window.API.UpdateSettings(async (NewSettings, NewSettingsGroups) => {
                   return;
                 }
                 Setting.Value = pendingVal;
-                Notify(`[${Setting.Title}] saved as ${pendingVal}`, 'success');
+                notifySettingsChange(`[${Setting.Title}] saved as ${pendingVal}`, 'success');
                 $(`#${saveId}`).prop('disabled', true);
               } catch (e) {
                 Notify(String(e && e.message ? e.message : e), 'error');
@@ -607,7 +652,7 @@ window.API.UpdateSettings(async (NewSettings, NewSettingsGroups) => {
                 Notify(err, 'error');
                 return;
               }
-              Notify(`[${Setting.Title}] updated`, 'success');
+              notifySettingsChange(`[${Setting.Title}] updated`, 'success');
             } catch (e) {
               Notify(String(e && e.message ? e.message : e), 'error');
             }
@@ -634,7 +679,7 @@ window.API.UpdateSettings(async (NewSettings, NewSettingsGroups) => {
                   return;
                 }
                 Setting.Value = pendingVal;
-                Notify(`[${Setting.Title}] saved`, 'success');
+                notifySettingsChange(`[${Setting.Title}] saved`, 'success');
                 $(`#${saveId}`).prop('disabled', true);
               } catch (e) {
                 Notify(String(e && e.message ? e.message : e), 'error');
@@ -673,9 +718,9 @@ async function OpenOSCDictionary() {
   $('#OSC_ROUTE_LIST_MODAL').modal('show');
 }
 
-window.API.Notify(async (Message, Type, Duration) => {
+window.API.Notify(async (Message, Type, Duration, Options) => {
   // Keep toast notifications only
-  Notify(Message, Type, Duration);
+  Notify(Message, Type, Duration, Options);
 });
 
 window.API.SetOSCList(async (Routes) => {
@@ -754,7 +799,9 @@ function ensureToastHost() {
   return host;
 }
 
-async function Notify(Message, Type = 'info', Duration = 5000) {
+async function Notify(Message, Type = 'info', Duration = 5000, Options = null) {
+  const category = Options && Options.category ? String(Options.category).toLowerCase() : null;
+  if (!shouldDisplayNotification(category)) return;
   const host = ensureToastHost();
   const el = document.createElement('div');
   el.className = 'alert-item alert-toast single-line';

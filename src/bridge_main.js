@@ -17,8 +17,8 @@ contextBridge.exposeInMainWorld('API', {
       Callback(SoundName);
     }),
   Notify: (Callback) =>
-    ipcRenderer.on('Notify', (_event, Message, Type, Duration) => {
-      Callback(Message, Type, Duration);
+    ipcRenderer.on('Notify', (_event, Message, Type, Duration, Options) => {
+      Callback(Message, Type, Duration, Options);
     }),
   SetOSCList: (Callback) =>
     ipcRenderer.on('SetOSCList', (_event, Routes) => {
