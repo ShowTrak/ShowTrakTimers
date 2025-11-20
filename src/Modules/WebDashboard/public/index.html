@@ -12,8 +12,22 @@
       body {
         background: transparent !important;
       }
+      body.web-dashboard #APPLICATION {
+        padding-top: 0 !important;
+      }
       #APPLICATION_CONTAINER {
         height: 100vh !important;
+      }
+      .dragbar.dragbar-web {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        -webkit-app-region: auto;
+        cursor: default;
+      }
+      .dragbar.dragbar-web img {
+        width: 18px;
+        height: 18px;
       }
       /* Dashboard grid mimics card spacing of app */
       .dashboard-grid {
@@ -66,7 +80,11 @@
       }
     </style>
   </head>
-  <body>
+  <body class="web-dashboard">
+    <div class="dragbar dragbar-web bg-light d-flex justify-content-center gap-3 align-items-center p-2">
+      <img src="/ui/img/icon.png" alt="ShowTrak Logo" />
+      <span id="APPLICATION_NAVBAR_TITLE">ShowTrak Timers</span>
+    </div>
     <div id="APPLICATION_CONTAINER" class="h-100">
       <div id="APPLICATION" class="container-fluid text-center text-light p-0">
         <div id="APPLICATION_CONTENT" class="p-3 gap-3 flex-wrap">
@@ -114,12 +132,17 @@
                 ? t.State?.RemainingReadable || formatMsReadable(remainingMs)
                 : `${t.State?.ElapsedTimeReadable || '00:00'} / ${t.TotalTimeReadable || '00:00'}`;
 
+            const timerChips = h('div', { class: 'timer-chip-right' }, [
+              h('span', { class: 'TIMER_ID d-none' }, `ID: ${t.ID}`),
+              h('span', { class: 'TIMER_CONTROLS' }, t.Status || ''),
+            ]);
             const card = h(
               'div',
               { class: `SHOWTRAK_TIMER card p-2 ${t.Status || 'STANDBY'}`, id: `TIMER_${t.ID}` },
               [
-                h('h5', { class: 'card-title mb-0' }, t.Name || 'Timer'),
-                h('p', { class: 'card-text mb-0 text-muted' }, line),
+                timerChips,
+                h('h5', { class: 'card-title mb-0 text-start' }, t.Name || 'Timer'),
+                h('p', { class: 'card-text mb-0 text-muted text-start' }, line),
                 h('div', { class: 'progress mt-2' }, [
                   h('div', {
                     class: 'progress-bar bg-light',
@@ -128,8 +151,6 @@
                     id: `TIMER_PROGRESS_${t.ID}`,
                   }),
                 ]),
-                h('span', { class: 'TIMER_CONTROLS' }, t.Status || ''),
-                h('span', { class: 'TIMER_ID' }, `ID: ${t.ID}`),
               ]
             );
             grid.appendChild(card);

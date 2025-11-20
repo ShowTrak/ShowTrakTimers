@@ -35,6 +35,9 @@ function RenderMode(mode) {
     document
       .querySelectorAll('#APPLICATION_CONTENT .overlay-btn.edit-only')
       .forEach((btn) => btn.classList.toggle('d-none', !showEdit));
+    document
+      .querySelectorAll('#APPLICATION_CONTENT .TIMER_ID')
+      .forEach((chip) => chip.classList.toggle('d-none', !showEdit));
   } catch {}
 }
 
@@ -250,6 +253,10 @@ async function ProcessTimer(Timer) {
   if (TimerElement.length === 0) {
     $('#APPLICATION_CONTENT')
       .append(`<div class="SHOWTRAK_TIMER card p-2 ${Timer.Status}" id="TIMER_${Timer.ID}" data-timerid="${Timer.ID}" data-type="${Timer.Type}">
+      <div class="timer-chip-right">
+        <span class="TIMER_ID ${AppMode === 'EDIT' ? '' : 'd-none'}">${Timer.ID}</span>
+        <span class="TIMER_CONTROLS"></span>
+      </div>
 			<h5 class="card-title mb-0"></h5>
 			<p class="card-text mb-0">-</p>
 			<div class="progress mt-2">
@@ -277,10 +284,6 @@ async function ProcessTimer(Timer) {
           </button>
 				</div>
 			</div>
-			<span class="TIMER_CONTROLS"></span>
-			<span class="TIMER_ID">
-				${Timer.ID}
-			<span>
 		</div>`);
     TimerElement = $(`#TIMER_${Timer.ID}`);
     // Wire controls once
@@ -329,7 +332,7 @@ async function ProcessTimer(Timer) {
     if (prev !== next) {
       $bar.css('width', `${next}%`).data('w', next);
     }
-    TimerElement.find('.TIMER_ID').text(`ID: ${Timer.ID}`);
+    TimerElement.find('.TIMER_ID').text(`${Timer.ID}`);
     TimerElement.find('.TIMER_CONTROLS').text(Timer.Status);
   } else if (Timer.Type === 'COUNTDOWN') {
     TimerElement.find('.card-title').text(Timer.Name);
@@ -351,14 +354,14 @@ async function ProcessTimer(Timer) {
     if (prev !== next) {
       $bar.css('width', `${next}%`).data('w', next);
     }
-    TimerElement.find('.TIMER_ID').text(`ID: ${Timer.ID}`);
+    TimerElement.find('.TIMER_ID').text(`${Timer.ID}`);
     TimerElement.find('.TIMER_CONTROLS').text(Timer.Status);
   } else if (Timer.Type === 'STOPWATCH') {
     TimerElement.find('.card-title').text(Timer.Name);
     TimerElement.find('.card-text').eq(0).text(`${Timer.State.ElapsedTimeReadable}`);
     // Stopwatch has no duration target; keep the progress static
     TimerElement.find('.progress').find('.progress-bar').css('width', `0%`);
-    TimerElement.find('.TIMER_ID').text(`ID: ${Timer.ID}`);
+    TimerElement.find('.TIMER_ID').text(`${Timer.ID}`);
     TimerElement.find('.TIMER_CONTROLS').text(Timer.Status);
   }
 
@@ -395,6 +398,7 @@ async function ProcessTimer(Timer) {
   // Show edit cog only in EDIT application mode
   const showEdit = AppMode === 'EDIT';
   $(`#TIMER_CTRL_CONTAINER_${Timer.ID} button.overlay-btn.edit-only`).toggleClass('d-none', !showEdit);
+  $(`#TIMER_${Timer.ID} .TIMER_ID`).toggleClass('d-none', !showEdit);
 }
 
 async function Start(TimerID) {
