@@ -9,14 +9,50 @@
     <link rel="stylesheet" type="text/css" href="/ui/vendors/toastify/index.min.css" />
     <link rel="stylesheet" href="/ui/css/main.css" />
     <style>
+      html,
+      body {
+        height: 100%;
+      }
       body {
         background: transparent !important;
       }
-      body.web-dashboard #APPLICATION {
-        padding-top: 0 !important;
+      /* Web dashboard layout: keep gradient full height and constrain scroll */
+      body.web-dashboard {
+        min-height: 100vh;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        background: #0c091c;
+        overflow: hidden;
       }
-      #APPLICATION_CONTAINER {
-        height: 100vh !important;
+      body.web-dashboard .dragbar.dragbar-web {
+        flex: 0 0 auto;
+      }
+      body.web-dashboard #APPLICATION_CONTAINER {
+        position: static;
+        width: 100%;
+        height: auto !important;
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        background: radial-gradient(circle at 50% 80%, #151232 0%, #0c091c 100%) !important;
+      }
+      body.web-dashboard #APPLICATION {
+        flex: 1 1 auto;
+        min-height: 0;
+        height: auto !important;
+        padding-top: 0 !important;
+        display: flex;
+        flex-direction: column;
+      }
+      body.web-dashboard #APPLICATION_CONTENT {
+        flex: 1 1 auto;
+        min-height: 0;
+        width: 100%;
+        overflow-y: auto;
+        overflow-x: hidden;
       }
       .dragbar.dragbar-web {
         position: sticky;
@@ -34,6 +70,8 @@
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
+        align-items: flex-start;
+        align-content: flex-start;
         gap: 12px;
       }
       .badge {
