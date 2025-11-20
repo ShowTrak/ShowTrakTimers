@@ -64,27 +64,30 @@
         -webkit-app-region: auto;
         cursor: default;
       }
+      .dragbar.dragbar-web {
+        padding: 0.5rem 1rem;
+        gap: 0.5rem;
+      }
       .dragbar.dragbar-web img {
         width: 18px;
         height: 18px;
       }
-      .status-banner {
-        margin-bottom: 0;
-        position: relative;
+      .dragbar.dragbar-web .branding {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-align: left;
       }
-      .status-banner .card-title {
-        font-size: 0.95rem;
-        letter-spacing: 0.02em;
+      .connection-status-text {
+        font-size: 0.85rem;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: rgba(255, 255, 255, 0.75);
       }
-      .status-banner .timer-chip-right {
-        top: 50%;
-        transform: translateY(-50%);
+      .connection-status-text.status-online {
+        color: #0de2a4;
       }
-      .status-banner .TIMER_CONTROLS {
-        font-size: 0.8rem;
-        height: 26px;
+      .connection-status-text.status-offline {
+        color: #ff5a5a;
       }
       /* Dashboard grid mimics card spacing of app */
       .dashboard-grid {
@@ -95,12 +98,12 @@
         align-content: flex-start;
         gap: 12px;
       }
-      .dashboard-grid.offline .SHOWTRAK_TIMER:not(#connection-status) {
+      .dashboard-grid.offline .SHOWTRAK_TIMER {
         opacity: 0.35;
         filter: grayscale(1);
         pointer-events: none;
       }
-      .dashboard-grid.offline .SHOWTRAK_TIMER:not(#connection-status) .progress-bar {
+      .dashboard-grid.offline .SHOWTRAK_TIMER .progress-bar {
         background-color: rgba(255, 255, 255, 0.2);
       }
       .badge {
@@ -148,26 +151,22 @@
     </style>
   </head>
   <body class="web-dashboard">
-    <div class="dragbar dragbar-web bg-light d-flex justify-content-center gap-3 align-items-center p-2">
-      <img src="/ui/img/icon.png" alt="ShowTrak Logo" />
-      <span id="APPLICATION_NAVBAR_TITLE">ShowTrak Timers</span>
+    <div class="dragbar dragbar-web bg-light d-flex align-items-center justify-content-between">
+      <div class="branding">
+        <img src="/ui/img/icon.png" alt="ShowTrak Logo" />
+        <span id="APPLICATION_NAVBAR_TITLE">ShowTrak Timers</span>
+      </div>
+      <span
+        id="connection-status-badge"
+        class="connection-status-text status-offline"
+        role="status"
+        aria-live="polite"
+      >Offline</span>
     </div>
     <div id="APPLICATION_CONTAINER" class="h-100">
       <div id="APPLICATION" class="container-fluid text-center text-light p-0">
         <div id="APPLICATION_CONTENT" class="p-3 gap-3 flex-wrap">
-          <div id="grid" class="dashboard-grid w-100">
-            <div
-              id="connection-status"
-              class="SHOWTRAK_TIMER card p-2 status-banner d-none"
-              role="status"
-            >
-              <div class="timer-chip-right">
-                <span class="TIMER_ID d-none" id="connection-status-label">LIVE</span>
-                <span class="TIMER_CONTROLS" id="connection-status-chip">Offline</span>
-              </div>
-              <h5 class="card-title mb-0 text-start" id="connection-status-title">Connection Status</h5>
-            </div>
-          </div>
+          <div id="grid" class="dashboard-grid w-100"></div>
         </div>
       </div>
     </div>
@@ -175,20 +174,16 @@
     <script src="/socket.io/socket.io.js"></script>
     <script>
       const grid = document.getElementById('grid');
-      const statusBanner = document.getElementById('connection-status');
-      const statusChip = document.getElementById('connection-status-chip');
-      const statusTitle = document.getElementById('connection-status-title');
+      const statusBadge = document.getElementById('connection-status-badge');
       const LOCAL_STORAGE_KEY = 'showtrak:dashboard:lastTimers';
-      const STATUS_BASE_CLASS = 'SHOWTRAK_TIMER card p-2 status-banner';
       const STATUS_CLASS = {
-        connected: 'RUNNING',
-        offline: 'PAUSED',
+        connected: 'connection-status-text status-online',
+        offline: 'connection-status-text status-offline',
       };
       const STATUS_CHIP = {
         connected: 'Connected',
         offline: 'Offline',
       };
-      const STATUS_TITLE_TEXT = 'Connection Status';
       let isSocketConnected = false;
 
       if (grid) {
@@ -209,23 +204,16 @@
       }
 
       function setStatus(state, message) {
-        if (!statusBanner) return;
+        if (!statusBadge) return;
         if (!message) {
-          statusBanner.classList.add('d-none');
+          statusBadge.classList.add('d-none');
           return;
         }
         const variant = STATUS_CLASS[state] || STATUS_CLASS.offline;
-        statusBanner.className = `${STATUS_BASE_CLASS} ${variant}`;
-        if (statusTitle) {
-          statusTitle.textContent = STATUS_TITLE_TEXT;
-        }
-        if (statusChip) {
-          statusChip.textContent = STATUS_CHIP[state] || 'Offline';
-        }
-        if (statusBanner) {
-          statusBanner.setAttribute('aria-label', message || 'Connection status');
-        }
-        statusBanner.classList.remove('d-none');
+        statusBadge.className = variant;
+        statusBadge.textContent = STATUS_CHIP[state] || 'Offline';
+        statusBadge.setAttribute('aria-label', message || 'Connection status');
+        statusBadge.classList.remove('d-none');
       }
 
       function toggleTimerGreyout(isOnline) {
@@ -264,9 +252,6 @@
 
       function render(timers) {
         grid.innerHTML = '';
-        if (statusBanner) {
-          grid.appendChild(statusBanner);
-        }
         if (!timers || timers.length === 0) {
           grid.appendChild(
             h('div', { class: 'text-muted w-100 text-center py-4' }, 'No timers available yet.')
