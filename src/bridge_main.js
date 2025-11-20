@@ -20,6 +20,10 @@ contextBridge.exposeInMainWorld('API', {
     ipcRenderer.on('Notify', (_event, Message, Type, Duration, Options) => {
       Callback(Message, Type, Duration, Options);
     }),
+  OnWebDashboardClientCount: (Callback) =>
+    ipcRenderer.on('WebDashboard:ClientCount', (_event, Count) => {
+      Callback(Count);
+    }),
   SetOSCList: (Callback) =>
     ipcRenderer.on('SetOSCList', (_event, Routes) => {
       Callback(Routes);

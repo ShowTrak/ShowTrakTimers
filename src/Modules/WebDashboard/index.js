@@ -22,6 +22,29 @@ let emitTimer = null;
 let pendingPayload = null;
 const EMIT_MIN_INTERVAL_MS = 400;
 
+const getActiveClientCount = () => {
+  if (!io) return 0;
+  if (io.sockets?.sockets?.size != null) {
+    return io.sockets.sockets.size;
+  }
+  if (typeof io.engine?.clientsCount === 'number') {
+    return io.engine.clientsCount;
+  }
+  return 0;
+};
+
+const broadcastClientCount = (target = io) => {
+  const count = getActiveClientCount();
+  if (target && typeof target.emit === 'function') {
+    target.emit('clients:count', { count });
+  }
+  try {
+    Broadcast.emit('WebDashboard:ClientCount', count);
+  } catch (_e) {
+    // ignore broadcast errors
+  }
+};
+
 Manager.Start = async () => {
   try {
     const enabled = await Settings.GetValue('WEB_ENABLE_DASHBOARD');
@@ -64,8 +87,16 @@ Manager.Start = async () => {
         socket.emit('timers:update', SanitizeTimers(timers));
       } catch (err) {
         Logger.error('Failed to send initial timers:', err);
+      } finally {
+        broadcastClientCount();
       }
+
+      socket.on('disconnect', () => {
+        setTimeout(broadcastClientCount, 0);
+      });
     });
+
+    broadcastClientCount();
 
     // Relay internal broadcast updates to web clients
     const handleTimersUpdated = async () => {
@@ -168,6 +199,11 @@ Manager.Stop = async () => {
     app = null;
     server = null;
     started = false;
+    try {
+      Broadcast.emit('WebDashboard:ClientCount', 0);
+    } catch (_e) {
+      // ignore
+    }
     return [null, true];
   } catch (err) {
     return [String(err && err.message ? err.message : err), null];
@@ -181,7 +217,8 @@ function SanitizeTimers(timers) {
     const isStopwatch = t.Type === 'STOPWATCH';
     const elapsed = Number(t.State?.ElapsedTime || 0);
     const duration = isStopwatch ? null : coerceDurationMs(t.Duration);
-    const remainingMs = isStopwatch || !Number.isFinite(duration) ? null : Math.max(0, duration - elapsed);
+    const remainingMs =
+      isStopwatch || !Number.isFinite(duration) ? null : Math.max(0, duration - elapsed);
     return {
       ID: t.ID,
       Weight: Number.isFinite(t.Weight) ? t.Weight : null,

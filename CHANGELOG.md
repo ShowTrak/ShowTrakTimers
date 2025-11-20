@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [1.1.1] - 2025-08-16
 
 ### Added
+
 - Application mode (SHOW | EDIT) with toolbar buttons and IPC (Mode:Get/Set); edit-only controls are visible only in EDIT.
 - Empty state for first-run with quick actions to create a timer or open Settings.
 - “Create and edit” flow for new timers from the + button.
@@ -15,6 +16,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Settings UI for INTEGER and TEXT types with optional Save buttons and debounced apply.
 
 ### Changed
+
 - Timer cards: stable overlay controls with no layout shift; progress and status updates refined.
 - More efficient UI updates: throttled timer list pushes from main process to reduce jank.
 - Improved reconciliation of removed timers in the DOM.
@@ -22,17 +24,20 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - OSC server lifecycle hardened with clearer success and error toasts and logs.
 
 ### Removed
+
 - Backup/Import configuration feature (server-only); IPC and UI hooks removed.
 - Unused modules deleted: BackupManager, FileSelectorManager, UUID, OS.
 - Unused dependencies pruned from package.json (bonjour-service, checksum, uuid, wakeonlan).
 
 ### Fixed
+
 - Numerous lint cleanups (no-empty, unused vars) and minor robustness improvements around try/catch.
 - Stability improvements around shutdown, notifications, and window initialization.
 
 ## [1.1.0] - 2025-08-16 — Initial release
 
 ### Added
+
 - Electron desktop app with single-instance enforcement and graceful shutdown.
 - Preloader and main window for a responsive startup flow.
 - Timers management:

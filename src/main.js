@@ -40,9 +40,7 @@ function refreshNotificationPrefs(settingsList) {
   if (!Array.isArray(settingsList)) return;
   try {
     const map = new Map(settingsList.map((s) => [s.Key, s.Value]));
-    NotificationPrefs[NotificationCategories.SETTINGS_CHANGE] = map.has(
-      'NOTIFY_SETTINGS_CHANGES'
-    )
+    NotificationPrefs[NotificationCategories.SETTINGS_CHANGE] = map.has('NOTIFY_SETTINGS_CHANGES')
       ? !!map.get('NOTIFY_SETTINGS_CHANGES')
       : true;
     NotificationPrefs[NotificationCategories.OSC_DEBUG] = map.has('NOTIFY_OSC_DEBUG')
@@ -446,6 +444,19 @@ async function HandleUpdateTimerList(Timers) {
 }
 
 BroadcastManager.on('TimersUpdated', HandleUpdateTimerList);
+
+function ForwardWebClientCount(count) {
+  if (!MainWindow || MainWindow.isDestroyed()) return;
+  const normalized = Number(count);
+  const safeCount = Number.isFinite(normalized) && normalized >= 0 ? normalized : -1;
+  try {
+    MainWindow.webContents.send('WebDashboard:ClientCount', safeCount);
+  } catch (_e) {
+    // ignore
+  }
+}
+
+BroadcastManager.on('WebDashboard:ClientCount', ForwardWebClientCount);
 
 // Restart the web dashboard when settings change (debounced)
 let webDashRestartTimer = null;

@@ -20,9 +20,7 @@ function refreshNotificationPrefsFromSettings(settingsList) {
   if (!Array.isArray(settingsList)) return;
   try {
     const map = new Map(settingsList.map((s) => [s.Key, s.Value]));
-    NotificationPrefs[NotificationCategories.SETTINGS_CHANGE] = map.has(
-      'NOTIFY_SETTINGS_CHANGES'
-    )
+    NotificationPrefs[NotificationCategories.SETTINGS_CHANGE] = map.has('NOTIFY_SETTINGS_CHANGES')
       ? !!map.get('NOTIFY_SETTINGS_CHANGES')
       : true;
     NotificationPrefs[NotificationCategories.OSC_DEBUG] = map.has('NOTIFY_OSC_DEBUG')
@@ -45,6 +43,23 @@ function shouldDisplayNotification(category) {
 
 function notifySettingsChange(message, type = 'success', duration = 2500) {
   Notify(message, type, duration, { category: NotificationCategories.SETTINGS_CHANGE });
+}
+
+function updateRemoteClientCount(count) {
+  const indicator = document.getElementById('REMOTE_CLIENT_COUNT');
+  if (!indicator) return;
+  const valueEl = indicator.querySelector('.count-value');
+  const normalized = Number(count);
+  const hasValue = Number.isFinite(normalized) && normalized > 0;
+  const displayText = hasValue ? String(normalized) : '--';
+  if (valueEl) valueEl.textContent = displayText;
+  indicator.classList.toggle('d-none', !hasValue);
+  if (!hasValue) {
+    indicator.setAttribute('aria-label', 'Remote web client count unavailable');
+    return;
+  }
+  const noun = normalized === 1 ? 'remote web client' : 'remote web clients';
+  indicator.setAttribute('aria-label', `${displayText} ${noun} connected`);
 }
 
 // --- Application Mode (SHOW | EDIT) UI state ---
@@ -87,6 +102,14 @@ if (window.API && typeof window.API.OnModeUpdated === 'function') {
   try {
     window.API.OnModeUpdated((mode) => {
       RenderMode(mode);
+    });
+  } catch {}
+}
+
+if (window.API && typeof window.API.OnWebDashboardClientCount === 'function') {
+  try {
+    window.API.OnWebDashboardClientCount((count) => {
+      updateRemoteClientCount(count);
     });
   } catch {}
 }
@@ -138,6 +161,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   } else {
     RenderMode('SHOW');
   }
+
+  updateRemoteClientCount(null);
 
   // Keyboard shortcuts (only K for shortcuts modal retained)
   document.addEventListener('keydown', (e) => {
@@ -380,10 +405,14 @@ async function ProcessTimer(Timer) {
     const elapsedMs = Number(Timer.State?.ElapsedTime || 0);
     const durationMs = typeof Timer.Duration === 'number' ? Timer.Duration : null;
     const remainingMs =
-      durationMs == null || !Number.isFinite(durationMs) ? null : Math.max(0, durationMs - elapsedMs);
+      durationMs == null || !Number.isFinite(durationMs)
+        ? null
+        : Math.max(0, durationMs - elapsedMs);
     const remainingText =
       Timer.State?.CountdownRemainingReadable ||
-      (remainingMs == null ? Timer.State?.ElapsedTimeReadable || '00:00' : formatMsToHMS(remainingMs));
+      (remainingMs == null
+        ? Timer.State?.ElapsedTimeReadable || '00:00'
+        : formatMsToHMS(remainingMs));
     TimerElement.find('.card-text').eq(0).text(remainingText);
     let pct = 0;
     if (Number.isFinite(durationMs) && durationMs > 0 && remainingMs != null) {
@@ -438,7 +467,10 @@ async function ProcessTimer(Timer) {
 
   // Show edit cog only in EDIT application mode
   const showEdit = AppMode === 'EDIT';
-  $(`#TIMER_CTRL_CONTAINER_${Timer.ID} button.overlay-btn.edit-only`).toggleClass('d-none', !showEdit);
+  $(`#TIMER_CTRL_CONTAINER_${Timer.ID} button.overlay-btn.edit-only`).toggleClass(
+    'd-none',
+    !showEdit
+  );
   $(`#TIMER_${Timer.ID} .TIMER_ID`).toggleClass('d-none', !showEdit);
 }
 
@@ -483,7 +515,8 @@ async function MoveTimer(TimerID, Direction) {
     const [err, moved] = await window.API.TimerMove(TimerID, Direction);
     if (err) throw new Error(err);
     if (!moved) {
-      const message = Direction === 'UP' ? 'Timer is already at the top' : 'Timer is already at the bottom';
+      const message =
+        Direction === 'UP' ? 'Timer is already at the top' : 'Timer is already at the bottom';
       Notify(message, 'info', 1500);
     }
   } catch (e) {
@@ -924,7 +957,8 @@ async function OpenTimerEditModal(TimerID) {
     $('#TIMER_EDIT_NAME').val(timer.Name || '');
     const durationText =
       timer.Type === 'STOPWATCH' || timer.Duration == null ? '' : formatMsToHMS(timer.Duration);
-    const modalType = timer.Type === 'COUNTDOWN' ? 'COUNTDOWN' : timer.Type === 'STOPWATCH' ? 'STOPWATCH' : 'TIMER';
+    const modalType =
+      timer.Type === 'COUNTDOWN' ? 'COUNTDOWN' : timer.Type === 'STOPWATCH' ? 'STOPWATCH' : 'TIMER';
     $('#TIMER_EDIT_TYPE').val(modalType);
     $('#TIMER_EDIT_DURATION').val(durationText);
     $('#TIMER_EDIT_SHOWONWEB').prop('checked', timer.ShowOnWeb == null ? true : !!timer.ShowOnWeb);

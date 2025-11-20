@@ -46,7 +46,10 @@ async function ensureWeightIntegrity(rows) {
   for (let idx = 0; idx < rows.length; idx++) {
     const desired = idx + 1;
     if (rows[idx].Weight !== desired) {
-      const [err] = await DB.Run('UPDATE Timers SET Weight = ? WHERE ID = ?', [desired, rows[idx].ID]);
+      const [err] = await DB.Run('UPDATE Timers SET Weight = ? WHERE ID = ?', [
+        desired,
+        rows[idx].ID,
+      ]);
       if (err) {
         Logger.warn('Failed to normalize timer weight', err);
       } else {
@@ -177,9 +180,15 @@ Manager.Move = async (ID, Direction) => {
   const currentWeight = current.Weight;
   const neighborWeight = neighbor.Weight;
 
-  const [errSwapCurrent] = await DB.Run('UPDATE Timers SET Weight = ? WHERE ID = ?', [neighborWeight, current.ID]);
+  const [errSwapCurrent] = await DB.Run('UPDATE Timers SET Weight = ? WHERE ID = ?', [
+    neighborWeight,
+    current.ID,
+  ]);
   if (errSwapCurrent) return [errSwapCurrent, null];
-  const [errSwapNeighbor] = await DB.Run('UPDATE Timers SET Weight = ? WHERE ID = ?', [currentWeight, neighbor.ID]);
+  const [errSwapNeighbor] = await DB.Run('UPDATE Timers SET Weight = ? WHERE ID = ?', [
+    currentWeight,
+    neighbor.ID,
+  ]);
   if (errSwapNeighbor) return [errSwapNeighbor, null];
 
   current.Weight = neighborWeight;
@@ -205,7 +214,16 @@ Manager.Create = async (
   const Weight = await getNextWeight();
   let [Err, Res] = await DB.Run(
     `INSERT INTO Timers (Type, Name, Description, Duration, Weight, TextAlert, AudioAlert, ShowOnWeb) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [normalizedType, Name, Description, normalizedDuration, Weight, TextAlert, AudioAlert, ShowOnWeb ? 1 : 0]
+    [
+      normalizedType,
+      Name,
+      Description,
+      normalizedDuration,
+      Weight,
+      TextAlert,
+      AudioAlert,
+      ShowOnWeb ? 1 : 0,
+    ]
   );
   if (Err) {
     Logger.error('Failed to create timer:', Err);

@@ -181,12 +181,33 @@
 }
 #APP_BOTTOM_BAR .bar-section.center {
   justify-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 #APP_BOTTOM_BAR .bar-section.right {
   justify-self: end;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+#APP_BOTTOM_BAR .client-count-pill {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.88);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 700;
+}
+
+#APP_BOTTOM_BAR .client-count-pill .count-value {
+  display: inline-block;
+  min-width: 1.5rem;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Ensure left section content is vertically centered in the bar */
