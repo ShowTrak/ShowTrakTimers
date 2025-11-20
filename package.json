@@ -13,6 +13,9 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier \"**/*.{js,mjs,cjs,css,md,json,html}\" --write",
     "format:check": "prettier \"**/*.{js,mjs,cjs,css,md,json,html}\" --check",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "prepare": "husky",
     "postinstall": "node scripts/copy-bootstrap-icons.js"
   },
@@ -46,12 +49,14 @@
     "@eslint/js": "^9.31.0",
     "@eslint/json": "^0.13.0",
     "@eslint/markdown": "^7.0.0",
+    "@vitest/coverage-v8": "^3.0.4",
     "electron": "^35.7.0",
     "eslint": "^9.31.0",
     "eslint-config-prettier": "^9.1.2",
     "globals": "^16.3.0",
     "husky": "^9.1.7",
-    "prettier": "^3.6.2"
+    "prettier": "^3.6.2",
+    "vitest": "^3.0.4"
   },
   "dependencies": {
     "bootstrap-icons": "^1.11.3",
