@@ -108,6 +108,7 @@ function Populate(Timer: TimerView): void {
   $('#TIMER_EDITOR_TYPE').val(Timer.Type);
   $('#TIMER_EDITOR_DURATION').val(FormatDurationInput(Timer.Duration)).removeClass('is-invalid');
   $('#TIMER_EDITOR_SHOWONWEB').prop('checked', Timer.ShowOnWeb);
+  $('#TIMER_EDITOR_HUNDREDTHS').prop('checked', Timer.ShowHundredths);
   $('#TIMER_EDITOR_END_BEHAVIOUR').html(
     END_BEHAVIOURS.map(
       (Value) => `<option value="${Value}">${Safe(END_BEHAVIOUR_LABELS[Value])}</option>`
@@ -184,6 +185,9 @@ export function InitTimerEditor(): void {
   });
   $('#TIMER_EDITOR_SHOWONWEB').on('change', function () {
     void Save({ ShowOnWeb: $(this).is(':checked') });
+  });
+  $('#TIMER_EDITOR_HUNDREDTHS').on('change', function () {
+    void Save({ ShowHundredths: $(this).is(':checked') });
   });
   $('#TIMER_EDITOR_END_BEHAVIOUR').on('change', function () {
     void Save({ EndBehaviour: String($(this).val()) as TimerView['EndBehaviour'] });

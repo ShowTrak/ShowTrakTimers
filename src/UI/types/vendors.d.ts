@@ -73,6 +73,7 @@ interface JQuery<TElement = HTMLElement> {
 
 interface DashboardSocket {
   on(event: string, handler: (...args: never[]) => void): DashboardSocket;
+  emit(event: string, ...args: unknown[]): DashboardSocket;
   io: { on(event: string, handler: (...args: never[]) => void): void };
   connect(): DashboardSocket;
   connected: boolean;

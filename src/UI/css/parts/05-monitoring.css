@@ -46,6 +46,206 @@
   );
 }
 
+/* ------------------------------------------------------------------------- */
+/* Web UI capability chrome                                                   */
+/* The shared renderer runs on both the Electron desktop app and the browser  */
+/* Web UI. `body.is-web` is set only on the browser surface (by web-main.ts). */
+/* ------------------------------------------------------------------------- */
+/* Web-only overlays are completely inert on the desktop. */
+body:not(.is-web) .web-overlay {
+  display: none !important;
+}
+
+/* Safari (desktop toolbar + mobile status bar) tints its chrome to the page's
+   root background colour, NOT to <meta name="theme-color"> (that only applies to
+   an installed PWA). With no colour set on html/body the root defaults to white,
+   so the logged-in toolbar reads white. The login overlay avoids this because it
+   is a fixed full-viewport dark element. Paint the web surface's root purple so
+   Safari samples the accent; the app's own dark gradient (#APPLICATION_CONTAINER)
+   still fills the content area on top of it. */
+body.is-web,
+html:has(body.is-web) {
+  background: #160f35 !important;
+}
+
+/* Desktop-only chrome hidden on the web: navbar/dragbar, the cogs (settings)
+   menu and the show file menu. Mode/alerts toggles stay visible as read-only state. */
+body.is-web .dragbar,
+body.is-web #SETTINGS_MENU_DROPDOWN {
+  display: none !important;
+}
+
+/* Web surface shows current SHOW/EDIT + ALERTS state, but cannot change it. */
+body.is-web .mode-group .st-segmented-toggle-btn:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+  opacity: 1;
+}
+
+.web-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  /* Match the app shell backdrop: the same dark-indigo radial gradient. */
+  background: var(--app-bg-gradient);
+}
+
+.web-overlay-card {
+  width: min(360px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 24px;
+  border-radius: var(--panel-r);
+  background: var(--surface-2);
+  border: 0;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  color: #f2f4f7;
+  text-align: center;
+}
+
+.web-login-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+}
+
+.web-overlay-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.web-overlay-text {
+  font-size: var(--fs-lg);
+  color: #aab2bd;
+}
+
+.web-login-error {
+  font-size: var(--fs-lg);
+  color: var(--danger-text);
+  width: 100%;
+  min-height: 1.1em;
+}
+
+/* -------------------------------------------------------------------------
+   Web passcode screen: dot indicators + numeric keypad
+   ------------------------------------------------------------------------- */
+/* The login screen sits directly on the overlay's purple gradient: no card
+   backdrop, border, or shadow (unlike the loading / disabled overlays). */
+.web-login-card {
+  width: min(320px, 100%);
+  gap: 16px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 24px;
+}
+
+.web-pin-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 16px;
+  margin: 4px 0 2px;
+}
+
+.web-pin-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  background: transparent;
+  transition:
+    transform 0.12s ease,
+    background-color 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.web-pin-dot.is-filled {
+  background: #f2f4f7;
+  border-color: #f2f4f7;
+  transform: scale(1.05);
+}
+
+/* Placeholder ring shown when no digits have been entered yet. */
+.web-pin-dots.is-empty .web-pin-dot {
+  animation: none;
+}
+
+.web-pin-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.web-pin-key {
+  appearance: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.05);
+  color: #f2f4f7;
+  font-size: 1.35rem;
+  font-weight: 500;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  /* Disable double-tap-to-zoom on the keys (mobile): a fast second tap should
+     enter another digit, not zoom the viewport. */
+  touch-action: manipulation;
+  transition:
+    background-color 0.12s ease,
+    transform 0.06s ease,
+    border-color 0.12s ease;
+}
+
+.web-pin-key:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.web-pin-key:active {
+  transform: scale(0.94);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.web-pin-key:focus-visible {
+  outline: 2px solid rgba(140, 120, 255, 0.8);
+  outline-offset: 2px;
+}
+
+/* Icon keys (backspace) share the number-key surface; only the glyph is a touch
+   smaller than the digits. */
+.web-pin-key-icon {
+  font-size: 1.1rem;
+}
+
+.web-pin-key-enter {
+  color: #ffffff;
+  background: linear-gradient(180deg, #6d5bd0, #5942b8);
+  border-color: var(--border-default);
+}
+
+.web-pin-key-enter:hover {
+  background: linear-gradient(180deg, #7a68dd, #6650c8);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.web-pin-key-enter:active {
+  background: linear-gradient(180deg, #5942b8, #4a37a0);
+}
+
 /* =========================================================================
    Mobile / narrow-viewport layout (body.mobile-view)
    -------------------------------------------------------------------------

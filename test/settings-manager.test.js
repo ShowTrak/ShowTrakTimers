@@ -484,3 +484,30 @@ test('the Options and ShowWhen lists returned are copies too', async (t) => {
   const [, Setting] = await Manager.Set('CHOICE', 'Ludicrous');
   assert.equal(Setting.Value, 'Medium');
 });
+
+// --- Secrets --------------------------------------------------------------------
+
+test('the Web Dashboard passcode never reaches the log file', async (t) => {
+  const Logger = require('../dist/Modules/Logger');
+  const { Manager: AppData } = require('../dist/Modules/AppData');
+  const Defs = [
+    {
+      Group: 'G',
+      Key: 'WEB_DASHBOARD_PASSWORD',
+      Title: 'Passcode',
+      Description: '',
+      Type: 'STRING',
+      DefaultValue: '',
+    },
+  ];
+  const { Manager } = await Setup(t, { Defs });
+  await Manager.Set('WEB_DASHBOARD_PASSWORD', '4821');
+  await Logger.flushLogWrites();
+  const Dir = AppData.GetLogsDirectory();
+  const Text = require('node:fs')
+    .readdirSync(Dir)
+    .map((Name) => require('node:fs').readFileSync(require('node:path').join(Dir, Name), 'utf8'))
+    .join('\n');
+  assert.match(Text, /WEB_DASHBOARD_PASSWORD updated to \(hidden\)/);
+  assert.doesNotMatch(Text, /4821/);
+});

@@ -259,6 +259,11 @@ code,
   font-weight: 700;
 }
 
+/* No dragbar on the web surface, so drop the space reserved for it */
+body.is-web #APPLICATION {
+  padding-top: 0 !important;
+}
+
 #APPLICATION_NAVBAR_TITLE {
   color: var(--text-strong);
 }

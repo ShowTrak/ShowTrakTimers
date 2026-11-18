@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>ShowTrak Timers</title>
-    <meta name="theme-color" content="#0c091c" />
+    <meta name="theme-color" content="#160c06" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" href="/ui/img/icon.png" />
@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="/ui/vendors/bootstrap-icons/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="/ui/css/main.css" />
   </head>
-  <body class="web-dashboard">
+  <body class="web-dashboard is-web">
     <header class="dashboard-bar">
       <div class="dashboard-bar-brand">
         <img src="/ui/img/icon.png" alt="" />
@@ -34,6 +34,50 @@
         </div>
       </div>
     </main>
+    <!-- Passcode screen, as ShowTrak Server's Web UI login (dashboard-main.ts). -->
+    <div id="WEB_LOGIN_OVERLAY" class="web-overlay d-none">
+      <div class="web-overlay-card web-login-card">
+        <img src="/ui/img/icon.png" alt="ShowTrak" class="web-login-logo" />
+        <div class="web-overlay-title">ShowTrak Timers</div>
+        <div class="web-overlay-text">Enter the passcode to continue.</div>
+        <div
+          id="WEB_LOGIN_DOTS"
+          class="web-pin-dots"
+          role="status"
+          aria-live="polite"
+          aria-label="Passcode digits entered"
+        ></div>
+        <div id="WEB_LOGIN_ERROR" class="web-login-error d-none"></div>
+        <div id="WEB_LOGIN_PAD" class="web-pin-pad">
+          <button type="button" class="web-pin-key" data-key="1">1</button>
+          <button type="button" class="web-pin-key" data-key="2">2</button>
+          <button type="button" class="web-pin-key" data-key="3">3</button>
+          <button type="button" class="web-pin-key" data-key="4">4</button>
+          <button type="button" class="web-pin-key" data-key="5">5</button>
+          <button type="button" class="web-pin-key" data-key="6">6</button>
+          <button type="button" class="web-pin-key" data-key="7">7</button>
+          <button type="button" class="web-pin-key" data-key="8">8</button>
+          <button type="button" class="web-pin-key" data-key="9">9</button>
+          <button
+            type="button"
+            class="web-pin-key web-pin-key-icon"
+            data-action="backspace"
+            aria-label="Delete last digit"
+          >
+            <i class="bi bi-backspace"></i>
+          </button>
+          <button type="button" class="web-pin-key" data-key="0">0</button>
+          <button
+            type="button"
+            class="web-pin-key web-pin-key-enter"
+            data-action="submit"
+            aria-label="Unlock"
+          >
+            <i class="bi bi-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
     <script src="/socket.io/socket.io.js" defer></script>
     <script src="/dashboard.js" defer></script>
   </body>

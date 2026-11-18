@@ -37,7 +37,7 @@ export function WriteCachedTimers(Storage: StorageLike | null, Timers: unknown[]
 /** The subset of a dashboard payload entry the page needs to draw a tile. */
 export type DashboardTimerLike = Pick<
   TimerView,
-  'ID' | 'Name' | 'Type' | 'Duration' | 'Status' | 'ElapsedMs' | 'Warning'
+  'ID' | 'Name' | 'Type' | 'Duration' | 'Status' | 'ElapsedMs' | 'Warning' | 'ShowHundredths'
 > &
   Partial<Pick<TimerView, 'Weight'>>;
 
@@ -63,6 +63,7 @@ export function NormalizeDashboardTimer(Value: Record<string, unknown>): Dashboa
     Status: String(Value.Status || 'STANDBY') as TimerView['Status'],
     ElapsedMs: Number.isFinite(Elapsed) ? Elapsed : 0,
     Warning: Value.Warning === true,
+    ShowHundredths: Value.ShowHundredths === true,
     // Only when there is one: an absent weight stays absent.
     ...(Value.Weight !== undefined && Number.isFinite(Weight) ? { Weight } : {}),
   };

@@ -96,6 +96,7 @@ test('a timer carries every 1.x field, plus the 2.0 additions, and nothing inter
       EndBehaviour: 'OVERRUN',
       ElapsedMs: 61500,
       Warning: true,
+      ShowHundredths: true,
     }),
   ]);
   assert.deepEqual(Sent, {
@@ -110,6 +111,7 @@ test('a timer carries every 1.x field, plus the 2.0 additions, and nothing inter
     EndBehaviour: 'OVERRUN',
     ElapsedMs: 61500,
     Warning: true,
+    ShowHundredths: true,
     State: {
       ElapsedTime: 61500,
       ElapsedTimeReadable: '01:01',

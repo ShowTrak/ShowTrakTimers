@@ -1,7 +1,7 @@
 // Web Dashboard entry point (bundled into WebDashboard/dashboard.js): a
 // read-only grid of timers, drawn with the same tile model as the desktop app
 // and animated locally between pushes.
-import { Anchor, ElapsedAt, type AnchoredTimer } from './lib/anchor';
+import { Anchor, ElapsedAt, PaintInterval, type AnchoredTimer } from './lib/anchor';
 import { BuildTileModel } from './lib/timer-tile';
 import {
   NormalizeDashboardTimer,
@@ -10,8 +10,6 @@ import {
   type DashboardTimerLike,
 } from './lib/dashboard-cache';
 import type { TimerView } from '../../../common/timers';
-
-const PAINT_INTERVAL_MS = 100;
 
 let Anchored: AnchoredTimer<DashboardTimerLike>[] = [];
 let Online = false;
@@ -87,7 +85,7 @@ function RequestFrame(): void {
   FrameRequested = true;
   requestAnimationFrame(() => {
     FrameRequested = false;
-    if (performance.now() - LastPaint >= PAINT_INTERVAL_MS) Paint();
+    if (performance.now() - LastPaint >= PaintInterval(Anchored.map((A) => A.Timer))) Paint();
     if (Ticking()) RequestFrame();
   });
 }
@@ -121,8 +119,155 @@ function SetOnline(Value: boolean): void {
 Render(ReadCachedTimers(Storage));
 SetOnline(false);
 
+// --- Passcode (as ShowTrak Server's Web UI login) -----------------------------
+
+const PASSCODE_KEY = 'showtrak-timers:dashboard:passcode';
+const PIN_LENGTH = 4;
+let Pin = '';
+let Socket: DashboardSocket | null = null;
+
+function Stored(): string | null {
+  try {
+    return window.localStorage.getItem(PASSCODE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function Store(Value: string | null): void {
+  try {
+    if (Value === null) window.localStorage.removeItem(PASSCODE_KEY);
+    else window.localStorage.setItem(PASSCODE_KEY, Value);
+  } catch {
+    // Private browsing may refuse storage: the passcode is then asked each visit.
+  }
+}
+
+function LoginVisible(): boolean {
+  const Overlay = document.getElementById('WEB_LOGIN_OVERLAY');
+  return !!Overlay && !Overlay.classList.contains('d-none');
+}
+
+function SetLoginError(Message: string): void {
+  const Node = document.getElementById('WEB_LOGIN_ERROR');
+  if (!Node) return;
+  Node.textContent = Message;
+  Node.classList.toggle('d-none', !Message);
+}
+
+function RenderPin(): void {
+  const Dots = document.getElementById('WEB_LOGIN_DOTS');
+  if (!Dots) return;
+  Dots.classList.toggle('is-empty', Pin.length === 0);
+  let Html = '';
+  for (let I = 0; I < PIN_LENGTH; I++) {
+    Html += `<span class="web-pin-dot${I < Pin.length ? ' is-filled' : ''}"></span>`;
+  }
+  Dots.innerHTML = Html;
+}
+
+function ShowLogin(Visible: boolean): void {
+  document.getElementById('WEB_LOGIN_OVERLAY')?.classList.toggle('d-none', !Visible);
+  if (Visible) {
+    Pin = '';
+    RenderPin();
+  }
+}
+
+type LoginReply = { ok?: boolean; error?: string; retryAfterMs?: number };
+
+function SendLogin(Passcode: string, OnReply: (Reply: LoginReply) => void): void {
+  if (!Socket) return;
+  Socket.emit('auth:login', { password: Passcode }, OnReply);
+}
+
+function SubmitPin(): void {
+  if (Pin.length < PIN_LENGTH) {
+    SetLoginError('Enter the 4 digit passcode.');
+    return;
+  }
+  const Passcode = Pin;
+  SendLogin(Passcode, (Reply) => {
+    if (Reply && Reply.ok) {
+      Store(Passcode);
+      SetLoginError('');
+      ShowLogin(false);
+      return;
+    }
+    Pin = '';
+    RenderPin();
+    SetLoginError(
+      Reply && Reply.error === 'rate_limited'
+        ? `Too many attempts. Try again in ${Math.ceil((Reply.retryAfterMs ?? 0) / 60000)} minutes.`
+        : 'Incorrect passcode. Please try again.'
+    );
+  });
+}
+
+function PinKey(Digit: string): void {
+  if (Pin.length >= PIN_LENGTH) return;
+  SetLoginError('');
+  Pin += Digit;
+  RenderPin();
+  // A fixed-length code submits itself once complete (after the last dot paints).
+  if (Pin.length === PIN_LENGTH) setTimeout(SubmitPin, 120);
+}
+
+function WireLogin(): void {
+  document.getElementById('WEB_LOGIN_PAD')?.addEventListener('click', (Event) => {
+    const Key = (Event.target as HTMLElement | null)?.closest('.web-pin-key');
+    if (!Key) return;
+    const Action = Key.getAttribute('data-action');
+    if (Action === 'submit') return SubmitPin();
+    if (Action === 'backspace') {
+      SetLoginError('');
+      Pin = Pin.slice(0, -1);
+      return RenderPin();
+    }
+    const Digit = Key.getAttribute('data-key');
+    if (Digit) PinKey(Digit);
+  });
+  document.addEventListener('keydown', (Event) => {
+    if (!LoginVisible()) return;
+    if (Event.key >= '0' && Event.key <= '9') PinKey(Event.key);
+    else if (Event.key === 'Backspace') {
+      Pin = Pin.slice(0, -1);
+      RenderPin();
+    } else if (Event.key === 'Enter') SubmitPin();
+    else return;
+    Event.preventDefault();
+  });
+}
+
+// The host's greeting: straight in, or a passcode is needed. A passcode this
+// browser was given before is tried first, silently.
+function OnHello(Hello: { PasswordProtection?: boolean; Authed?: boolean } | null): void {
+  if (!Hello || !Hello.PasswordProtection || Hello.Authed) {
+    ShowLogin(false);
+    return;
+  }
+  const Remembered = Stored();
+  if (!Remembered) {
+    ShowLogin(true);
+    return;
+  }
+  SendLogin(Remembered, (Reply) => {
+    if (Reply && Reply.ok) {
+      ShowLogin(false);
+      return;
+    }
+    // A passcode that no longer works is forgotten.
+    if (Reply && Reply.error === 'invalid_password') Store(null);
+    ShowLogin(true);
+    if (Reply && Reply.error === 'rate_limited')
+      SetLoginError('Too many attempts. Try again later.');
+  });
+}
+
+WireLogin();
+
 if (typeof io === 'function') {
-  const Socket = io({
+  Socket = io({
     transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionDelay: 1000,
@@ -131,6 +276,7 @@ if (typeof io === 'function') {
   Socket.on('connect', () => SetOnline(true));
   Socket.on('disconnect', () => SetOnline(false));
   Socket.on('connect_error', () => SetOnline(false));
+  Socket.on('hello', (Hello: { PasswordProtection?: boolean; Authed?: boolean }) => OnHello(Hello));
   Socket.on('timers:update', (Payload: unknown) => {
     const List = Array.isArray(Payload)
       ? Payload.filter((T) => T && typeof T === 'object').map((T) =>

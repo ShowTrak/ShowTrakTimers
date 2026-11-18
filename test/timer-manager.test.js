@@ -80,6 +80,7 @@ test('Create with nothing set makes a five-minute TIMER with the documented defa
     WarningMs: null,
     WarningSound: null,
     WarningToast: false,
+    ShowHundredths: false,
     Status: 'STANDBY',
     ElapsedMs: 0,
     Warning: false,
@@ -430,6 +431,7 @@ test('ApplyPatch returns a new configuration and never changes the one it is giv
     WarningMs: null,
     WarningSound: null,
     WarningToast: false,
+    ShowHundredths: false,
   });
   const Next = ApplyPatch(Current, { Name: 'B', Duration: 2000 });
   assert.notEqual(Next, Current);
@@ -924,4 +926,19 @@ test('with the watch loop on, a running timer is evaluated without anyone callin
   assert.ok(Event, 'completion broadcast by the watch loop');
   assert.equal(Event.TimerID, A.ID);
   assert.equal((await Manager.Get(A.ID)).Status, 'COMPLETE');
+});
+
+// --- Hundredths -----------------------------------------------------------------
+
+test('Show Hundredths is off for a new timer, saved when set, and kept across a restart', async (t) => {
+  const Ctx = await Setup(t);
+  const [, Created] = await Ctx.Manager.Create({ Name: 'Sprint' });
+  assert.equal(Created.ShowHundredths, false);
+  const [, Updated] = await Ctx.Manager.Update(Created.ID, { ShowHundredths: true });
+  assert.equal(Updated.ShowHundredths, true);
+  assert.equal((await Rows(Ctx))[0].ShowHundredths, 1);
+  const [Again] = await Reopen(Ctx).GetAll();
+  assert.equal(Again.ShowHundredths, true);
+  const [, Off] = await Ctx.Manager.Update(Created.ID, { ShowHundredths: 0 });
+  assert.equal(Off.ShowHundredths, false);
 });

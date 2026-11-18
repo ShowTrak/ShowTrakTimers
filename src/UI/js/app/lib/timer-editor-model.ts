@@ -29,3 +29,9 @@ const TYPE_HINTS: Readonly<Record<TimerType, string>> = {
 export function TypeHint(Type: TimerType): string {
   return TYPE_HINTS[Type] ?? '';
 }
+
+// New timers are made in EDIT mode; the very first one can be made from the
+// empty state whatever the mode, so a fresh install is never stuck.
+export function CanCreateTimer(Mode: string, TimerCount: number): boolean {
+  return Mode === 'EDIT' || TimerCount === 0;
+}

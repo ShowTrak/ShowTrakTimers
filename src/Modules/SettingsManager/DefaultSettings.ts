@@ -7,7 +7,7 @@
 // SYSTEM_AUTO_UPDATE_ENABLED, and SYSTEM_PREVENT_DISPLAY_SLEEP is gone because
 // display sleep is now always prevented.
 import { DEFAULT_OSC_PORT, DEFAULT_WEB_DASHBOARD_PORT } from '../Config/constants';
-import { ValidateBindAddress, ValidatePort } from './validators';
+import { ValidateBindAddress, ValidatePasscode, ValidatePort } from './validators';
 
 // STRING is free text; OPTION one of Options; SLIDER an INTEGER drawn as a range.
 export type SettingType = 'BOOLEAN' | 'INTEGER' | 'STRING' | 'OPTION' | 'SLIDER';
@@ -137,6 +137,31 @@ export const DefaultSettings: SettingDefinition[] = [
     ShowWhen: ['WEB_ENABLE_DASHBOARD'],
     RequiresSave: true,
     Validate: (Value) => ValidateBindAddress('tcp', Value),
+  },
+  {
+    Group: 'Web',
+    Key: 'WEB_DASHBOARD_PASSWORD_PROTECTION_ENABLED',
+    Title: 'Password Protection Enabled',
+    Description:
+      'Require the passcode to open the Web Dashboard. Applies once a passcode is set below.',
+    Type: 'BOOLEAN',
+    DefaultValue: false,
+    ShowWhen: ['WEB_ENABLE_DASHBOARD'],
+    // Connected browsers are asked again (or let straight in) at once.
+    OnUpdateEvent: 'WebDashboard:AuthChanged',
+  },
+  {
+    Group: 'Web',
+    Key: 'WEB_DASHBOARD_PASSWORD',
+    Title: 'Password (4 Digit Numeric)',
+    Description: 'Browsers that have entered it stay signed in until it is changed.',
+    Type: 'STRING',
+    DefaultValue: '',
+    ShowWhen: ['WEB_ENABLE_DASHBOARD', 'WEB_DASHBOARD_PASSWORD_PROTECTION_ENABLED'],
+    RequiresSave: true,
+    Validate: (Value) => ValidatePasscode(Value),
+    // A new passcode signs every browser out.
+    OnUpdateEvent: 'WebDashboard:AuthChanged',
   },
   {
     Group: 'OSC',

@@ -89,6 +89,13 @@ export const Migrations: Migration[] = [
       );
     },
   },
+  {
+    Version: 4,
+    Name: 'Per-timer hundredths display',
+    async Up(Db) {
+      await Db.AddColumnIfMissing('Timers', 'ShowHundredths', 'BOOLEAN NOT NULL DEFAULT 0');
+    },
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = Migrations[Migrations.length - 1]!.Version;

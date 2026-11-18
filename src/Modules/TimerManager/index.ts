@@ -48,6 +48,7 @@ interface TimerRow {
   WarningMs: number | null;
   WarningSound: string | null;
   WarningToast: number | boolean | null;
+  ShowHundredths: number | boolean | null;
 }
 
 /** Fields a create or update may set. Anything absent is left as it is. */
@@ -63,6 +64,7 @@ export interface TimerPatch {
   WarningMs?: unknown;
   WarningSound?: unknown;
   WarningToast?: unknown;
+  ShowHundredths?: unknown;
 }
 
 export type Result<T> = [string | null, T | null];
@@ -100,6 +102,7 @@ function FromRow(Row: TimerRow): TimerConfig {
     WarningMs: NormalizeWarningMs(Row.WarningMs),
     WarningSound: NormalizeSoundRef(Row.WarningSound),
     WarningToast: !!Row.WarningToast,
+    ShowHundredths: !!Row.ShowHundredths,
   };
 }
 
@@ -136,6 +139,7 @@ export function ApplyPatch(Current: TimerConfig, Patch: TimerPatch): TimerConfig
   if (Patch.WarningMs !== undefined) Next.WarningMs = NormalizeWarningMs(Patch.WarningMs);
   if (Patch.WarningSound !== undefined) Next.WarningSound = NormalizeSoundRef(Patch.WarningSound);
   if (Patch.WarningToast !== undefined) Next.WarningToast = !!Patch.WarningToast;
+  if (Patch.ShowHundredths !== undefined) Next.ShowHundredths = !!Patch.ShowHundredths;
   return Next;
 }
 
@@ -152,6 +156,7 @@ function DefaultConfig(): Omit<TimerConfig, 'ID' | 'Weight'> {
     WarningMs: null,
     WarningSound: null,
     WarningToast: false,
+    ShowHundredths: false,
   };
 }
 
@@ -276,7 +281,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
     const [Err] = await Db.Run(
       `UPDATE Timers SET Type = ?, Name = ?, Description = ?, Duration = ?, ShowOnWeb = ?,
         EndBehaviour = ?, CompletionSound = ?, CompletionToast = ?, WarningMs = ?,
-        WarningSound = ?, WarningToast = ? WHERE ID = ?`,
+        WarningSound = ?, WarningToast = ?, ShowHundredths = ? WHERE ID = ?`,
       [
         Config.Type,
         Config.Name,
@@ -289,6 +294,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
         Config.WarningMs,
         Config.WarningSound,
         Config.WarningToast ? 1 : 0,
+        Config.ShowHundredths ? 1 : 0,
         Config.ID,
       ]
     );
@@ -334,7 +340,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
       const [Err, Res] = await Db.Run(
         `INSERT INTO Timers (Type, Name, Description, Duration, Weight, TextAlert, AudioAlert,
           ShowOnWeb, EndBehaviour, CompletionSound, CompletionToast, WarningMs, WarningSound,
-          WarningToast) VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?)`,
+          WarningToast, ShowHundredths) VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           Config.Type,
           Config.Name,
@@ -348,6 +354,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
           Config.WarningMs,
           Config.WarningSound,
           Config.WarningToast ? 1 : 0,
+          Config.ShowHundredths ? 1 : 0,
         ]
       );
       if (Err || !Res) return [Err?.message || 'Failed to create the timer', null];

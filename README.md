@@ -39,8 +39,10 @@ flow and design tokens.
 - Start, pause, resume and stop from the tile, the menu, the keyboard or OSC.
 - Timing is measured against the clock, so timers never drift, however busy
   the machine is.
-- SHOW and EDIT modes: edit mode shows each timer's ID (for OSC), its editor,
-  and lets you drag tiles to reorder them.
+- SHOW and EDIT modes: timers are added, edited and reordered (by dragging) in
+  EDIT mode, which also shows each timer's ID for OSC. SHOW mode is for running
+  the show.
+- Optional hundredths of a second per timer (`00:00.00`).
 
 ### Per-Timer Endings and Warnings
 
@@ -60,7 +62,9 @@ dropped.
 ### Web Dashboard
 
 A read-only page for any browser on the network (phones, a backstage screen),
-served on port 4300 by default. Timers are shown or hidden per timer. It keeps
+served on port 4300 by default. Timers are shown or hidden per timer. As with
+ShowTrak Server's Web UI it can be protected by a 4-digit passcode (Preferences,
+Web Dashboard), entered on a keypad and remembered by the browser. It keeps
 the last known timers when the connection drops and reconnects on its own, and
 can be installed as a PWA. The Web Dashboard modal in the app lists its
 addresses with a QR code.

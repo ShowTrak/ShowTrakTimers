@@ -259,6 +259,11 @@ code,
   font-weight: 700;
 }
 
+/* No dragbar on the web surface, so drop the space reserved for it */
+body.is-web #APPLICATION {
+  padding-top: 0 !important;
+}
+
 #APPLICATION_NAVBAR_TITLE {
   color: var(--text-strong);
 }
@@ -2015,6 +2020,206 @@ button.btn:focus {
   );
 }
 
+/* ------------------------------------------------------------------------- */
+/* Web UI capability chrome                                                   */
+/* The shared renderer runs on both the Electron desktop app and the browser  */
+/* Web UI. `body.is-web` is set only on the browser surface (by web-main.ts). */
+/* ------------------------------------------------------------------------- */
+/* Web-only overlays are completely inert on the desktop. */
+body:not(.is-web) .web-overlay {
+  display: none !important;
+}
+
+/* Safari (desktop toolbar + mobile status bar) tints its chrome to the page's
+   root background colour, NOT to <meta name="theme-color"> (that only applies to
+   an installed PWA). With no colour set on html/body the root defaults to white,
+   so the logged-in toolbar reads white. The login overlay avoids this because it
+   is a fixed full-viewport dark element. Paint the web surface's root purple so
+   Safari samples the accent; the app's own dark gradient (#APPLICATION_CONTAINER)
+   still fills the content area on top of it. */
+body.is-web,
+html:has(body.is-web) {
+  background: #160f35 !important;
+}
+
+/* Desktop-only chrome hidden on the web: navbar/dragbar, the cogs (settings)
+   menu and the show file menu. Mode/alerts toggles stay visible as read-only state. */
+body.is-web .dragbar,
+body.is-web #SETTINGS_MENU_DROPDOWN {
+  display: none !important;
+}
+
+/* Web surface shows current SHOW/EDIT + ALERTS state, but cannot change it. */
+body.is-web .mode-group .st-segmented-toggle-btn:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+  opacity: 1;
+}
+
+.web-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  /* Match the app shell backdrop: the same dark-indigo radial gradient. */
+  background: var(--app-bg-gradient);
+}
+
+.web-overlay-card {
+  width: min(360px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 24px;
+  border-radius: var(--panel-r);
+  background: var(--surface-2);
+  border: 0;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  color: #f2f4f7;
+  text-align: center;
+}
+
+.web-login-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+}
+
+.web-overlay-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.web-overlay-text {
+  font-size: var(--fs-lg);
+  color: #aab2bd;
+}
+
+.web-login-error {
+  font-size: var(--fs-lg);
+  color: var(--danger-text);
+  width: 100%;
+  min-height: 1.1em;
+}
+
+/* -------------------------------------------------------------------------
+   Web passcode screen: dot indicators + numeric keypad
+   ------------------------------------------------------------------------- */
+/* The login screen sits directly on the overlay's purple gradient: no card
+   backdrop, border, or shadow (unlike the loading / disabled overlays). */
+.web-login-card {
+  width: min(320px, 100%);
+  gap: 16px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 24px;
+}
+
+.web-pin-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 16px;
+  margin: 4px 0 2px;
+}
+
+.web-pin-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  background: transparent;
+  transition:
+    transform 0.12s ease,
+    background-color 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.web-pin-dot.is-filled {
+  background: #f2f4f7;
+  border-color: #f2f4f7;
+  transform: scale(1.05);
+}
+
+/* Placeholder ring shown when no digits have been entered yet. */
+.web-pin-dots.is-empty .web-pin-dot {
+  animation: none;
+}
+
+.web-pin-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.web-pin-key {
+  appearance: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.05);
+  color: #f2f4f7;
+  font-size: 1.35rem;
+  font-weight: 500;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  /* Disable double-tap-to-zoom on the keys (mobile): a fast second tap should
+     enter another digit, not zoom the viewport. */
+  touch-action: manipulation;
+  transition:
+    background-color 0.12s ease,
+    transform 0.06s ease,
+    border-color 0.12s ease;
+}
+
+.web-pin-key:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.web-pin-key:active {
+  transform: scale(0.94);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.web-pin-key:focus-visible {
+  outline: 2px solid rgba(140, 120, 255, 0.8);
+  outline-offset: 2px;
+}
+
+/* Icon keys (backspace) share the number-key surface; only the glyph is a touch
+   smaller than the digits. */
+.web-pin-key-icon {
+  font-size: 1.1rem;
+}
+
+.web-pin-key-enter {
+  color: #ffffff;
+  background: linear-gradient(180deg, #6d5bd0, #5942b8);
+  border-color: var(--border-default);
+}
+
+.web-pin-key-enter:hover {
+  background: linear-gradient(180deg, #7a68dd, #6650c8);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.web-pin-key-enter:active {
+  background: linear-gradient(180deg, #5942b8, #4a37a0);
+}
+
 /* =========================================================================
    Mobile / narrow-viewport layout (body.mobile-view)
    -------------------------------------------------------------------------
@@ -2062,6 +2267,32 @@ button.btn:focus {
    radii, type scale); the parts before this file are extracted from Server by
    scripts/sync-server-css.js and are not edited here.
    ========================================================================= */
+
+/* --- Timers palette --------------------------------------------------------
+   Timers swaps Server's purple surfaces for a very dark orange, almost brown,
+   so the two apps are told apart at a glance. Only the hue-carrying tokens
+   are overridden (same lightness steps as Server's); the status, semantic and
+   text colours are shared. This file loads after the synced parts, so these
+   win, and the sync never touches it. The preloader and the Web Dashboard's
+   theme-color hard-code the two background stops to match. */
+:root {
+  --accent-rgb: 196 104 40;
+
+  --surface-0-rgb: 22 12 6;
+  --surface-1-rgb: 42 23 12;
+  --surface-2-rgb: 46 30 20;
+  --surface-3-rgb: 60 41 29;
+
+  --field-bg: rgb(62 41 28);
+  --field-bg-hover: rgb(72 48 33);
+  --field-bg-focus: rgb(88 56 34);
+  --field-bg-disabled: rgb(48 32 23);
+  --field-bg-invalid: rgb(72 30 26);
+
+  --st-check-on-fill: rgba(194, 94, 20, 0.35);
+  --st-check-on: #e07b2a;
+  --st-check-focus: 0 0 0 2px rgba(194, 94, 20, 0.18);
+}
 
 /* --- The grid -------------------------------------------------------------
    Tiles flow into as many columns as fit (one in a narrow window), the same
@@ -2336,6 +2567,12 @@ body.mode-edit .SHOWTRAK_TIMER[draggable='true'] {
   line-height: 1;
 }
 
+/* Timers are added in EDIT mode only (the empty state has its own button for
+   the first one). */
+body:not(.mode-edit) #ADD_TIMER_BUTTON.settings-btn {
+  display: none;
+}
+
 #BOTTOM_BAR_STATUS {
   white-space: nowrap;
   overflow: hidden;
@@ -2359,7 +2596,36 @@ body.mode-edit .SHOWTRAK_TIMER[draggable='true'] {
 }
 
 /* --- Web Dashboard page --------------------------------------------------
-   The same tiles, larger, under a bar styled like the desktop title bar. */
+   The same tiles, larger, under a bar styled like the desktop title bar. The
+   page is Server's "web surface" (body.is-web), which brings Server's passcode
+   screen with it; Server paints that surface's root purple for Safari's
+   toolbar, so it is painted in the Timers palette here instead. */
+html:has(body.web-dashboard) {
+  background: rgb(var(--surface-0-rgb)) !important;
+}
+
+body.web-dashboard.is-web {
+  background: var(--app-bg-gradient) !important;
+  background-attachment: fixed !important;
+}
+
+/* Server's passcode Enter key hard-codes its purple; in the Timers accent. */
+body.web-dashboard .web-pin-key-enter {
+  background: linear-gradient(
+    180deg,
+    rgb(var(--accent-rgb) / 0.95),
+    color-mix(in srgb, rgb(var(--accent-rgb)) 80%, black)
+  );
+}
+
+body.web-dashboard .web-pin-key-enter:hover {
+  background: linear-gradient(180deg, rgb(var(--accent-rgb)), rgb(var(--accent-rgb) / 0.85));
+}
+
+body.web-dashboard .web-pin-key-enter:active {
+  background: color-mix(in srgb, rgb(var(--accent-rgb)) 70%, black);
+}
+
 body.web-dashboard {
   min-height: 100vh;
   margin: 0;

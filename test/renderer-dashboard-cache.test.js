@@ -83,6 +83,7 @@ const TIMER = {
   Status: 'STANDBY',
   ElapsedMs: 0,
   Warning: false,
+  ShowHundredths: false,
 };
 
 // --- Reading and writing --------------------------------------------------------
@@ -217,6 +218,7 @@ test('a 2.0 payload keeps the fields a tile needs and drops the rest', () => {
     Status: 'RUNNING',
     ElapsedMs: 90000,
     Warning: true,
+    ShowHundredths: false,
     Weight: 2,
   });
 });
@@ -230,6 +232,7 @@ test('a 1.x payload takes its elapsed time from State.ElapsedTime and has no war
     Status: 'RUNNING',
     ElapsedMs: 90000,
     Warning: false,
+    ShowHundredths: false,
     Weight: 2,
   });
 });

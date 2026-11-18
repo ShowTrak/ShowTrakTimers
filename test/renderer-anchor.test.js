@@ -72,3 +72,34 @@ test('only clock differences matter, so any clock origin works', () => {
   const Anchored = Anchor({ Status: 'RUNNING', ElapsedMs: 100 }, Origin);
   assert.equal(ElapsedAt(Anchored, Origin + 900), 1000);
 });
+
+// --- Repaint rate -----------------------------------------------------------------
+
+const {
+  PaintInterval,
+  PAINT_INTERVAL_MS,
+  PAINT_INTERVAL_HUNDREDTHS_MS,
+} = require('../dist-test/UI/js/app/lib/anchor.js');
+
+test('timers repaint about ten times a second, faster only for running hundredths', () => {
+  assert.equal(PAINT_INTERVAL_MS, 100);
+  // Fast enough to look alive, well short of redrawing every hundredth.
+  assert.ok(PAINT_INTERVAL_HUNDREDTHS_MS >= 30 && PAINT_INTERVAL_HUNDREDTHS_MS < 100);
+  assert.equal(PaintInterval([]), PAINT_INTERVAL_MS);
+  assert.equal(PaintInterval([{ Status: 'RUNNING', ShowHundredths: false }]), PAINT_INTERVAL_MS);
+  assert.equal(
+    PaintInterval([{ Status: 'PAUSED', ShowHundredths: true }]),
+    PAINT_INTERVAL_MS,
+    'a paused timer shows its exact value and needs no animation'
+  );
+  for (const Status of ['RUNNING', 'OVERRUN']) {
+    assert.equal(
+      PaintInterval([
+        { Status: 'STANDBY', ShowHundredths: false },
+        { Status, ShowHundredths: true },
+      ]),
+      PAINT_INTERVAL_HUNDREDTHS_MS,
+      Status
+    );
+  }
+});

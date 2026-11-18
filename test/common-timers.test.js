@@ -464,3 +464,40 @@ test('the renderer build of timers.ts behaves the same as the main-process build
     ComputeTimerDisplay({ Type: 'COUNTDOWN', Duration: 5 * MIN, Status: 'RUNNING' }, 1)
   );
 });
+
+// --- Hundredths ---------------------------------------------------------------
+
+test('hundredths: elapsed time rounds down to the hundredth', () => {
+  assert.equal(Timers.FormatElapsed(0, true), '00:00.00');
+  assert.equal(Timers.FormatElapsed(9, true), '00:00.00');
+  assert.equal(Timers.FormatElapsed(1239, true), '00:01.23');
+  assert.equal(Timers.FormatElapsed(61500, true), '01:01.50');
+  assert.equal(Timers.FormatElapsed(3600000 + 5, true), '01:00:00.00');
+  assert.equal(Timers.FormatElapsed(-50, true), '00:00.00');
+});
+
+test('hundredths: time left rounds up, so a countdown starts full and ends at zero', () => {
+  assert.equal(Timers.FormatRemaining(300000, true), '05:00.00');
+  assert.equal(Timers.FormatRemaining(299991, true), '05:00.00');
+  assert.equal(Timers.FormatRemaining(1, true), '00:00.01');
+  assert.equal(Timers.FormatRemaining(0, true), '00:00.00');
+});
+
+test('without hundredths the formats are unchanged', () => {
+  assert.equal(Timers.FormatElapsed(61500), '01:01');
+  assert.equal(Timers.FormatRemaining(61500), '01:02');
+});
+
+test('ComputeTimerDisplay shows hundredths on the main readout only when asked', () => {
+  const Base = { Type: 'TIMER', Duration: 60000, Status: 'RUNNING' };
+  assert.equal(Timers.ComputeTimerDisplay(Base, 12345).Primary, '00:12');
+  const With = Timers.ComputeTimerDisplay({ ...Base, ShowHundredths: true }, 12345);
+  assert.equal(With.Primary, '00:12.34');
+  assert.equal(With.Secondary, '01:00', 'the total stays in whole seconds');
+  const Countdown = { Type: 'COUNTDOWN', Duration: 60000, Status: 'RUNNING', ShowHundredths: true };
+  assert.equal(Timers.ComputeTimerDisplay(Countdown, 12345).Primary, '00:47.66');
+  const Overrun = { Type: 'TIMER', Duration: 60000, Status: 'OVERRUN', ShowHundredths: true };
+  assert.equal(Timers.ComputeTimerDisplay(Overrun, 62005).Primary, '+00:02.00');
+  const Stopwatch = { Type: 'STOPWATCH', Duration: null, Status: 'PAUSED', ShowHundredths: true };
+  assert.equal(Timers.ComputeTimerDisplay(Stopwatch, 4321).Primary, '00:04.32');
+});

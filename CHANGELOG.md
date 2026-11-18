@@ -19,6 +19,10 @@ test, lint and release tooling, the same update system, and the same look.
 - Per-timer warning lead time (the tile pulses amber), and warning/completion
   sounds and notifications.
 - Sound Library: import your own alert sounds, with per-sound volume.
+- Per-timer Show Hundredths (`00:00.00`), on the app and the Web Dashboard.
+- Web Dashboard passcode, as in ShowTrak Server: a 4-digit passcode entered on a
+  keypad, remembered by the browser, with repeated wrong attempts locked out.
+- Confirmations before pausing, resuming or stopping all timers.
 - Alert Volume setting.
 - Web Dashboard modal listing the dashboard's addresses with a QR code.
 - Drag to reorder timers in EDIT mode.
@@ -35,6 +39,8 @@ test, lint and release tooling, the same update system, and the same look.
 - New look, taken from ShowTrak Server: title bar, bottom bar, menus, modals,
   Preferences with tabs, toasts and confirmations; timer tiles use Server's status
   colours (Standby grey, Running green, Paused orange, Complete/Overrun red).
+- New timers are added in EDIT mode (the + button is hidden in SHOW mode); the
+  first timer can still be created from the welcome screen.
 - Tile controls are always visible (they were hover-only, unusable on a touchscreen).
 - Timers animate smoothly between updates instead of ticking at uneven intervals.
 - Automatic Updates default to off for new installs, as in ShowTrak Server (a

@@ -47,6 +47,8 @@ export interface TimerConfig {
   WarningMs: number | null;
   WarningSound: string | null;
   WarningToast: boolean;
+  /** Show hundredths of a second (mm:ss.cc). */
+  ShowHundredths: boolean;
 }
 
 /**
@@ -120,9 +122,22 @@ export function FormatSeconds(TotalSeconds: number): string {
     : `${Pad2(Minutes)}:${Pad2(Secs)}`;
 }
 
-/** Time that has passed, rounded down: 0.9 s is still 00:00. */
-export function FormatElapsed(Ms: number): string {
-  return FormatSeconds(Math.floor((Number(Ms) || 0) / 1000));
+// mm:ss / hh:mm:ss from whole hundredths of a second, with ".cc" appended.
+function FormatHundredths(TotalHundredths: number): string {
+  const Hundredths =
+    Number.isFinite(TotalHundredths) && TotalHundredths > 0 ? Math.floor(TotalHundredths) : 0;
+  return `${FormatSeconds(Math.floor(Hundredths / 100))}.${Pad2(Hundredths % 100)}`;
+}
+
+/**
+ * Time that has passed, rounded down: 0.9 s is still 00:00 (or 00:00.90 with
+ * hundredths).
+ */
+export function FormatElapsed(Ms: number, Hundredths = false): string {
+  const Value = Number(Ms) || 0;
+  return Hundredths
+    ? FormatHundredths(Math.floor(Value / 10))
+    : FormatSeconds(Math.floor(Value / 1000));
 }
 
 /**
@@ -130,8 +145,11 @@ export function FormatElapsed(Ms: number): string {
  * moment a five-minute countdown starts and only reaches 00:00 when time is up.
  * (1.x rounded down, so countdowns sat at 00:00 for their whole last second.)
  */
-export function FormatRemaining(Ms: number): string {
-  return FormatSeconds(Math.ceil((Number(Ms) || 0) / 1000));
+export function FormatRemaining(Ms: number, Hundredths = false): string {
+  const Value = Number(Ms) || 0;
+  return Hundredths
+    ? FormatHundredths(Math.ceil(Value / 10))
+    : FormatSeconds(Math.ceil(Value / 1000));
 }
 
 /**
@@ -203,9 +221,10 @@ export interface TimerDisplay {
  * state is clamped to it.
  */
 export function ComputeTimerDisplay(
-  Timer: Pick<TimerView, 'Type' | 'Duration' | 'Status'>,
+  Timer: Pick<TimerView, 'Type' | 'Duration' | 'Status'> & { ShowHundredths?: boolean },
   ElapsedMs: number
 ): TimerDisplay {
+  const H = Timer.ShowHundredths === true;
   const Elapsed = Math.max(0, Number(ElapsedMs) || 0);
   const Duration =
     HasDuration(Timer.Type) && typeof Timer.Duration === 'number' && Timer.Duration >= 0
@@ -214,7 +233,7 @@ export function ComputeTimerDisplay(
 
   if (Duration === null) {
     return {
-      Primary: FormatElapsed(Elapsed),
+      Primary: FormatElapsed(Elapsed, H),
       Secondary: null,
       Progress: null,
       OverrunMs: 0,
@@ -230,7 +249,7 @@ export function ComputeTimerDisplay(
 
   if (Overrunning) {
     return {
-      Primary: `+${FormatElapsed(OverrunMs)}`,
+      Primary: `+${FormatElapsed(OverrunMs, H)}`,
       Secondary: Timer.Type === 'TIMER' ? FormatElapsed(Duration) : null,
       Progress: 100,
       OverrunMs,
@@ -240,7 +259,7 @@ export function ComputeTimerDisplay(
 
   if (Timer.Type === 'COUNTDOWN') {
     return {
-      Primary: FormatRemaining(RemainingMs),
+      Primary: FormatRemaining(RemainingMs, H),
       Secondary: null,
       Progress: Math.round((1 - Fraction) * 1000) / 10,
       OverrunMs: 0,
@@ -249,7 +268,7 @@ export function ComputeTimerDisplay(
   }
 
   return {
-    Primary: FormatElapsed(Clamped),
+    Primary: FormatElapsed(Clamped, H),
     Secondary: FormatElapsed(Duration),
     Progress: Math.round(Fraction * 1000) / 10,
     OverrunMs: 0,

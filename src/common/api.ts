@@ -111,6 +111,7 @@ export interface TimerPatchView {
   WarningMs?: number | null;
   WarningSound?: string | null;
   WarningToast?: boolean;
+  ShowHundredths?: boolean;
 }
 
 export interface TimerEventView {

@@ -233,6 +233,7 @@ for (const File of fs.readdirSync(OutDir)) {
   if (/^0\d-.*\.css$/.test(File)) fs.rmSync(path.join(OutDir, File));
 }
 const Report = [];
+const Written = [];
 const AllKept = [];
 for (const File of fs
   .readdirSync(PartsDir)
@@ -255,7 +256,26 @@ for (const Part of AllKept) {
   const Header = `/* Extracted from ShowTrak Server's src/UI/css/parts/${Part.File}: only the rules
    the Timers markup uses (scripts/sync-server-css.js). Edit Server's copy and
    re-run the sync, rather than editing these by hand. */\n\n`;
-  fs.writeFileSync(path.join(OutDir, Part.File), Header + Final.join('\n\n') + '\n');
+  Written.push([path.join(OutDir, Part.File), Header + Final.join('\n\n') + '\n']);
   Report.push(`${Part.File}: ${Final.length} items`);
 }
-console.log(`[sync-server-css] From ${PartsDir}:\n  ${Report.join('\n  ')}`);
+
+// Written through Prettier (the repo's own config), so the extraction always
+// passes `npm run format:check` and a re-sync only shows real changes, then
+// main.css is rebuilt from the parts.
+(async () => {
+  const Prettier = require('prettier');
+  for (const [File, Text] of Written) {
+    const Options = (await Prettier.resolveConfig(File)) || {};
+    fs.writeFileSync(File, await Prettier.format(Text, { ...Options, filepath: File }));
+  }
+  require('node:child_process').execFileSync(
+    process.execPath,
+    [path.join(__dirname, 'build-css.js')],
+    { stdio: 'ignore' }
+  );
+  console.log(`[sync-server-css] From ${PartsDir}:\n  ${Report.join('\n  ')}`);
+})().catch((Err) => {
+  console.error('[sync-server-css] Failed:', Err);
+  process.exit(1);
+});

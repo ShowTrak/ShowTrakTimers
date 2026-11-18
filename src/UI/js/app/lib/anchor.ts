@@ -31,3 +31,19 @@ export function ElapsedAt(
   if (!IsTicking(Anchored.Timer.Status)) return Base;
   return Base + Math.max(0, Now - Anchored.ReceivedAt);
 }
+
+// How often a surface repaints while timers run. A seconds readout needs no more
+// than 10 a second; hundredths look alive at 25 without touching the DOM 100
+// times a second. Whenever a push arrives (start, pause, stop, completion, a
+// jump) the surface repaints at once, so the value shown at rest is exact.
+export const PAINT_INTERVAL_MS = 100;
+export const PAINT_INTERVAL_HUNDREDTHS_MS = 40;
+
+/** The repaint interval for a set of timers. */
+export function PaintInterval(
+  Timers: ReadonlyArray<Pick<TimerView, 'Status'> & { ShowHundredths?: boolean }>
+): number {
+  return Timers.some((T) => IsTicking(T.Status) && T.ShowHundredths === true)
+    ? PAINT_INTERVAL_HUNDREDTHS_MS
+    : PAINT_INTERVAL_MS;
+}

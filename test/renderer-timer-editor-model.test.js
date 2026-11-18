@@ -85,3 +85,14 @@ test('an unknown type has no hint rather than the word undefined', () => {
   assert.equal(TypeHint('ALARM'), '');
   assert.equal(TypeHint(undefined), '');
 });
+
+// --- Creating timers -------------------------------------------------------------
+
+const { CanCreateTimer } = require('../dist-test/UI/js/app/lib/timer-editor-model.js');
+
+test('timers are created in EDIT mode, except the very first', () => {
+  assert.equal(CanCreateTimer('EDIT', 0), true);
+  assert.equal(CanCreateTimer('EDIT', 5), true);
+  assert.equal(CanCreateTimer('SHOW', 0), true, 'a fresh install can always make its first timer');
+  assert.equal(CanCreateTimer('SHOW', 1), false);
+});

@@ -13,6 +13,9 @@ import { Manager as AppDb, type Database } from '../DB';
 
 const Logger = CreateLogger('Settings');
 
+// Settings whose values must never be logged.
+export const SECRET_SETTING_KEYS: ReadonlySet<string> = new Set(['WEB_DASHBOARD_PASSWORD']);
+
 /** A setting as held in memory and sent to the renderer (no functions). */
 export interface Setting {
   Group: string;
@@ -187,7 +190,8 @@ export function CreateSettingsManager(
 
       S.Value = Next;
       S.isDefault = Next === S.DefaultValue;
-      Logger.log(`Setting ${Key} updated to ${Next}`);
+      // Secrets never reach the log file (an operator is asked to send it back).
+      Logger.log(`Setting ${Key} updated to ${SECRET_SETTING_KEYS.has(Key) ? '(hidden)' : Next}`);
 
       Broadcast.emit('SettingsUpdated');
       if (S.OnUpdateEvent) Broadcast.emit(S.OnUpdateEvent);

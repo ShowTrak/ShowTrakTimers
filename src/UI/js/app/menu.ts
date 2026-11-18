@@ -30,17 +30,23 @@ export async function RequestShutdown(): Promise<void> {
   await window.API.Shutdown(true);
 }
 
-async function StopAll(): Promise<void> {
-  const Confirmed = await ConfirmationDialog('Stop and reset every timer?', {
-    ConfirmLabel: 'Stop All Timers',
-  });
-  if (Confirmed) await ControlAll('Stop');
+// Every "all timers" action asks first: one stray click (or shortcut) would
+// otherwise change every running timer in the show.
+export const ALL_TIMER_CONFIRMATIONS = {
+  Pause: { Message: 'Pause every running timer?', ConfirmLabel: 'Pause All Timers' },
+  Unpause: { Message: 'Resume every paused timer?', ConfirmLabel: 'Resume All Timers' },
+  Stop: { Message: 'Stop and reset every timer?', ConfirmLabel: 'Stop All Timers' },
+} as const;
+
+async function ConfirmedAll(Action: keyof typeof ALL_TIMER_CONFIRMATIONS): Promise<void> {
+  const { Message, ConfirmLabel } = ALL_TIMER_CONFIRMATIONS[Action];
+  if (await ConfirmationDialog(Message, { ConfirmLabel })) await ControlAll(Action);
 }
 
 const ACTIONS: Record<string, () => unknown> = {
-  MENU_PAUSE_ALL: () => ControlAll('Pause'),
-  MENU_RESUME_ALL: () => ControlAll('Unpause'),
-  MENU_STOP_ALL: () => StopAll(),
+  MENU_PAUSE_ALL: () => ConfirmedAll('Pause'),
+  MENU_RESUME_ALL: () => ConfirmedAll('Unpause'),
+  MENU_STOP_ALL: () => ConfirmedAll('Stop'),
   SHOWTRAK_MENU_SOUND_LIBRARY: () => OpenSoundLibrary(),
   SHOWTRAK_MENU_WEB_DASHBOARD: () => OpenWebDashboardInfo(),
   SHOWTRAK_MENU_OSC_REFERENCE: () => OpenOscReference(),

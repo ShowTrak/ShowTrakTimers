@@ -32,6 +32,7 @@ const TIMER_COLUMNS = [
   'WarningMs',
   'WarningSound',
   'WarningToast',
+  'ShowHundredths',
 ];
 
 // The 1.0.0 Timers table (no Description, no ShowOnWeb), as 1.0.0 created it.

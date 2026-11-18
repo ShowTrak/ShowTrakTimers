@@ -77,3 +77,10 @@ export async function ValidateBindAddress(
     return `Unable to listen on ${Address}.`;
   }
 }
+
+// The Web Dashboard passcode: four digits, as ShowTrak Server's Web UI passcode,
+// or empty for none.
+export function ValidatePasscode(Value: SettingValue): string | null {
+  const Text = String(Value ?? '').trim();
+  return Text === '' || /^\d{4}$/.test(Text) ? null : 'The passcode must be exactly 4 digits.';
+}

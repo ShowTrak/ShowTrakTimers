@@ -1,7 +1,7 @@
 // The timer grid: one tile per timer, its run controls, the local animation
 // loop, drag-to-reorder in EDIT mode, and what happens on a timer's warning or
 // completion (sound, notification).
-import { Anchor, ElapsedAt, type AnchoredTimer } from './lib/anchor';
+import { Anchor, ElapsedAt, PaintInterval, type AnchoredTimer } from './lib/anchor';
 import {
   BuildTileModel,
   DescribeTimerEvent,
@@ -15,15 +15,13 @@ import { HandleNonFatalError } from './utils';
 import { PlaySoundRef } from './sounds';
 import { OpenTimerEditor } from './timer-editor';
 import { OnModeChange } from './mode';
+import { CanCreateTimer } from './lib/timer-editor-model';
 import type { ControlAction, TimerEventView } from '../../../common/api';
 
 let Anchored: AnchoredTimer<TimerView>[] = [];
 let RenderedOrder = '';
 let FrameRequested = false;
 let LastPaint = 0;
-// Repaint at most this often while timers run: plenty for a seconds readout,
-// and it keeps an idle show machine idle.
-const PAINT_INTERVAL_MS = 100;
 
 const Now = () => performance.now();
 
@@ -107,7 +105,7 @@ function AnyTicking(): boolean {
 
 function Loop(): void {
   FrameRequested = false;
-  if (Now() - LastPaint >= PAINT_INTERVAL_MS) Paint();
+  if (Now() - LastPaint >= PaintInterval(CurrentTimers())) Paint();
   if (AnyTicking()) RequestFrame();
 }
 
@@ -190,6 +188,10 @@ export async function ControlAll(Action: ControlAction): Promise<void> {
 }
 
 export async function CreateTimerAndEdit(): Promise<void> {
+  if (!CanCreateTimer(Mode, CurrentTimers().length)) {
+    void Notify('Switch to Edit mode to add timers.', 'info', 2500);
+    return;
+  }
   const [Err, Timer] = await window.API.CreateTimer({ Name: 'New Timer' });
   if (Err || !Timer) {
     void Notify(Err || 'Failed to create the timer.', 'error');
