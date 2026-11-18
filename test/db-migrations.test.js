@@ -371,8 +371,7 @@ test('queries return [null, Result] tuples', async (t) => {
 test('queries issued before the schema is ready wait for it', async (t) => {
   const FilePath = path.join(Workspace(t), 'DB.sqlite');
   await RawExec(FilePath, [TIMERS_1_0_0, "INSERT INTO Timers (Name) VALUES ('Early')"]);
-  const Db = CreateDatabase(FilePath);
-  t.after(() => WithinMs(Db.Close(), 2000));
+  const Db = Open(t, FilePath);
   // No await on Ready(): the first query must still see the migrated table.
   const [Err, Row] = await Db.Get('SELECT Name, EndBehaviour, ShowOnWeb FROM Timers');
   assert.equal(Err, null);
