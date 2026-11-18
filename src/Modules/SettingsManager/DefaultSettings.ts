@@ -49,6 +49,14 @@ export interface SettingGroup {
 export const DefaultSettings: SettingDefinition[] = [
   {
     Group: 'Machine',
+    Key: 'SYSTEM_AUTO_MAXIMIZE_ON_BOOT',
+    Title: 'Auto Maximise Window on Boot',
+    Description: 'Open ShowTrak Timers maximised. Takes effect the next time it starts.',
+    Type: 'BOOLEAN',
+    DefaultValue: false,
+  },
+  {
+    Group: 'Machine',
     Key: 'SYSTEM_CONFIRM_SHUTDOWN_ON_ALT_F4',
     Title: 'Stop Accidental Shutdowns',
     Description: 'Ask for confirmation before quitting ShowTrak Timers.',

@@ -24,6 +24,7 @@ test, lint and release tooling, the same update system, and the same look.
   keypad, remembered by the browser, with repeated wrong attempts locked out.
 - Confirmations before pausing, resuming or stopping all timers.
 - Alert Volume setting.
+- Auto Maximise Window on Boot setting, as in ShowTrak Server.
 - Web Dashboard modal listing the dashboard's addresses with a QR code.
 - Drag to reorder timers in EDIT mode.
 - About modal (dependencies, licence), Keyboard Shortcuts, macOS app menu.

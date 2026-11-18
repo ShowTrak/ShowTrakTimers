@@ -33,6 +33,7 @@ import {
   PRELOADER_SHOW_DELAY_MS,
 } from './Modules/Config/constants';
 import { Manager as TimerManager } from './Modules/TimerManager';
+import { Manager as SettingsManager } from './Modules/SettingsManager';
 import { Manager as DB } from './Modules/DB';
 import { Manager as BroadcastManager } from './Modules/Broadcast';
 import { Wait } from './Modules/Utils';
@@ -210,6 +211,13 @@ app.whenReady().then(async () => {
     MainWindowRevealed = true;
     if (PreloaderShowTimer) clearTimeout(PreloaderShowTimer);
     if (PreloaderWindow && !PreloaderWindow.isDestroyed()) PreloaderWindow.close();
+    // As ShowTrak Server: maximised before it is first shown, so it never
+    // appears at its default size and then jumps.
+    try {
+      if (await SettingsManager.GetValue('SYSTEM_AUTO_MAXIMIZE_ON_BOOT')) MainWindow.maximize();
+    } catch (Err) {
+      Logger.warn('Could not read Auto Maximise Window on Boot:', Err);
+    }
     MainWindow.show();
     try {
       require('node:module').flushCompileCache?.();

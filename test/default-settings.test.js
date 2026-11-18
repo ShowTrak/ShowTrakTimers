@@ -166,3 +166,23 @@ test('the bind address settings accept every interface and reject a malformed ad
     );
   }
 });
+
+test('Auto Maximise Window on Boot is ShowTrak Server’s setting, off by default', () => {
+  const Setting = DefaultSettings.find((S) => S.Key === 'SYSTEM_AUTO_MAXIMIZE_ON_BOOT');
+  assert.ok(Setting, 'the setting exists');
+  assert.equal(Setting.Group, 'Machine');
+  assert.equal(Setting.Title, 'Auto Maximise Window on Boot');
+  assert.equal(Setting.Type, 'BOOLEAN');
+  assert.equal(Setting.DefaultValue, false);
+  // Read when the window is first shown, not live: no change event is needed.
+  assert.equal(Setting.OnUpdateEvent, undefined);
+});
+
+test('main maximises the window, when asked, before it is first shown', () => {
+  const Source = require('node:fs')
+    .readFileSync(require('node:path').join(__dirname, '..', 'src', 'main.ts'), 'utf8')
+    .replace(/\r\n/g, '\n');
+  const Maximise = Source.indexOf("GetValue('SYSTEM_AUTO_MAXIMIZE_ON_BOOT')");
+  const Show = Source.indexOf('MainWindow.show();');
+  assert.ok(Maximise > 0 && Show > Maximise);
+});
