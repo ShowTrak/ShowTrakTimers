@@ -206,7 +206,7 @@ function renderStatus(payload: AppUpdateStatus) {
     }
   } else if (st === 'downloaded') {
     const v = payload.info && payload.info.version;
-    setIcon('bi-check-circle');
+    setIcon('bi-check-circle-fill');
     $status.text('Update ready to install');
     $subtext.text('Install now to restart ShowTrak Timers on the new version.');
     setVersionBadge(v);
@@ -217,7 +217,7 @@ function renderStatus(payload: AppUpdateStatus) {
     $status.text('Installing update...');
     $subtext.text('ShowTrak Timers will restart shortly.');
   } else if (st === 'installed') {
-    setIcon('bi-check-circle');
+    setIcon('bi-check-circle-fill');
     $status.text('Update installed');
     $subtext.text(
       payload.simulated
@@ -225,12 +225,12 @@ function renderStatus(payload: AppUpdateStatus) {
         : 'Restart the app to finish updating.'
     );
   } else if (st === 'none') {
-    setIcon('bi-check-circle');
+    setIcon('bi-check-circle-fill');
     $status.text("You're up to date");
     $subtext.text('You have the latest version of ShowTrak Timers.');
     setVersionBadge('');
   } else if (st === 'error') {
-    setIcon('bi-exclamation-triangle');
+    setIcon('bi-exclamation-triangle-fill');
     $status.text('Update failed');
     $subtext.text(payload.error || 'An unknown error occurred while checking for updates.');
   }

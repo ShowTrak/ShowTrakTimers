@@ -49,7 +49,7 @@ function TileHtml(Timer: TimerView): string {
       <button type="button" class="timer-tile-btn" data-action="Pause" title="Pause" aria-label="Pause"><i class="bi bi-pause-fill"></i></button>
       <button type="button" class="timer-tile-btn" data-action="Stop" title="Stop and reset" aria-label="Stop and reset"><i class="bi bi-stop-fill"></i></button>
       <span class="timer-tile-spacer"></span>
-      <button type="button" class="timer-tile-btn edit-only" data-action="edit" title="Edit timer" aria-label="Edit timer"><i class="bi bi-gear"></i></button>
+      <button type="button" class="timer-tile-btn edit-only" data-action="edit" title="Edit timer" aria-label="Edit timer"><i class="bi bi-gear-fill"></i></button>
     </div>
   </div>`;
 }

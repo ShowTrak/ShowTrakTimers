@@ -133,7 +133,7 @@ export function RenderSoundLibrary(): void {
           ${Safe(Meta)}${Missing}
         </div>
         <div class="d-flex align-items-center gap-2 audio-asset-volume-wrap">
-          <i class="bi bi-volume-down text-muted" aria-hidden="true"></i>
+          <i class="bi bi-volume-down-fill text-muted" aria-hidden="true"></i>
           <input type="range" class="form-range flex-grow-1" min="0" max="100" step="1"
             value="${Math.min(100, Sound.Volume)}" data-sound-volume />
           <span class="text-sm" data-sound-volume-label>${Math.min(100, Sound.Volume)}%</span>
@@ -141,9 +141,9 @@ export function RenderSoundLibrary(): void {
         <div class="d-flex gap-1 flex-shrink-0 audio-asset-actions">
           <button type="button" class="btn btn-sm bg-ghost-light text-white" data-sound-play title="Preview" ${
             Sound.Missing ? 'disabled' : ''
-          }><i class="bi bi-play"></i></button>
+          }><i class="bi bi-play-fill"></i></button>
           <button type="button" class="btn btn-sm btn-delete" data-sound-delete title="Delete sound">
-            <i class="bi bi-trash"></i>
+            <i class="bi bi-trash-fill"></i>
           </button>
         </div>
       </div>`;

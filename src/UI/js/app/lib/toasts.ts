@@ -21,10 +21,10 @@ interface AlertStyleToastOptions {
 
 export function iconForType(type: unknown) {
   const t = String(type || 'info').toLowerCase();
-  if (t === 'success') return '<i class="bi bi-check-circle"></i>';
-  if (t === 'warning') return '<i class="bi bi-exclamation-triangle"></i>';
-  if (t === 'error') return '<i class="bi bi-x-circle"></i>';
-  return '<i class="bi bi-info-circle"></i>';
+  if (t === 'success') return '<i class="bi bi-check-circle-fill"></i>';
+  if (t === 'warning') return '<i class="bi bi-exclamation-triangle-fill"></i>';
+  if (t === 'error') return '<i class="bi bi-x-circle-fill"></i>';
+  return '<i class="bi bi-info-circle-fill"></i>';
 }
 
 // Auto-remove `el` after `duration` ms, pausing the countdown while the pointer
