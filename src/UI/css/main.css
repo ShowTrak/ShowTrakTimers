@@ -2299,15 +2299,17 @@ body.is-web .mode-group .st-segmented-toggle-btn:disabled {
    gap as Server's tiles. */
 .timer-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--timer-tile-min-width), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(var(--timer-tile-min-width), 100%), 1fr));
   gap: var(--group-pad);
   padding: 0.75rem;
   align-content: start;
 }
 
 :root {
-  --timer-tile-min-width: 240px;
-  --timer-readout-size: clamp(2rem, 9vw, 2.75rem);
+  /* Wide enough that the default window (560 px) gives one full-width column;
+     a wider window fits more tiles per row. */
+  --timer-tile-min-width: 420px;
+  --timer-readout-size: 2.25rem;
 }
 
 /* --- Timer tile -----------------------------------------------------------
@@ -2315,11 +2317,21 @@ body.is-web .mode-group .st-segmented-toggle-btn:disabled {
    radius, a transparent 2px border that lights on hover, and the solid status
    washes from 05-monitoring.css. Standby reads as idle (grey), Running as online
    (green), Paused as degraded (orange), Complete and Overrun as offline (red). */
+/* Three rows, to keep the tile short: name and status, then the readout with
+   the controls beside it, then the bar. (The dashboard's tiles have no
+   controls, so its readout takes the whole row.) */
 .SHOWTRAK_TIMER {
   position: relative;
   display: grid;
-  gap: 0.15rem;
-  padding: 0.6rem 0.75rem 0.5rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'name head'
+    'readout controls'
+    'progress progress';
+  align-items: center;
+  column-gap: 0.75rem;
+  row-gap: 0.1rem;
+  padding: 0.45rem 0.75rem 0.55rem;
   border-radius: var(--tile-r);
   border: 2px solid transparent;
   background-color: var(--tile-solid-idle);
@@ -2366,6 +2378,7 @@ body.is-web .mode-group .st-segmented-toggle-btn:disabled {
 }
 
 .timer-tile-head {
+  grid-area: head;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2396,6 +2409,8 @@ body.is-web .mode-group .st-segmented-toggle-btn:disabled {
 }
 
 .timer-tile-name {
+  grid-area: name;
+  min-width: 0;
   font-size: var(--tile-name-font-size);
   font-weight: 600;
   overflow: hidden;
@@ -2404,6 +2419,8 @@ body.is-web .mode-group .st-segmented-toggle-btn:disabled {
 }
 
 .timer-tile-readout {
+  grid-area: readout;
+  min-width: 0;
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
@@ -2436,8 +2453,9 @@ body.is-web .mode-group .st-segmented-toggle-btn:disabled {
 /* The bar: Server's tile bar (white on a faint track), scaled rather than
    resized so a repaint never lays the page out. */
 .timer-tile-progress.progress {
+  grid-area: progress;
   height: 4px;
-  margin-top: 0.35rem;
+  margin-top: 0.3rem;
   background-color: rgb(255 255 255 / 0.15);
 }
 
@@ -2463,14 +2481,14 @@ body.is-web .mode-group .st-segmented-toggle-btn:disabled {
    Always visible (1.x hid them behind a hover, which a touchscreen cannot
    do). Ghost buttons sized like Server's bottom-bar buttons. */
 .timer-tile-controls {
+  grid-area: controls;
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  margin-top: 0.4rem;
 }
 
 .timer-tile-spacer {
-  flex: 1 1 auto;
+  width: 0.25rem;
 }
 
 .timer-tile-btn {
