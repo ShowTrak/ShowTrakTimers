@@ -11,8 +11,13 @@ const { ALL_TIMER_CONFIRMATIONS } = require('../dist-test/UI/js/app/menu.js');
 const Read = (...Parts) =>
   fs.readFileSync(path.join(__dirname, '..', ...Parts), 'utf8').replace(/\r\n/g, '\n');
 
-test('pausing, resuming and stopping all timers each have a confirmation', () => {
-  assert.deepEqual(Object.keys(ALL_TIMER_CONFIRMATIONS).sort(), ['Pause', 'Stop', 'Unpause']);
+test('starting, pausing, resuming and stopping all timers each have a confirmation', () => {
+  assert.deepEqual(Object.keys(ALL_TIMER_CONFIRMATIONS).sort(), [
+    'Pause',
+    'Start',
+    'Stop',
+    'Unpause',
+  ]);
   for (const [Action, { Message, ConfirmLabel }] of Object.entries(ALL_TIMER_CONFIRMATIONS)) {
     assert.match(Message, /\?$/, `${Action} asks a question`);
     assert.match(ConfirmLabel, /All Timers$/, `${Action} names what it does`);
@@ -21,7 +26,7 @@ test('pausing, resuming and stopping all timers each have a confirmation', () =>
 
 test('every all-timers menu entry goes through a confirmation', () => {
   const Source = Read('src', 'UI', 'js', 'app', 'menu.ts');
-  for (const ID of ['MENU_PAUSE_ALL', 'MENU_RESUME_ALL', 'MENU_STOP_ALL']) {
+  for (const ID of ['MENU_START_ALL', 'MENU_PAUSE_ALL', 'MENU_RESUME_ALL', 'MENU_STOP_ALL']) {
     assert.match(Source, new RegExp(`${ID}: \\(\\) => ConfirmedAll\\(`), ID);
   }
 });

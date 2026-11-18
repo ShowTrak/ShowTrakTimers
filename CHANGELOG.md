@@ -22,7 +22,8 @@ test, lint and release tooling, the same update system, and the same look.
 - Per-timer Show Hundredths (`00:00.00`), on the app and the Web Dashboard.
 - Web Dashboard passcode, as in ShowTrak Server: a 4-digit passcode entered on a
   keypad, remembered by the browser, with repeated wrong attempts locked out.
-- Confirmations before pausing, resuming or stopping all timers.
+- Start All Timers in the menu, and confirmations before starting, pausing,
+  resuming or stopping all timers.
 - Alert Volume setting.
 - Auto Maximise Window on Boot setting, as in ShowTrak Server.
 - Web Dashboard modal listing the dashboard's addresses with a QR code.

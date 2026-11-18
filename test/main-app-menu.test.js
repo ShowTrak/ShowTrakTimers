@@ -86,6 +86,7 @@ test('the Timers menu lists its items in order', () => {
       'Show Mode',
       'Edit Mode',
       '---',
+      'Start All Timers',
       'Pause All Timers',
       'Resume All Timers',
       'Stop All Timers',
@@ -157,6 +158,7 @@ test('every other item sends its action ID to the renderer', () => {
   }
   assert.deepEqual(sent, [
     'ADD_TIMER_BUTTON',
+    'MENU_START_ALL',
     'MENU_PAUSE_ALL',
     'MENU_RESUME_ALL',
     'MENU_STOP_ALL',

@@ -33,6 +33,7 @@ export async function RequestShutdown(): Promise<void> {
 // Every "all timers" action asks first: one stray click (or shortcut) would
 // otherwise change every running timer in the show.
 export const ALL_TIMER_CONFIRMATIONS = {
+  Start: { Message: 'Start every timer from zero?', ConfirmLabel: 'Start All Timers' },
   Pause: { Message: 'Pause every running timer?', ConfirmLabel: 'Pause All Timers' },
   Unpause: { Message: 'Resume every paused timer?', ConfirmLabel: 'Resume All Timers' },
   Stop: { Message: 'Stop and reset every timer?', ConfirmLabel: 'Stop All Timers' },
@@ -44,6 +45,7 @@ async function ConfirmedAll(Action: keyof typeof ALL_TIMER_CONFIRMATIONS): Promi
 }
 
 const ACTIONS: Record<string, () => unknown> = {
+  MENU_START_ALL: () => ConfirmedAll('Start'),
   MENU_PAUSE_ALL: () => ConfirmedAll('Pause'),
   MENU_RESUME_ALL: () => ConfirmedAll('Unpause'),
   MENU_STOP_ALL: () => ConfirmedAll('Stop'),

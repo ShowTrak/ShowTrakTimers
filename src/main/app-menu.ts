@@ -24,6 +24,7 @@ export function buildMacAppMenuTemplate(Deps: AppMenuDeps): MenuItemConstructorO
     { label: 'Show Mode', accelerator: 'CmdOrCtrl+1', click: () => setMode('SHOW') },
     { label: 'Edit Mode', accelerator: 'CmdOrCtrl+2', click: () => setMode('EDIT') },
     { type: 'separator' },
+    { label: 'Start All Timers', click: Action('MENU_START_ALL') },
     { label: 'Pause All Timers', click: Action('MENU_PAUSE_ALL') },
     { label: 'Resume All Timers', click: Action('MENU_RESUME_ALL') },
     { label: 'Stop All Timers', click: Action('MENU_STOP_ALL') },
