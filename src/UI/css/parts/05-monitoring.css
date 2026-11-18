@@ -1,0 +1,78 @@
+/* Extracted from ShowTrak Server's src/UI/css/parts/05-monitoring.css: only the rules
+   the Timers markup uses (scripts/sync-server-css.js). Edit Server's copy and
+   re-run the sync, rather than editing these by hand. */
+
+/* Solid tile colours for Grid and Compact.
+ *
+ * The status colours above are translucent, so a tile took on its group's
+ * tint: green on a red-tinted group read as olive, and the same state looked
+ * different from group to group. Here each state is the same colour already
+ * composited over the plain (untinted) group background, so a tile looks
+ * exactly as it did in an untinted group, whatever group it is in.
+ *
+ * The mixes read the same --status-*-rgb hue and --status-*-a strength as
+ * the translucent --status-* colours (01-base.css), so the two cannot drift.
+ * Solid colours rather than a layered background, so a change of state still
+ * fades.
+ *
+ * Not the list view, whose rows are neutral and whose groups are untinted, and
+ * not an identifying tile, whose pulse animates its background. */
+:root {
+  --tile-solid-base: var(--surface-1);
+  --tile-solid-offline: color-mix(
+    in srgb,
+    rgb(var(--status-offline-rgb)) var(--status-offline-a),
+    var(--tile-solid-base)
+  );
+  --tile-solid-online: color-mix(
+    in srgb,
+    rgb(var(--status-online-rgb)) var(--status-online-a),
+    var(--tile-solid-base)
+  );
+  --tile-solid-degraded: color-mix(
+    in srgb,
+    rgb(var(--status-degraded-rgb)) var(--status-degraded-a),
+    var(--tile-solid-base)
+  );
+  --tile-solid-idle: color-mix(
+    in srgb,
+    rgb(var(--status-idle-rgb)) var(--status-idle-a),
+    var(--tile-solid-base)
+  );
+  --tile-solid-pending: color-mix(
+    in srgb,
+    rgb(var(--status-pending-rgb)) var(--status-pending-a),
+    var(--tile-solid-base)
+  );
+}
+
+/* =========================================================================
+   Mobile / narrow-viewport layout (body.mobile-view)
+   -------------------------------------------------------------------------
+   `body.mobile-view` is toggled from JS (see InitMobileView in 02-mode.ts) in
+   lockstep with the `(max-width: 768px)` media query, and mobile is *locked* to
+   compact mode, so `body.compact-mode` is always present too and the compact
+   tile/font styling is inherited as-is (no re-declaration needed, which keeps
+   the sizing identical to a normal compact toggle).
+
+   The mobile-only structural changes are:
+     - a single full-width column of groups,
+     - each group's title reflowed into a horizontal header ABOVE its clients
+       (normally a thin vertical rail to the left, hidden in compact mode),
+     - hidden mode/alert/compact toggles,
+     - a taller, more touch-friendly bottom bar with larger buttons,
+     - left-aligned selection status.
+   ========================================================================= */
+@media (max-width: 768px) {
+  /* --- Taller, touch-friendly bottom bar --- */
+  /* Installed as a PWA (viewport-fit=cover) the page extends under the rounded
+       screen corners / home indicator, which clipped the bar's icon and
+       "N Targets Selected" text. Grow the bar by the device's safe-area inset and
+       pad its content up above the unsafe region. */
+  :root {
+    --bottom-bar-height-mobile: 60px;
+    --bottom-bar-total-mobile: calc(
+      var(--bottom-bar-height-mobile) + env(safe-area-inset-bottom, 0px)
+    );
+  }
+}

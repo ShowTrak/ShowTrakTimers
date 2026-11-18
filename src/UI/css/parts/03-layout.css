@@ -1,0 +1,562 @@
+/* Extracted from ShowTrak Server's src/UI/css/parts/03-layout.css: only the rules
+   the Timers markup uses (scripts/sync-server-css.js). Edit Server's copy and
+   re-run the sync, rather than editing these by hand. */
+
+.progress {
+  height: 3px !important;
+  border-radius: var(--radius-xs);
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* removed old floating cog styles */
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+#APPLICATION_NAVBAR_LOGO {
+  width: 18px;
+  height: 18px;
+}
+
+.modal-dialog {
+  padding-top: 2rem !important;
+}
+
+/* Single shared modal surface for every modal in the app, as in ShowTrak
+   Portal: every pop-up is a panel. Panel corners and padding, no border; a
+   soft shadow lifts it off the page. What sits straight in its padding (title
+   bars, tab rails, rows, buttons, fields) takes the inner radius, so its
+   corners run concentric with the modal's. Sizes still vary per modal via
+   .modal-dialog. */
+.modal-content {
+  border: 0 !important;
+  background: var(--surface-1) !important;
+  color: white;
+  border-radius: var(--panel-r) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5) !important;
+}
+
+.modal-body {
+  color: white;
+  display: grid;
+  gap: 0.5rem;
+  padding: var(--panel-pad);
+}
+
+/* Every modal dims and blurs the page behind it, like ShowTrak Portal. The
+   tint lives in the colour rather than the backdrop's opacity, so the blur
+   is not faded with it; Bootstrap's fade-in still works. */
+.modal-backdrop {
+  background-color: rgb(var(--surface-0-rgb) / 0.6);
+  backdrop-filter: blur(3px);
+}
+
+.modal-backdrop.show {
+  opacity: 1;
+}
+
+.SHOWTRAK_MODEL_CORE_LOGO {
+  width: 256px;
+  height: 256px;
+  border-radius: 1.5rem;
+}
+
+/* About modal inherits the shared .modal-content surface; only its body needs
+   custom spacing. */
+.SHOWTRAK_ABOUT_MODAL_BODY {
+  gap: 0.75rem;
+}
+
+.SHOWTRAK_ABOUT_TITLE {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.SHOWTRAK_ABOUT_VERSION {
+  color: var(--text-secondary);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+}
+
+.SHOWTRAK_ABOUT_CARD {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border: 0 !important;
+}
+
+.SHOWTRAK_ABOUT_CARD .card-body {
+  font-size: 0.98rem;
+  line-height: 1.5;
+}
+
+.SHOWTRAK_ABOUT_WEBSITE_BTN {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  padding: 0.55rem 0.9rem;
+}
+
+.SHOWTRAK_ABOUT_UPDATE_BODY {
+  font-size: var(--fs-xl);
+}
+
+/* ---- Software Update modal ---------------------------------------------- */
+.SHOWTRAK_APP_UPDATE_HERO {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Icon area: a tinted circle with a determinate progress ring sitting on its
+   border. The ring is always in the DOM (absolutely positioned) so toggling it
+   never shifts layout; it just fades in while a download is in progress. */
+.SHOWTRAK_APP_UPDATE_ICON_WRAP {
+  position: relative;
+  flex: 0 0 auto;
+  width: 3rem;
+  height: 3rem;
+}
+
+.SHOWTRAK_APP_UPDATE_ICON {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgb(var(--info-cyan-rgb) / 0.14);
+  color: var(--info-cyan);
+  font-size: 1.4rem;
+}
+
+.SHOWTRAK_APP_UPDATE_RING {
+  position: absolute;
+  inset: 0;
+  width: 3rem;
+  height: 3rem;
+  transform: rotate(-90deg);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: var(--z-base);
+}
+
+.SHOWTRAK_APP_UPDATE_ICON_WRAP.has-progress .SHOWTRAK_APP_UPDATE_RING {
+  opacity: 1;
+}
+
+.SHOWTRAK_APP_UPDATE_RING_TRACK {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 3;
+}
+
+.SHOWTRAK_APP_UPDATE_RING_BAR {
+  fill: none;
+  stroke: var(--info-cyan);
+  stroke-width: 3;
+  stroke-linecap: round;
+  /* dasharray = circumference (2·π·r, r=22). Offset is driven from JS. */
+  stroke-dasharray: 138.23;
+  stroke-dashoffset: 138.23;
+  transition: stroke-dashoffset 0.25s ease;
+}
+
+.SHOWTRAK_APP_UPDATE_STATUS {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.SHOWTRAK_APP_UPDATE_VERSION_BADGE {
+  background: rgb(var(--info-cyan-rgb) / 0.18);
+  color: var(--info-cyan);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.SHOWTRAK_APP_UPDATE_SPIN {
+  animation: spin 1.4s linear infinite;
+}
+
+/* Floating download progress, shown while an update downloads with the modal
+   closed. Bottom-right so it stays clear of the centred identify banner and
+   confirmation toast; clicking it reopens the modal. */
+#APP_UPDATE_FLOAT {
+  position: fixed;
+  right: 12px;
+  bottom: calc(var(--bottom-bar-height) + 12px);
+  z-index: var(--z-toast);
+  width: min(320px, calc(100vw - 24px));
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  text-align: left;
+  background: var(--surface-3);
+  border: 0;
+  /* The same shape as the toasts. */
+  border-radius: calc(var(--item-r) + 10px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  color: var(--text-strong);
+  cursor: pointer;
+}
+
+#APP_UPDATE_FLOAT.d-none {
+  display: none;
+}
+
+#APP_UPDATE_FLOAT .app-update-float-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+#APP_UPDATE_FLOAT .app-update-float-title {
+  font-size: var(--fs-md);
+  font-weight: 700;
+}
+
+#APP_UPDATE_FLOAT .app-update-float-title .bi {
+  color: var(--info-cyan);
+  margin-right: 4px;
+}
+
+#APP_UPDATE_FLOAT .app-update-float-version {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgb(var(--info-cyan-rgb) / 0.18);
+  color: var(--info-cyan);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+#APP_UPDATE_FLOAT .app-update-float-version:empty {
+  display: none;
+}
+
+#APP_UPDATE_FLOAT .app-update-float-track {
+  position: relative;
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+#APP_UPDATE_FLOAT .app-update-float-bar {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--info-cyan);
+  transition: width 0.25s ease;
+}
+
+/* Before the first progress tick: a sliding sliver instead of an empty bar. */
+#APP_UPDATE_FLOAT .app-update-float-bar.is-indeterminate {
+  width: 30%;
+  animation: app-update-float-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes app-update-float-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+
+#APP_UPDATE_FLOAT .app-update-float-detail {
+  font-size: var(--fs-sm);
+  color: var(--text-soft);
+}
+
+/* Changelog: rendered release notes styled as readable prose rather than the
+   old pre-wrapped raw block. */
+.SHOWTRAK_APP_UPDATE_CHANGELOG {
+  max-height: 320px;
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: var(--fs-lg);
+  line-height: 1.55;
+  color: var(--text-soft);
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG > *:first-child {
+  margin-top: 0;
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG > *:last-child {
+  margin-bottom: 0;
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG h1,
+.SHOWTRAK_APP_UPDATE_CHANGELOG h2,
+.SHOWTRAK_APP_UPDATE_CHANGELOG h3,
+.SHOWTRAK_APP_UPDATE_CHANGELOG h4,
+.SHOWTRAK_APP_UPDATE_CHANGELOG h5,
+.SHOWTRAK_APP_UPDATE_CHANGELOG h6 {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  color: #fff;
+  margin: 1rem 0 0.4rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG p {
+  margin: 0 0 0.6rem;
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG ul,
+.SHOWTRAK_APP_UPDATE_CHANGELOG ol {
+  margin: 0 0 0.6rem;
+  padding-left: 1.25rem;
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG li {
+  margin-bottom: 0.25rem;
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG a {
+  color: var(--info-cyan);
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-xs);
+  font-size: var(--fs-md);
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG pre {
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem;
+  overflow: auto;
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG pre code {
+  background: none;
+  padding: 0;
+}
+
+.SHOWTRAK_ABOUT_DEPENDENCIES_LIST {
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.22);
+  /* Sits in an About card's padding. */
+  border-radius: var(--item-r);
+  padding: 0.6rem;
+  font-size: var(--fs-lg);
+  line-height: 1.4;
+}
+
+.SHOWTRAK_ABOUT_DEPENDENCY_ITEM {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.15rem 0;
+  border-bottom: 1px dashed var(--border-subtle);
+}
+
+.SHOWTRAK_ABOUT_DEPENDENCY_ITEM:last-child {
+  border-bottom: 0;
+}
+
+.SHOWTRAK_ABOUT_DEPENDENCY_NAME {
+  color: var(--text-strong);
+  word-break: break-word;
+}
+
+.SHOWTRAK_ABOUT_DEPENDENCY_VERSION {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.SHOWTRAK_ABOUT_DEPENDENCY_GROUP {
+  margin-bottom: 0.65rem;
+}
+
+.SHOWTRAK_ABOUT_DEPENDENCY_GROUP:last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 576px) {
+  .SHOWTRAK_ABOUT_MODAL_BODY {
+    padding: 1rem;
+  }
+
+  .SHOWTRAK_ABOUT_TITLE {
+    font-size: 1.2rem;
+  }
+
+  .SHOWTRAK_ABOUT_VERSION {
+    font-size: var(--fs-lg);
+  }
+
+  .SHOWTRAK_ABOUT_CARD .card-body {
+    font-size: var(--fs-xl);
+  }
+
+  .SHOWTRAK_ABOUT_DEPENDENCIES_LIST {
+    max-height: 180px;
+    font-size: var(--fs-md);
+  }
+}
+
+small,
+.text-sm {
+  font-size: var(--fs-2xs);
+}
+
+/* Custom Scrollbar Styles: the app's own surfaces, not a neutral grey. */
+::-webkit-scrollbar {
+  width: 8px;
+  background: var(--surface-0);
+  border-radius: var(--radius-xl);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--surface-3);
+  border-radius: var(--radius-lg);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--surface-3) 82%, #ffffff);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--surface-0);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) var(--surface-0);
+}
+
+/* No visual overlay change for EDIT mode */
+body.mode-edit #APPLICATION_CONTAINER {
+  background: var(--app-bg-gradient) !important;
+}
+
+/* Fields: solid, borderless, a shade per state (tokens in 01-base.css). The
+   !importants outrank the bg-* / border-0 utilities fields still carry. */
+.form-control,
+.form-select {
+  background-color: var(--field-bg) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: var(--ctl-r) !important;
+  box-shadow: none !important;
+  transition: background-color 150ms ease;
+}
+
+.form-control:hover,
+.form-select:hover {
+  background-color: var(--field-bg-hover) !important;
+}
+
+.form-control:focus,
+.form-select:focus {
+  color: white !important;
+  background-color: var(--field-bg-focus) !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+.form-control.is-invalid,
+.form-select.is-invalid {
+  background-color: var(--field-bg-invalid) !important;
+}
+
+.form-control:disabled,
+.form-control.disabled,
+.form-control[readonly],
+.form-select:disabled {
+  background-color: var(--field-bg-disabled) !important;
+  color: var(--text-soft) !important;
+  opacity: 1;
+}
+
+.form-control::placeholder {
+  color: var(--text-faint);
+}
+
+/* 3D keyboard key styling for <kbd> elements */
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0.12rem 0.4rem;
+  margin: 0 0.05rem;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-size: 0.85em;
+  line-height: 1.1;
+  color: #fff;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  box-shadow:
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 1px 0 rgba(255, 255, 255, 0.05),
+    0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Enhanced select styling to match dark UI and increase padding */
+.form-select {
+  -webkit-appearance: none;
+  appearance: none;
+  /* keep Bootstrap's default vertical/left padding to avoid clipping; only expand right for the arrow */
+  padding-right: 2rem !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23ffffff' viewBox='0 0 16 16'><path d='M1.5 5.5 8 12l6.5-6.5-1-1L8 10 2.5 4.5z'/></svg>");
+  background-repeat: no-repeat !important;
+  background-position: right 0.6rem center !important;
+  background-size: 0.9rem !important;
+}
+
+.form-select.form-select-sm {
+  /* small size: only reserve arrow space on the right */
+  padding-right: 1.8rem !important;
+  background-position: right 0.5rem center !important;
+  background-size: 0.85rem !important;
+}
+
+/* Dropdown list colors (Chromium/Electron supports styling option background) */
+select.form-select option,
+select.form-select optgroup {
+  background-color: var(--surface-2);
+  color: #ffffff;
+}
+
+/* Remove outlines/shadows from buttons everywhere (including Bootstrap btn-check patterns) */
+.btn,
+.btn:hover,
+.btn:focus,
+.btn:focus-visible,
+.btn:active,
+.btn:active:focus,
+.modal .btn,
+.modal .btn:hover,
+.modal .btn:focus,
+.modal .btn:focus-visible,
+.modal .btn:active,
+.modal .btn:active:focus,
+a.btn,
+a.btn:focus,
+button.btn,
+button.btn:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* --- Network interfaces (client info modal) ------------------------------ */
+/* Cards and conditions reuse the audio card's classes; only what an address
+   needs differently lives here. */
+.SHOWTRAK_NET_ADDRESS {
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}

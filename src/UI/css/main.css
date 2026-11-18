@@ -1,10 +1,255 @@
+/* Extracted from ShowTrak Server's src/UI/css/parts/01-base.css: only the rules
+   the Timers markup uses (scripts/sync-server-css.js). Edit Server's copy and
+   re-run the sync, rather than editing these by hand. */
+
+/* =========================================================================
+   Design tokens
+   -------------------------------------------------------------------------
+   Every shared colour, surface, radius, type size, layer and layout constant
+   lives here, so the rest of the parts say what a value MEANS rather than
+   repeating it. Dark theme only; Bootstrap 5.0.2 loads before this file.
+
+   Colours that need translucent variants are declared as bare channel
+   triplets (`--x-rgb: R G B`) and used as `rgb(var(--x-rgb) / alpha)`, so a
+   hue changes in exactly one place.
+   ========================================================================= */
+:root {
+  /* --- Status palette ------------------------------------------------------
+   * Tile washes: the translucent fills behind client tiles, the check editor's
+   * live status card and drag ghosts. IDLE / UNAVAILABLE -> grey,
+   * OFFLINE -> red, DEGRADED -> orange, ONLINE -> green, PENDING -> blue.
+   * The alphas are percentages so the solid tile colours in 05-monitoring.css
+   * can color-mix by exactly the same amount. */
+  --status-online-rgb: 18 255 0;
+  --status-online-a: 32%;
+  --status-offline-rgb: 255 0 0;
+  --status-offline-a: 24%;
+  --status-degraded-rgb: 255 140 0;
+  --status-degraded-a: 32%;
+  --status-idle-rgb: 64 64 64;
+  --status-idle-a: 50%;
+  /* Pending adoption AND identify share this one blue, everywhere. */
+  --status-pending-rgb: 52 152 219;
+  --status-pending-a: 25%;
+
+  --status-online: rgb(var(--status-online-rgb) / var(--status-online-a));
+  --status-offline: rgb(var(--status-offline-rgb) / var(--status-offline-a));
+  --status-degraded: rgb(var(--status-degraded-rgb) / var(--status-degraded-a));
+  --status-idle: rgb(var(--status-idle-rgb) / var(--status-idle-a));
+  --status-pending: rgb(var(--status-pending-rgb) / var(--status-pending-a));
+
+  /* Saturated variants for timeline blocks, chart lines and status dots.
+   * Tuned apart from the washes on purpose: a solid 18,255,0 block reads as
+   * neon, so the graph hues are their own triplets. Pending has no separate
+   * graph hue; it is the same blue at full strength. */
+  --status-graph-online-rgb: 38 214 44;
+  --status-graph-offline-rgb: 224 36 36;
+  --status-graph-degraded-rgb: 255 149 0;
+  --status-graph-idle-rgb: 120 126 134;
+  --status-graph-online: rgb(var(--status-graph-online-rgb) / 0.98);
+  --status-graph-offline: rgb(var(--status-graph-offline-rgb) / 0.98);
+  --status-graph-degraded: rgb(var(--status-graph-degraded-rgb) / 0.98);
+  --status-graph-idle: rgb(var(--status-graph-idle-rgb) / 0.9);
+  --status-graph-pending: rgb(var(--status-pending-rgb) / 0.98);
+
+  /* A failing monitored condition (USB, audio, display, network, system,
+   * application) turns its client tile DEGRADED, so it wears the degraded
+   * hue. Apply it with `.st-condition-failing`. */
+  --condition-failing-rgb: var(--status-graph-degraded-rgb);
+  --condition-failing: var(--status-graph-degraded);
+
+  /* --- Semantic colours ----------------------------------------------------
+   * The base hues match Bootstrap's so they sit beside .btn-danger /
+   * .text-success and friends; the -text variants are the lighter shades that
+   * stay readable on the dark surfaces. */
+  --danger-rgb: 220 53 69;
+  --danger: rgb(var(--danger-rgb));
+  --danger-text-rgb: 255 107 107;
+  --danger-text: rgb(var(--danger-text-rgb));
+  --danger-text-hover: #ff8787;
+  --danger-text-soft: #ffb3bc;
+
+  --success-rgb: 40 167 69;
+  --success: rgb(var(--success-rgb));
+  --success-text-rgb: 79 209 139;
+  --success-text: rgb(var(--success-text-rgb));
+  --success-text-soft: #96e6b3;
+
+  --warning-rgb: 255 193 7;
+  --warning: rgb(var(--warning-rgb));
+  /* The softer amber the alerts system uses (tray accent, bell icon). */
+  --warning-soft-rgb: 255 181 77;
+  --warning-text: #ffe08a;
+
+  --info-rgb: 77 159 255;
+  --info: rgb(var(--info-rgb));
+  --info-text: #a8d2ff;
+  /* Bootstrap's cyan info, used by the software-update surfaces. */
+  --info-cyan-rgb: 13 202 240;
+  --info-cyan: #3dd5f3;
+  --info-cyan-soft: #6edff6;
+
+  /* The purple that lifts a hovered/focused menu row. */
+  --accent-rgb: 120 95 200;
+
+  /* --- Surfaces ------------------------------------------------------------
+   * 0 is the deepest (the edge of the app backdrop, popovers); each step up is
+   * a raised panel: 1 modals / menu foot, 2 bars, trays and cards, 3 toasts
+   * and sticky table heads. */
+  --surface-0-rgb: 12 9 28;
+  --surface-1-rgb: 23 20 46;
+  --surface-2-rgb: 29 26 47;
+  --surface-3-rgb: 39 35 59;
+  --surface-0: rgb(var(--surface-0-rgb));
+  --surface-1: rgb(var(--surface-1-rgb));
+  --surface-2: rgb(var(--surface-2-rgb));
+  --surface-3: rgb(var(--surface-3-rgb));
+
+  /* Ghost surfaces: a white wash over whatever is underneath. */
+  --surface-ghost: rgb(255 255 255 / 0.03);
+  --surface-ghost-hover: rgb(255 255 255 / 0.08);
+  --surface-ghost-active: rgb(255 255 255 / 0.12);
+
+  --app-bg-gradient: radial-gradient(circle at 50% 80%, var(--surface-1) 0%, var(--surface-0) 100%);
+  /* Right-click menu and the check-actions menu share this surface. */
+  --menu-bg: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-1) 100%);
+
+  --border-subtle: rgb(255 255 255 / 0.08);
+  --border-default: rgb(255 255 255 / 0.12);
+
+  /* --- Fields ----------------------------------------------------------------
+   * Inputs, textareas and selects are solid and borderless; each state is
+   * its own shade. Disabled sits nearest the modal surface, focus leans
+   * toward the accent purple, invalid toward red. */
+  --field-bg: rgb(38 34 62);
+  --field-bg-hover: rgb(45 41 72);
+  --field-bg-focus: rgb(52 45 88);
+  --field-bg-disabled: rgb(29 26 50);
+  --field-bg-invalid: rgb(66 30 50);
+
+  /* --- Text ------------------------------------------------------------------
+   * White at fixed strengths, strongest first. */
+  --text-strong: rgb(255 255 255 / 0.92);
+  --text-soft: rgb(255 255 255 / 0.85);
+  --text-secondary: rgb(255 255 255 / 0.72);
+  --text-muted: rgb(255 255 255 / 0.6);
+  --text-subtle: rgb(255 255 255 / 0.45);
+  --text-faint: rgb(255 255 255 / 0.35);
+
+  /* --- Radii ----------------------------------------------------------------
+   * Nested corners follow ONE rule, as in ShowTrak Portal:
+   *   outer radius = inner radius + the padding between them
+   * so anything rounded sitting in a rounded container's padding runs
+   * concentric with it. Three tiers, each a step out from the last:
+   *   panel (--panel-r): modals and other free-standing surfaces, padded
+   *     --panel-pad.
+   *   inner (--inner-r): cards and rows sitting straight in a panel's
+   *     padding (the .bg-ghost.p-2 rows, title bars, tab rails), padded
+   *     --inner-pad (.p-2).
+   *   item  (--item-r): things sitting straight in an inner card's padding.
+   * Controls (buttons, fields, toggles) take --ctl-r, which each container
+   * sets for whatever sits straight in its own padding: a modal gives the
+   * inner radius, an inner card or a menu the item radius. Anywhere else a
+   * control falls back to the item radius.
+   *
+   * A component with its own padding derives its corners from these with
+   * calc(), e.g. calc(var(--item-r) + 4px) for a tray padded 4px around
+   * item-radius buttons, rather than picking a fixed size. */
+  --item-r: 6px;
+  --inner-pad: 0.5rem;
+  --inner-r: calc(var(--item-r) + var(--inner-pad));
+  --panel-pad: 0.75rem;
+  --panel-r: calc(var(--inner-r) + var(--panel-pad));
+
+  /* Menus (the bottom-bar dropdowns, the right-click menu, in-field pickers):
+   * an inner-card-sized surface padded --menu-pad, with rows that sit
+   * concentric in it. */
+  --menu-pad: 0.375rem;
+  --menu-r: var(--inner-r);
+  --menu-item-r: calc(var(--menu-r) - var(--menu-pad));
+
+  /* Tiles (grid and compact) and list rows. */
+  --tile-r: 8px;
+
+  /* Fixed sizes for things that do not nest: badges, chips, pills. */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  --ctl-r: var(--item-r);
+
+  /* --- Type scale ----------------------------------------------------------- */
+  --fs-3xs: 9px;
+  --fs-2xs: 10px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 14px;
+  --fs-xl: 15px;
+
+  /* --- Layout --------------------------------------------------------------- */
+  --bottom-bar-height: 36px;
+  --bottom-bar-toggle-height: 26px;
+  --tile-name-font-size: 1rem;
+  --tile-hostname-font-size: var(--fs-sm);
+  --tile-expanded-width: 220px;
+  --tile-compact-width: 244px;
+  --tile-expanded-height: 100px;
+  /* Grid view: the space round and between the tiles in a group's panel. */
+  --group-pad: 0.5rem;
+  --tile-status-height: 20px;
+
+  /* --- Layers --------------------------------------------------------------
+   * Bootstrap 5.0.2 stacks: dropdown 1000, sticky 1020, fixed 1030,
+   * modal-backdrop 1040, modal 1060, popover 1070, tooltip 1080. The app's
+   * layers are placed around those, so keep the relative order:
+   *   bottom bar  < modal backdrop   (an open modal covers the bar)
+   *   toast/tray  > modal            (feedback shows over an open modal)
+   *   dropdown    > Bootstrap tooltip (in-modal pickers and chart tooltips)
+   *   overlay < context menu < dragbar < critical confirm */
+  --z-base: 1;
+  --z-raised: 2;
+  --z-float: 3;
+  --z-sticky: 5;
+  --z-bottom-bar: 1000;
+  --z-toast: 1100;
+  --z-banner: 1200;
+  --z-dropdown: 2000;
+  --z-overlay: 20000;
+  --z-context-menu: 100000;
+  --z-dragbar: 1000000;
+  --z-critical: 1000001;
+}
+
+/* Text selection is opt-in. An app surface (menus, dialogs, tiles, labels)
+   should not highlight on a stray drag, so nothing is selectable except what
+   an operator would reasonably copy: what they type, code and console
+   output, addresses, and the audit trail. */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='button']),
+textarea,
+[contenteditable]:not([contenteditable='false']),
+pre,
+code,
+.SHOWTRAK_NET_ADDRESS {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 .dragbar {
-  z-index: 1000000;
+  z-index: var(--z-dragbar);
   position: fixed;
   width: 100vw;
   height: 2rem;
-  -webkit-app-region: drag;
-  background-color: #1d1a2ffc !important;
+  -webkit-app-region: drag; /* allow window dragging on Electron */
+  background-color: rgb(var(--surface-2-rgb) / 0.99) !important;
   padding: 0.3rem 0.8rem !important;
   color: #ffffff !important;
   user-select: none !important;
@@ -15,7 +260,7 @@
 }
 
 #APPLICATION_NAVBAR_TITLE {
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--text-strong);
 }
 
 #APPLICATION_CONTAINER {
@@ -23,149 +268,50 @@
   width: 100%;
   height: calc(100% - 2rem);
   overflow: auto;
-  display: grid;
-  grid-template-rows: auto 1fr;
-  background: radial-gradient(circle at 50% 80%, #151232 0%, #0c091c 100%) !important;
+  /* Block flow, NOT grid: as a grid item #APPLICATION gets pinned to the
+     container's height instead of growing with an overflowing client list, so
+     its content spills past its bottom edge and the padding-bottom reserved
+     for the fixed bottom bar lands mid-list instead of below it, and the end of
+     the list then scrolls to rest underneath the bar, unreachable. In block
+     flow #APPLICATION grows with its content and the padding counts toward
+     the scrollable overflow. (#APPLICATION's min-height still fills the
+     viewport when the list is short.) */
+  background: var(--app-bg-gradient) !important;
 }
 
 #APPLICATION {
-  height: max(100%, 100vh);
+  /* min-height (not height): fill the viewport when content is sparse so the
+     gradient covers the screen, but GROW past it when the group/client list is
+     tall; a fixed height here clips the overflow and kills scrolling on mobile,
+     where the list is a single tall column. */
+  min-height: max(100%, 100vh);
   padding-top: 2rem !important;
-  padding-bottom: 36px !important; /* space for bottom bar */
+  padding-bottom: var(--bottom-bar-height) !important; /* space for bottom bar */
   user-select: none !important;
   -webkit-user-select: none !important;
   -moz-user-select: none !important;
   -ms-user-select: none !important;
+  /* iOS: stop long-press raising the link/image callout, so a touch
+     long-press can open the context menu instead (wire-context-menu.ts). */
+  -webkit-touch-callout: none;
   background: transparent !important;
-}
-
-#APPLICATION_CONTENT {
-  padding: 1rem;
-  display: flex;
-  height: auto;
-  justify-content: center;
-}
-
-/* Deprecated old floating status/settings */
-#STATUS_BAR {
-  display: none;
-}
-.nav {
-  display: none;
-}
-
-.rounded-3 {
-  border-radius: 0.5rem !important;
-}
-
-.btn {
-  border: none !important;
-  border-radius: 0.5rem !important;
-  transition-duration: 100ms;
-}
-
-.btn-ghost {
-  background-color: rgba(255, 255, 255, 0.03) !important;
-}
-
-.btn-ghost:hover {
-  background-color: rgba(255, 255, 255, 0.07) !important;
-}
-
-.btn-light {
-  background-color: rgba(255, 255, 255, 0.1) !important;
-  color: white !important;
-}
-
-.btn-light:hover {
-  background-color: rgba(255, 255, 255, 0.2) !important;
-}
-
-.bg-ghost {
-  background-color: rgba(255, 255, 255, 0.03) !important;
-}
-
-.bg-ghost-light {
-  background-color: rgba(255, 255, 255, 0.1) !important;
-}
-
-.GROUP_TITLE {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  font-weight: 700;
-  letter-spacing: 0.1rem;
-  color: rgba(255, 255, 255, 0.6);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-transform: uppercase;
-}
-
-.GROUP_TITLE_CLICKABLE {
-  background-color: rgba(255, 255, 255, 0.1) !important;
-  cursor: pointer !important;
-}
-
-.GROUP_TITLE_CLICKABLE:hover {
-  background-color: rgba(255, 255, 255, 0.2) !important;
-  border-radius: 0.3rem;
-}
-
-.GROUP_CREATE_BUTTON {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  font-weight: 700;
-  /* letter-spacing: 0.1rem; */
-  color: rgba(255, 255, 255, 0.6);
-  /* overflow: hidden; */
-  /* text-overflow: ellipsis; */
-  /* white-space: nowrap; */
-  text-transform: uppercase;
-}
-
-.GROUP_CREATE_BUTTON:hover {
-  background-color: rgba(255, 255, 255, 0.1) !important;
-  border-radius: 0.3rem;
-}
-
-.SHOWTRAK_CLIENT_PENDING_ADOPTION {
-  background-color: rgba(255, 255, 255, 0.03);
-}
-
-.text-bold {
-  font-weight: 600 !important;
-}
-
-.card-title {
-  font-weight: 800 !important;
-}
-
-.card-text {
-  font-weight: 500 !important;
-}
-
-.progress {
-  height: 5px !important;
-  border-radius: 5px;
-  background-color: rgba(255, 255, 255, 0.1) !important;
-}
-
-.SHOWTRAK_BTN_ROUNDED {
-  font-weight: 600;
 }
 
 /* Bottom thin bar */
 #APP_BOTTOM_BAR {
+  /* Its switches keep their small shape: about 8px trays round 6px
+     segments. */
+  --ctl-r: calc(6px + 0.15rem);
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 36px;
-  background: #1d1a2f;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  height: var(--bottom-bar-height);
+  background: var(--surface-2); /* solid, not transparent */
+  border-top: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
-  z-index: 1000;
+  z-index: var(--z-bottom-bar);
 }
 
 #APP_BOTTOM_BAR .bar-content {
@@ -179,180 +325,902 @@
 #APP_BOTTOM_BAR .bar-section.left {
   justify-self: start;
 }
+
 #APP_BOTTOM_BAR .bar-section.center {
   justify-self: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  color: var(--text-soft);
+  font-weight: 700;
+  font-size: var(--fs-sm);
 }
+
 #APP_BOTTOM_BAR .bar-section.right {
   justify-self: end;
+}
+
+#APP_BOTTOM_BAR .bar-section.right {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-
-#APP_BOTTOM_BAR .client-count-pill {
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.88);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-weight: 700;
-}
-
-#APP_BOTTOM_BAR .client-count-pill .count-value {
-  display: inline-block;
-  min-width: 1.5rem;
-  text-align: left;
-  font-variant-numeric: tabular-nums;
 }
 
 /* Ensure left section content is vertically centered in the bar */
 #APP_BOTTOM_BAR .bar-section.left {
   display: flex;
   align-items: center;
+  gap: 6px;
 }
 
-/* Compact mode button group */
-.mode-group.btn-group {
-  gap: 0;
+/* Bottom-bar toggles */
+/* The bottom-bar SHOW/EDIT and GRID/COMPACT/LIST switches use the shared
+   `.st-segmented-toggle` look (see 02-controls.css); here they are just sized
+   to the bottom-bar toggle height. */
+.mode-group.st-segmented-toggle {
+  height: var(--bottom-bar-toggle-height);
+  align-items: stretch;
 }
-.mode-group .btn {
-  padding: 4px 10px;
-  line-height: 1.2;
-  font-size: 12px;
-  border-width: 1px;
-  font-weight: 700;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease,
-    border-color 120ms ease;
-}
-.mode-group.btn-group {
+
+.mode-group .st-segmented-toggle-btn {
+  display: inline-flex;
   align-items: center;
-}
-.mode-group .btn + .btn {
-  margin-left: 2px;
-}
-
-.mode-group .btn.btn-outline-light {
-  color: rgba(255, 255, 255, 0.9) !important;
-  border-color: rgba(255, 255, 255, 0.35) !important;
-  background-color: transparent !important;
-}
-.mode-group .btn.btn-outline-light:hover,
-.mode-group .btn.btn-outline-light:focus {
-  background-color: rgba(255, 255, 255, 0.04) !important;
-}
-.mode-group .btn.btn-light {
-  background-color: rgba(255, 255, 255, 0.32) !important;
-  color: #111 !important;
-  border-color: rgba(255, 255, 255, 0.85) !important;
-}
-.mode-group .btn.btn-light:hover,
-.mode-group .btn.btn-light:focus {
-  background-color: rgba(255, 255, 255, 0.36) !important;
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: var(--fs-sm);
 }
 
-/* Suppress focus outlines/rings on mode buttons */
-.mode-group .btn:focus,
-.mode-group .btn:focus-visible,
-.mode-group .btn:active {
-  outline: none !important;
-  box-shadow: none !important;
+@media (max-width: 1150px) {
+  #APP_BOTTOM_BAR .mode-group .st-segmented-toggle-btn {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    font-size: var(--fs-xs);
+    letter-spacing: 0.02em;
+  }
 }
 
-/* Settings button (cog icon) */
+/* Bootstrap gives every .btn a 1px border; the app's buttons are borderless,
+   outline variants included (they render as the neutral tint below). Plain
+   `.btn` specificity, so component rules later in the cascade can still set
+   their own. */
+.btn {
+  border: none;
+  border-radius: var(--ctl-r);
+}
+
+/* --- Radius tiers (see the Radii tokens) ------------------------------------
+   Which radius a control takes depends on what it sits in: these containers
+   set --ctl-r for whatever sits straight in their padding. */
+.modal-content {
+  --ctl-r: var(--inner-r);
+}
+
+/* Bootstrap's rounding utilities only ever wrap a padded card or row here
+   (.bg-ghost.p-2 and friends), so they are the inner tier, and what sits in
+   them is the item tier. A card with no padding of its own still lines up
+   with the panel it sits in. */
+.rounded,
+.rounded-3 {
+  border-radius: var(--inner-r) !important;
+  --ctl-r: var(--item-r);
+}
+
+/* Bootstrap's colour variants, retinted to the app's look: text in the hue
+   over a translucent wash of it, deepening on hover. Never a solid fill.
+   .btn-success matches the "+ New" button (.script-manager-create-btn).
+   The !importants beat Bootstrap's :active / .show / :disabled fills. */
+.btn-success {
+  --st-btn-rgb: var(--success-text-rgb);
+  --st-btn-hover: var(--success-text);
+}
+
+.btn-light,
+.btn-secondary,
+[class*='btn-outline-'] {
+  --st-btn-rgb: 255 255 255;
+  --st-btn-hover: #fff;
+}
+
+.btn-success,
+.btn-light,
+.btn-secondary,
+[class*='btn-outline-'] {
+  color: rgb(var(--st-btn-rgb) / 0.9) !important;
+  background-color: rgb(var(--st-btn-rgb) / 0.1) !important;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+}
+
+.btn-success:hover,
+.btn-light:hover,
+.btn-secondary:hover,
+[class*='btn-outline-']:hover,
+.btn-success:active,
+.btn-light:active,
+.btn-secondary:active,
+[class*='btn-outline-']:active {
+  color: var(--st-btn-hover) !important;
+  background-color: rgb(var(--st-btn-rgb) / 0.2) !important;
+}
+
+.btn-success:focus,
+.btn-light:focus,
+.btn-secondary:focus,
+[class*='btn-outline-']:focus,
+.btn-danger:focus,
+.btn-delete:focus {
+  box-shadow: none;
+}
+
+.btn-success:focus-visible,
+.btn-light:focus-visible,
+.btn-secondary:focus-visible,
+[class*='btn-outline-']:focus-visible {
+  box-shadow: 0 0 0 2px rgb(var(--st-btn-rgb) / 0.35);
+}
+
+/* A toolbar row of content-sized buttons sits on a faint panel so it reads as
+   an action bar. Rows of full-width buttons go without. */
+.st-action-row {
+  --st-action-row-pad: 6px;
+  padding: var(--st-action-row-pad);
+  /* Sits straight in a modal's padding; its buttons sit concentric in it. */
+  border-radius: var(--inner-r);
+  --ctl-r: calc(var(--inner-r) - var(--st-action-row-pad));
+  background-color: var(--surface-ghost);
+}
+
+/* THE delete button, app-wide: light red text on a translucent red tint, never
+   a solid fill. Works with .btn, .btn-sm and .w-100. The !importants let it win
+   if it lands beside .btn-ghost / .btn-danger / .text-danger, which it replaces.
+   .btn-danger takes the same look. */
+.btn-delete,
+.btn-danger {
+  color: var(--danger-text) !important;
+  background-color: rgb(var(--danger-rgb) / 0.14) !important;
+  border: none;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+}
+
+.btn-delete:hover,
+.btn-delete:focus-visible,
+.btn-delete:active,
+.btn-delete.active,
+.btn-danger:hover,
+.btn-danger:focus-visible,
+.btn-danger:active,
+.btn-danger.active {
+  color: var(--danger-text-hover) !important;
+  background-color: rgb(var(--danger-rgb) / 0.26) !important;
+}
+
+.btn-delete:disabled,
+.btn-delete.disabled,
+.btn-danger:disabled,
+.btn-danger.disabled {
+  color: var(--danger-text) !important;
+  background-color: rgb(var(--danger-rgb) / 0.08) !important;
+}
+/* Extracted from ShowTrak Server's src/UI/css/parts/02-controls.css: only the rules
+   the Timers markup uses (scripts/sync-server-css.js). Edit Server's copy and
+   re-run the sync, rather than editing these by hand. */
+
+/* Settings (cog) and show file buttons */
 #NAVBAR_CORE_BUTTON.settings-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 28px;
   height: 28px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: 0;
   background: transparent;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-soft);
   cursor: pointer;
   transition:
     color 120ms ease,
     transform 120ms ease;
 }
+
+#SETTINGS_MENU_DROPDOWN .dropdown-toggle::after {
+  display: none;
+}
+
+#SETTINGS_MENU.dropdown-menu {
+  --ctl-r: var(--menu-item-r);
+  min-width: 240px;
+  border: 0;
+  border-radius: var(--menu-r);
+  background: rgb(var(--surface-2-rgb) / 0.98);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  padding: var(--menu-pad);
+  /* These menus open from the bottom bar. Capped to the space above it so Popper
+     can always flip them upward; a menu taller than the window would otherwise
+     open downward, off-screen, and look like the button does nothing. */
+  max-height: calc(100vh - var(--bottom-bar-height) - 24px);
+  overflow-y: auto;
+}
+
+#SETTINGS_MENU .dropdown-item {
+  color: var(--text-strong);
+  border-radius: var(--menu-item-r);
+  font-size: var(--fs-md);
+  padding: 0.45rem 0.6rem;
+}
+
+#SETTINGS_MENU .dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+#SETTINGS_MENU .dropdown-item .menu-shortcut {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+#SETTINGS_MENU .dropdown-item:hover,
+#SETTINGS_MENU .dropdown-item:focus {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+#SETTINGS_MENU .dropdown-header {
+  color: var(--text-subtle);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.35rem 0.6rem 0.15rem;
+}
+
+#SETTINGS_MENU .dropdown-divider {
+  border-top-color: var(--border-default);
+  margin: 0.3rem 0.2rem;
+}
+
+#SETTINGS_MENU .dropdown-item.text-danger {
+  color: var(--danger-text) !important;
+}
+
+#SETTINGS_MENU .dropdown-item.text-danger:hover,
+#SETTINGS_MENU .dropdown-item.text-danger:focus {
+  background: rgb(var(--danger-text-rgb) / 0.15);
+  color: var(--danger-text-hover) !important;
+}
+
 #NAVBAR_CORE_BUTTON.settings-btn:hover {
   color: #fff;
 }
+
 #NAVBAR_CORE_BUTTON.settings-btn .bi {
   font-size: 16px;
   line-height: 1;
-  display: inline-block;
 }
 
-/* Plus button: icon-only, no background; only show in EDIT mode */
-#ADD_TIMER_BUTTON.settings-btn {
-  display: none; /* hidden by default (SHOW mode) */
+.alert-item {
+  --alert-accent: rgb(var(--warning-soft-rgb) / 0.9);
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
   align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 0;
-  background: transparent !important; /* ensure no background */
-  color: rgba(255, 255, 255, 0.8);
-  cursor: pointer;
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03)),
+    rgb(var(--surface-0-rgb) / 0.68);
+  border: 1px solid var(--border-default);
+  border-radius: var(--inner-r);
+  padding: var(--inner-pad);
+  box-shadow:
+    0 7px 18px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   transition:
-    color 120ms ease,
-    transform 120ms ease;
+    transform 140ms ease,
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
 }
-body.mode-edit #ADD_TIMER_BUTTON.settings-btn {
+
+.alert-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--alert-accent);
+  opacity: 0.95;
+}
+
+.alert-item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.alert-item .alert-icon {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  /* The item's padding plus its 1px border sit between this and the item's
+     corner. */
+  border-radius: calc(var(--inner-r) - var(--inner-pad) - 1px);
+  background: color-mix(in srgb, var(--alert-accent) 24%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--alert-accent) 32%, transparent);
+}
+
+.alert-item .alert-icon i {
+  font-size: var(--fs-xl);
+  color: color-mix(in srgb, var(--alert-accent) 86%, #fff);
+}
+
+.alert-item .alert-content {
+  display: grid;
+  align-content: center;
+  min-height: 26px;
+  font-size: var(--fs-sm);
+  line-height: 1.3;
+  color: var(--text-strong);
+}
+
+.alert-item .alert-content > div:first-child {
+  display: flex;
+  align-items: center;
+  min-height: 16px;
+}
+
+.alert-item .alert-content strong {
+  color: #fff;
+  font-size: var(--fs-md);
+  letter-spacing: 0.01em;
+}
+
+.alert-item .alert-meta {
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  opacity: 1;
+}
+
+.alert-item.single-line .alert-content {
+  min-height: 30px;
+}
+
+.alert-item .alert-dismiss {
   display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
-#ADD_TIMER_BUTTON.settings-btn:hover {
+
+.alert-item .btn-dismiss {
+  border: 0;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-strong);
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.alert-item .btn-dismiss:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.alert-item[data-severity='success'] {
+  --alert-accent: rgb(var(--success-text-rgb) / 0.92);
+}
+
+.alert-item[data-severity='warning'] {
+  --alert-accent: rgb(var(--warning-soft-rgb) / 0.96);
+}
+
+.alert-item[data-severity='error'] {
+  --alert-accent: rgb(var(--danger-text-rgb) / 0.96);
+}
+
+.alert-item[data-severity='info'] {
+  --alert-accent: rgb(var(--info-rgb) / 0.96);
+}
+
+/* Compact Audio Asset rows */
+.audio-asset-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.1fr) minmax(120px, 1fr) minmax(170px, 1fr) auto;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.audio-asset-row .audio-asset-label-inline {
+  height: 30px;
+  padding: 0.35rem 0.55rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.13);
   color: #fff;
 }
-#ADD_TIMER_BUTTON.settings-btn .bi {
-  font-size: 18px;
-  line-height: 1;
-  display: inline-block;
+
+.audio-asset-row .audio-asset-label-inline:focus {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: none;
 }
 
-#APPLICATION_NAVBAR_STATUS {
-  color: rgba(255, 255, 255, 0.5);
+.audio-asset-row .audio-asset-meta {
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-#SHOWTRAK_CONTEXT_MENU {
-  display: none;
-  position: absolute;
-  z-index: 100000;
-  background-color: #2a273b !important;
-  color: white;
-  border: none !important;
-  border-radius: 0.5rem;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  padding: 0.5rem;
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
+.audio-asset-row .audio-asset-meta .badge {
+  vertical-align: baseline;
 }
 
-#SHOWTRAK_CONTEXT_MENU > a {
-  color: white;
-  text-decoration: none !important;
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
-}
-#SHOWTRAK_CONTEXT_MENU > a:hover {
-  background-color: rgba(255, 255, 255, 0.1) !important;
-  border-radius: 0.3rem;
+.audio-asset-row .audio-asset-volume-wrap {
+  min-width: 0;
 }
 
-.SHOWTRAK_CONTEXTMENU_BUTTON {
+.audio-asset-row [data-audio-volume-label] {
+  min-width: 3.2em;
+  text-align: right;
+}
+
+.audio-asset-row .audio-asset-actions .btn {
+  height: 30px;
+  min-width: 30px;
+  padding: 0.2rem 0.45rem;
+}
+
+@media (max-width: 991px) {
+  .audio-asset-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'label actions'
+      'meta actions'
+      'volume actions';
+    row-gap: 0.4rem;
+  }
+
+  .audio-asset-row .audio-asset-label-inline {
+    grid-area: label;
+  }
+
+  .audio-asset-row .audio-asset-meta {
+    grid-area: meta;
+  }
+
+  .audio-asset-row .audio-asset-volume-wrap {
+    grid-area: volume;
+  }
+
+  .audio-asset-row .audio-asset-actions {
+    grid-area: actions;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+/* Sliders, app-wide: the monitoring volume bar. A macOS-style level pill
+   whose filled part IS the control, no visible knob. The thumb is a
+   fill-coloured circle the height of the track, so the fill ends in a rounded
+   cap; its shadow paints the fill to its left, and the input clips that
+   shadow to the pill. Firefox paints the fill with ::-moz-range-progress. */
+input[type='range'],
+.form-range {
+  --st-level-height: 0.6rem;
+  /* Opaque: a translucent fill would show where the cap overlaps it. */
+  --st-level-fill: #e2e2ea;
+  -webkit-appearance: none;
+  appearance: none;
+  height: var(--st-level-height);
+  padding: 0;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
   cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+input[type='range']:hover,
+input[type='range']:focus-visible,
+.form-range:hover,
+.form-range:focus-visible {
+  --st-level-fill: #ffffff;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+input[type='range']:focus,
+.form-range:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+input[type='range']:focus-visible,
+.form-range:focus-visible {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+
+input[type='range']:disabled,
+.form-range:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+input[type='range']::-webkit-slider-runnable-track,
+.form-range::-webkit-slider-runnable-track {
+  height: var(--st-level-height);
+  border-radius: var(--radius-pill);
+  background: transparent;
+}
+
+input[type='range']::-webkit-slider-thumb,
+.form-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: var(--st-level-height);
+  height: var(--st-level-height);
+  margin-top: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--st-level-fill);
+  box-shadow: calc(-100vw - var(--st-level-height) / 2) 0 0 100vw var(--st-level-fill);
+}
+
+input[type='range']::-moz-range-track,
+.form-range::-moz-range-track {
+  height: var(--st-level-height);
+  border: none;
+  background: transparent;
+}
+
+input[type='range']::-moz-range-progress,
+.form-range::-moz-range-progress {
+  height: var(--st-level-height);
+  border-radius: var(--radius-pill);
+  background: var(--st-level-fill);
+}
+
+input[type='range']::-moz-range-thumb,
+.form-range::-moz-range-thumb {
+  width: var(--st-level-height);
+  height: var(--st-level-height);
+  border: none;
+  border-radius: 50%;
+  background: var(--st-level-fill);
+  box-shadow: none;
+}
+
+/* Toggles, checkboxes and radios, matching ShowTrak Portal: flat, borderless
+   squares on the ghost fill, purple once on. Bare .form-check-input boxes in
+   tables and the picker menus' plain checkboxes get the same look. */
+:root {
+  --st-check-fill: rgba(255, 255, 255, 0.04);
+  --st-check-on-fill: rgba(147, 51, 234, 0.35);
+  --st-check-on: #a855f7;
+  --st-check-off: #6b7280;
+  --st-check-focus: 0 0 0 2px rgba(147, 51, 234, 0.18);
+}
+
+.form-check-input[type='checkbox'],
+.form-check-input[type='radio'] {
+  width: 1.125rem;
+  height: 1.125rem;
+  background-color: var(--st-check-fill);
+  background-image: none;
+  background-size: 0.75rem;
+  background-repeat: no-repeat;
+  background-position: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  -webkit-appearance: none;
+  appearance: none;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.form-check-input[type='radio'] {
+  border-radius: 50%;
+}
+
+.form-check-input[type='checkbox']:focus,
+.form-check-input[type='radio']:focus {
+  border-color: transparent;
+  box-shadow: var(--st-check-focus);
+  outline: none;
+}
+
+.form-check-input[type='checkbox']:checked {
+  background-color: var(--st-check-on-fill);
+  border-color: transparent;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23a855f7' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
+}
+
+.form-check-input[type='checkbox']:indeterminate {
+  background-color: var(--st-check-on-fill);
+  border-color: transparent;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23a855f7' stroke-linecap='round' stroke-width='3' d='M6 10h8'/%3e%3c/svg%3e");
+}
+
+.form-check-input[type='radio']:checked {
+  background-color: var(--st-check-on-fill);
+  border-color: transparent;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='2' fill='%23a855f7'/%3e%3c/svg%3e");
+  background-size: 0.625rem;
+}
+
+.form-check-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Toggle: a rounded-square track as tall as a .form-control-sm, with a square
+   knob drawn by ::before. Overrides Bootstrap's pill switch. */
+.form-switch {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 0;
+  margin: 0;
+  min-height: 0;
+  vertical-align: middle;
+}
+
+.form-switch .form-check-input {
+  /* height = knob + 2 x gap + 2 x border: 1.225 + 0.5 + 0.125 = 1.85rem */
+  --st-toggle-h: 1.85rem;
+  --st-toggle-w: 3.25rem;
+  --st-toggle-knob: 1.225rem;
+  --st-toggle-gap: 0.25rem;
+  --st-toggle-knob-r: var(--radius-xs);
+
+  position: relative;
+  float: none;
+  width: var(--st-toggle-w);
+  height: var(--st-toggle-h);
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  /* knob radius + gap + 1px border, so the knob's corners sit concentric */
+  border-radius: calc(var(--st-toggle-knob-r) + var(--st-toggle-gap) + 1px);
+  background-image: none;
+  transition: background-color 0.15s ease;
+}
+
+.form-switch .form-check-input::before {
+  content: '';
+  position: absolute;
+  top: var(--st-toggle-gap);
+  left: var(--st-toggle-gap);
+  width: var(--st-toggle-knob);
+  height: var(--st-toggle-knob);
+  border-radius: var(--st-toggle-knob-r);
+  background: var(--st-check-off);
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
+}
+
+.form-switch .form-check-input:checked,
+.form-switch .form-check-input:focus {
+  background-image: none;
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translateX(
+    calc(var(--st-toggle-w) - var(--st-toggle-knob) - var(--st-toggle-gap) * 2 - 2px)
+  );
+  background: var(--st-check-on);
+}
+
+/* Number inputs: the native spin buttons are hidden everywhere; a plain
+   chevron pair (number-steppers.ts) sits on the right edge instead. */
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Preferences: a short value (a number, a 4-digit PIN, a select of short
+   options) sits right of its label, right-aligned, and drops beneath it when
+   the two no longer fit on one line. */
+.setting-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.setting-inline-label {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.setting-inline-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.setting-inline-control > .form-control {
+  width: 8.5rem;
+}
+
+.setting-inline-control .form-control {
+  text-align: right;
+}
+
+.setting-inline-control .form-select {
+  width: auto;
+  min-width: 8.5rem;
+}
+
+.bg-ghost {
+  background-color: var(--surface-ghost) !important;
+}
+
+/* Shared modal titlebar: back button + centred title + close button. The row
+   stretches its children, so the back/close buttons automatically match the
+   height of the (taller) title box without any per-panel sizing. */
+.st-modal-header-btn {
+  flex: 0 0 auto;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* Light ghost background, used for modal section headings */
+.bg-ghost-light {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Reusable segmented toggle: a pill container with an inset dark track and a
+   raised, brighter "active" segment. Used by the OSC/HTTP reference switch and
+   the bottom-bar SHOW/EDIT switch. Mark the selected button with `.is-active`. */
+.st-segmented-toggle {
+  --st-seg-pad: 0.15rem;
+  display: inline-flex;
+  padding: var(--st-seg-pad);
+  /* The tray is a control (--ctl-r); its segments sit concentric in it, as
+     in ShowTrak Portal. */
+  border-radius: var(--ctl-r);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.st-segmented-toggle-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.25rem 0.85rem;
+  border-radius: calc(var(--ctl-r) - var(--st-seg-pad));
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.st-segmented-toggle-btn:hover:not(:disabled) {
+  color: var(--text-strong);
+}
+
+.st-segmented-toggle-btn.is-active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.st-segmented-toggle-btn:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+/* Settings modal: two-pane layout with a tab rail on the left and the active
+   category's settings on the right, one category shown at a time as in the
+   Client Info modal. The header stays pinned at the top; the rail and content
+   each scroll independently, and a fixed height stops the dialog resizing as
+   tabs are switched. */
+#SHOWTRAK_MODAL_SETTINGS .modal-body {
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+  overflow: hidden;
+}
+
+#SHOWTRAK_MODAL_SETTINGS .modal-body.is-tabbed {
+  height: min(85vh, 46rem);
+}
+
+.settings-layout {
+  display: flex;
+  gap: 0.75rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  text-align: left;
+}
+
+.settings-nav {
+  flex: 0 0 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+
+.settings-nav-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  /* Sits straight in the modal's padding. */
+  border-radius: var(--inner-r);
+  padding: 0.5rem 0.7rem;
+  font-size: var(--fs-lg);
+  color: var(--text-muted);
+  background-color: var(--surface-ghost);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.settings-nav-item:hover {
+  background-color: var(--surface-ghost-hover);
+  color: var(--text-strong);
+}
+
+.settings-nav-item.active {
+  background-color: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.settings-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+/* The sections are .d-grid, whose display is !important. */
+.settings-content .settings-section.is-inactive-tab {
+  display: none !important;
+}
+/* Extracted from ShowTrak Server's src/UI/css/parts/03-layout.css: only the rules
+   the Timers markup uses (scripts/sync-server-css.js). Edit Server's copy and
+   re-run the sync, rather than editing these by hand. */
+
+.progress {
+  height: 3px !important;
+  border-radius: var(--radius-xs);
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* removed old floating cog styles */
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 #APPLICATION_NAVBAR_LOGO {
@@ -364,308 +1232,1210 @@ body.mode-edit #ADD_TIMER_BUTTON.settings-btn {
   padding-top: 2rem !important;
 }
 
+/* Single shared modal surface for every modal in the app, as in ShowTrak
+   Portal: every pop-up is a panel. Panel corners and padding, no border; a
+   soft shadow lifts it off the page. What sits straight in its padding (title
+   bars, tab rails, rows, buttons, fields) takes the inner radius, so its
+   corners run concentric with the modal's. Sizes still vary per modal via
+   .modal-dialog. */
 .modal-content {
-  background-color: #1e1643 !important;
+  border: 0 !important;
+  background: var(--surface-1) !important;
   color: white;
-  border-radius: 1rem !important;
+  border-radius: var(--panel-r) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5) !important;
 }
 
 .modal-body {
-  /* background-color: #0c091c !important; */
   color: white;
   display: grid;
   gap: 0.5rem;
+  padding: var(--panel-pad);
+}
+
+/* Every modal dims and blurs the page behind it, like ShowTrak Portal. The
+   tint lives in the colour rather than the backdrop's opacity, so the blur
+   is not faded with it; Bootstrap's fade-in still works. */
+.modal-backdrop {
+  background-color: rgb(var(--surface-0-rgb) / 0.6);
+  backdrop-filter: blur(3px);
+}
+
+.modal-backdrop.show {
+  opacity: 1;
 }
 
 .SHOWTRAK_MODEL_CORE_LOGO {
-  width: 84px;
-  height: 84px;
+  width: 256px;
+  height: 256px;
+  border-radius: 1.5rem;
+}
+
+/* About modal inherits the shared .modal-content surface; only its body needs
+   custom spacing. */
+.SHOWTRAK_ABOUT_MODAL_BODY {
+  gap: 0.75rem;
+}
+
+.SHOWTRAK_ABOUT_TITLE {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.SHOWTRAK_ABOUT_VERSION {
+  color: var(--text-secondary);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+}
+
+.SHOWTRAK_ABOUT_CARD {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border: 0 !important;
+}
+
+.SHOWTRAK_ABOUT_CARD .card-body {
+  font-size: 0.98rem;
+  line-height: 1.5;
+}
+
+.SHOWTRAK_ABOUT_WEBSITE_BTN {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  padding: 0.55rem 0.9rem;
+}
+
+.SHOWTRAK_ABOUT_UPDATE_BODY {
+  font-size: var(--fs-xl);
+}
+
+/* ---- Software Update modal ---------------------------------------------- */
+.SHOWTRAK_APP_UPDATE_HERO {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Icon area: a tinted circle with a determinate progress ring sitting on its
+   border. The ring is always in the DOM (absolutely positioned) so toggling it
+   never shifts layout; it just fades in while a download is in progress. */
+.SHOWTRAK_APP_UPDATE_ICON_WRAP {
+  position: relative;
+  flex: 0 0 auto;
+  width: 3rem;
+  height: 3rem;
+}
+
+.SHOWTRAK_APP_UPDATE_ICON {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgb(var(--info-cyan-rgb) / 0.14);
+  color: var(--info-cyan);
+  font-size: 1.4rem;
+}
+
+.SHOWTRAK_APP_UPDATE_RING {
+  position: absolute;
+  inset: 0;
+  width: 3rem;
+  height: 3rem;
+  transform: rotate(-90deg);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: var(--z-base);
+}
+
+.SHOWTRAK_APP_UPDATE_ICON_WRAP.has-progress .SHOWTRAK_APP_UPDATE_RING {
+  opacity: 1;
+}
+
+.SHOWTRAK_APP_UPDATE_RING_TRACK {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 3;
+}
+
+.SHOWTRAK_APP_UPDATE_RING_BAR {
+  fill: none;
+  stroke: var(--info-cyan);
+  stroke-width: 3;
+  stroke-linecap: round;
+  /* dasharray = circumference (2·π·r, r=22). Offset is driven from JS. */
+  stroke-dasharray: 138.23;
+  stroke-dashoffset: 138.23;
+  transition: stroke-dashoffset 0.25s ease;
+}
+
+.SHOWTRAK_APP_UPDATE_STATUS {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.SHOWTRAK_APP_UPDATE_VERSION_BADGE {
+  background: rgb(var(--info-cyan-rgb) / 0.18);
+  color: var(--info-cyan);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.SHOWTRAK_APP_UPDATE_SPIN {
+  animation: spin 1.4s linear infinite;
+}
+
+/* Floating download progress, shown while an update downloads with the modal
+   closed. Bottom-right so it stays clear of the centred identify banner and
+   confirmation toast; clicking it reopens the modal. */
+#APP_UPDATE_FLOAT {
+  position: fixed;
+  right: 12px;
+  bottom: calc(var(--bottom-bar-height) + 12px);
+  z-index: var(--z-toast);
+  width: min(320px, calc(100vw - 24px));
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  text-align: left;
+  background: var(--surface-3);
+  border: 0;
+  /* The same shape as the toasts. */
+  border-radius: calc(var(--item-r) + 10px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  color: var(--text-strong);
+  cursor: pointer;
+}
+
+#APP_UPDATE_FLOAT.d-none {
+  display: none;
+}
+
+#APP_UPDATE_FLOAT .app-update-float-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+#APP_UPDATE_FLOAT .app-update-float-title {
+  font-size: var(--fs-md);
+  font-weight: 700;
+}
+
+#APP_UPDATE_FLOAT .app-update-float-title .bi {
+  color: var(--info-cyan);
+  margin-right: 4px;
+}
+
+#APP_UPDATE_FLOAT .app-update-float-version {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgb(var(--info-cyan-rgb) / 0.18);
+  color: var(--info-cyan);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+#APP_UPDATE_FLOAT .app-update-float-version:empty {
+  display: none;
+}
+
+#APP_UPDATE_FLOAT .app-update-float-track {
+  position: relative;
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+#APP_UPDATE_FLOAT .app-update-float-bar {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--info-cyan);
+  transition: width 0.25s ease;
+}
+
+/* Before the first progress tick: a sliding sliver instead of an empty bar. */
+#APP_UPDATE_FLOAT .app-update-float-bar.is-indeterminate {
+  width: 30%;
+  animation: app-update-float-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes app-update-float-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+
+#APP_UPDATE_FLOAT .app-update-float-detail {
+  font-size: var(--fs-sm);
+  color: var(--text-soft);
+}
+
+/* Changelog: rendered release notes styled as readable prose rather than the
+   old pre-wrapped raw block. */
+.SHOWTRAK_APP_UPDATE_CHANGELOG {
+  max-height: 320px;
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: var(--fs-lg);
+  line-height: 1.55;
+  color: var(--text-soft);
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG > *:first-child {
+  margin-top: 0;
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG > *:last-child {
+  margin-bottom: 0;
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG h1,
+.SHOWTRAK_APP_UPDATE_CHANGELOG h2,
+.SHOWTRAK_APP_UPDATE_CHANGELOG h3,
+.SHOWTRAK_APP_UPDATE_CHANGELOG h4,
+.SHOWTRAK_APP_UPDATE_CHANGELOG h5,
+.SHOWTRAK_APP_UPDATE_CHANGELOG h6 {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  color: #fff;
+  margin: 1rem 0 0.4rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG p {
+  margin: 0 0 0.6rem;
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG ul,
+.SHOWTRAK_APP_UPDATE_CHANGELOG ol {
+  margin: 0 0 0.6rem;
+  padding-left: 1.25rem;
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG li {
+  margin-bottom: 0.25rem;
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG a {
+  color: var(--info-cyan);
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-xs);
+  font-size: var(--fs-md);
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG pre {
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem;
+  overflow: auto;
+}
+
+.SHOWTRAK_APP_UPDATE_CHANGELOG pre code {
+  background: none;
+  padding: 0;
+}
+
+.SHOWTRAK_ABOUT_DEPENDENCIES_LIST {
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.22);
+  /* Sits in an About card's padding. */
+  border-radius: var(--item-r);
+  padding: 0.6rem;
+  font-size: var(--fs-lg);
+  line-height: 1.4;
+}
+
+.SHOWTRAK_ABOUT_DEPENDENCY_ITEM {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.15rem 0;
+  border-bottom: 1px dashed var(--border-subtle);
+}
+
+.SHOWTRAK_ABOUT_DEPENDENCY_ITEM:last-child {
+  border-bottom: 0;
+}
+
+.SHOWTRAK_ABOUT_DEPENDENCY_NAME {
+  color: var(--text-strong);
+  word-break: break-word;
+}
+
+.SHOWTRAK_ABOUT_DEPENDENCY_VERSION {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.SHOWTRAK_ABOUT_DEPENDENCY_GROUP {
+  margin-bottom: 0.65rem;
+}
+
+.SHOWTRAK_ABOUT_DEPENDENCY_GROUP:last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 576px) {
+  .SHOWTRAK_ABOUT_MODAL_BODY {
+    padding: 1rem;
+  }
+
+  .SHOWTRAK_ABOUT_TITLE {
+    font-size: 1.2rem;
+  }
+
+  .SHOWTRAK_ABOUT_VERSION {
+    font-size: var(--fs-lg);
+  }
+
+  .SHOWTRAK_ABOUT_CARD .card-body {
+    font-size: var(--fs-xl);
+  }
+
+  .SHOWTRAK_ABOUT_DEPENDENCIES_LIST {
+    max-height: 180px;
+    font-size: var(--fs-md);
+  }
 }
 
 small,
 .text-sm {
-  font-size: 10px;
+  font-size: var(--fs-2xs);
 }
 
-/* Custom Scrollbar Styles */
+/* Custom Scrollbar Styles: the app's own surfaces, not a neutral grey. */
 ::-webkit-scrollbar {
   width: 8px;
-  background: #18181b;
-  border-radius: 1rem;
+  background: var(--surface-0);
+  border-radius: var(--radius-xl);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #35353a;
-  border-radius: 12px;
+  background: var(--surface-3);
+  border-radius: var(--radius-lg);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #505055;
+  background: color-mix(in srgb, var(--surface-3) 82%, #ffffff);
 }
 
 ::-webkit-scrollbar-corner {
-  background: #18181b;
+  background: var(--surface-0);
 }
 
 /* Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #35353a #18181b;
+  scrollbar-color: var(--surface-3) var(--surface-0);
 }
 
+/* No visual overlay change for EDIT mode */
+body.mode-edit #APPLICATION_CONTAINER {
+  background: var(--app-bg-gradient) !important;
+}
+
+/* Fields: solid, borderless, a shade per state (tokens in 01-base.css). The
+   !importants outrank the bg-* / border-0 utilities fields still carry. */
 .form-control,
 .form-select {
-  background-color: rgba(255, 255, 255, 0.03) !important;
+  background-color: var(--field-bg) !important;
   color: white !important;
   border: none !important;
-  border-radius: 0.5rem !important;
+  border-radius: var(--ctl-r) !important;
+  box-shadow: none !important;
+  transition: background-color 150ms ease;
+}
+
+.form-control:hover,
+.form-select:hover {
+  background-color: var(--field-bg-hover) !important;
 }
 
 .form-control:focus,
 .form-select:focus {
-  color: #212529;
-  background-color: #ffffff1d !important;
-  outline: 0;
-  box-shadow: none !important;
-}
-
-.form-switch .form-check-input {
-  width: 2.5em;
-  margin-left: -2.5em;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e") !important;
-  background-position: left center;
-  border-radius: 2em;
-  transition: background-position 0.15s ease-in-out;
-  height: 1.5em;
-  background-color: rgba(154, 171, 255, 0.43);
-  border-color: transparent !important;
-  box-shadow: none !important;
-}
-
-option {
-  background-color: #212124 !important;
   color: white !important;
-  border: none !important;
+  background-color: var(--field-bg-focus) !important;
+  outline: 0 !important;
+  box-shadow: none !important;
 }
 
-.cursor-pointer {
-  cursor: pointer !important;
+.form-control.is-invalid,
+.form-select.is-invalid {
+  background-color: var(--field-bg-invalid) !important;
 }
 
-.SHOWTRAK_TIMER {
-  width: 500px;
+.form-control:disabled,
+.form-control.disabled,
+.form-control[readonly],
+.form-select:disabled {
+  background-color: var(--field-bg-disabled) !important;
+  color: var(--text-soft) !important;
+  opacity: 1;
+}
+
+.form-control::placeholder {
+  color: var(--text-faint);
+}
+
+/* 3D keyboard key styling for <kbd> elements */
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0.12rem 0.4rem;
+  margin: 0 0.05rem;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-size: 0.85em;
+  line-height: 1.1;
+  color: #fff;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  box-shadow:
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 1px 0 rgba(255, 255, 255, 0.05),
+    0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Enhanced select styling to match dark UI and increase padding */
+.form-select {
+  -webkit-appearance: none;
+  appearance: none;
+  /* keep Bootstrap's default vertical/left padding to avoid clipping; only expand right for the arrow */
+  padding-right: 2rem !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23ffffff' viewBox='0 0 16 16'><path d='M1.5 5.5 8 12l6.5-6.5-1-1L8 10 2.5 4.5z'/></svg>");
+  background-repeat: no-repeat !important;
+  background-position: right 0.6rem center !important;
+  background-size: 0.9rem !important;
+}
+
+.form-select.form-select-sm {
+  /* small size: only reserve arrow space on the right */
+  padding-right: 1.8rem !important;
+  background-position: right 0.5rem center !important;
+  background-size: 0.85rem !important;
+}
+
+/* Dropdown list colors (Chromium/Electron supports styling option background) */
+select.form-select option,
+select.form-select optgroup {
+  background-color: var(--surface-2);
+  color: #ffffff;
+}
+
+/* Remove outlines/shadows from buttons everywhere (including Bootstrap btn-check patterns) */
+.btn,
+.btn:hover,
+.btn:focus,
+.btn:focus-visible,
+.btn:active,
+.btn:active:focus,
+.modal .btn,
+.modal .btn:hover,
+.modal .btn:focus,
+.modal .btn:focus-visible,
+.modal .btn:active,
+.modal .btn:active:focus,
+a.btn,
+a.btn:focus,
+button.btn,
+button.btn:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* --- Network interfaces (client info modal) ------------------------------ */
+/* Cards and conditions reuse the audio card's classes; only what an address
+   needs differently lives here. */
+.SHOWTRAK_NET_ADDRESS {
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+/* Extracted from ShowTrak Server's src/UI/css/parts/04-toasts.css: only the rules
+   the Timers markup uses (scripts/sync-server-css.js). Edit Server's copy and
+   re-run the sync, rather than editing these by hand. */
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Compact bottom-center confirmation toast */
+#SHOWTRAK_CONFIRM_TOAST.confirm-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--bottom-bar-height) + 12px); /* sit above bottom bar */
+  transform: translateX(-50%);
+  z-index: var(--z-toast);
+  width: min(560px, calc(100vw - 20px));
+  background: var(--surface-3);
+  border: 0;
+  /* Its buttons sit about 10px in from its edge. */
+  --ctl-r: var(--item-r);
+  border-radius: calc(var(--item-r) + 10px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  color: #fff;
+}
+
+#SHOWTRAK_CONFIRM_TOAST .confirm-toast-body {
   display: grid;
-  gap: 0;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  border: transparent 2px solid;
-  transition-duration: 200ms;
-  background-color: rgba(255, 255, 255, 0.05);
-  cursor: pointer !important;
-  position: relative; /* for overlay positioning */
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 12px;
 }
 
-/* --- Server-style alert toasts --- */
-.alert-toast-host,
+#SHOWTRAK_CONFIRM_TOAST .confirm-toast-msg {
+  font-size: var(--fs-md);
+  line-height: 1.3;
+  color: var(--text-strong);
+}
+
+#SHOWTRAK_CONFIRM_TOAST .confirm-toast-actions {
+  display: flex;
+  gap: 8px;
+}
+
+#SHOWTRAK_CONFIRM_TOAST .btn {
+  padding: 4px 10px;
+}
+
+#SHOWTRAK_CONFIRM_TOAST .btn:focus,
+#SHOWTRAK_CONFIRM_TOAST .btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.85) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18) !important;
+}
+
+#SHOWTRAK_CONFIRM_TOAST #CONFIRM_TOAST_CONFIRM:focus,
+#SHOWTRAK_CONFIRM_TOAST #CONFIRM_TOAST_CONFIRM:focus-visible {
+  outline-color: rgb(var(--danger-rgb) / 0.95) !important;
+  box-shadow: 0 0 0 3px rgb(var(--danger-rgb) / 0.35) !important;
+}
+
+.osc-action-card {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.osc-route-section-header {
+  margin-top: 0.5rem;
+  padding: 0.1rem 0.15rem 0.35rem;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.osc-route-section-header:first-child {
+  margin-top: 0;
+}
+
+.osc-action-title {
+  line-height: 1.2;
+}
+
+.osc-route-path {
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+  padding: 0.55rem;
+  border-radius: var(--item-r);
+  background: var(--surface-ghost);
+}
+
 #ALERTS_TOAST_HOST {
   position: fixed;
   top: 56px; /* below dragbar */
   left: 50%;
   transform: translateX(-50%);
-  z-index: 1200;
+  z-index: var(--z-banner);
   display: grid;
   gap: 10px;
-  max-width: min(680px, 92vw);
+  width: min(680px, calc(100vw - 20px));
+  pointer-events: none;
 }
+
 .alert-toast {
-  background: rgba(29, 26, 47, 0.98);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-  padding: 12px;
-  display: grid;
-  grid-template-columns: 26px 1fr auto;
-  align-items: center;
-  gap: 10px;
-  color: #fff; /* ensure white text */
-  min-width: 360px; /* wider minimum for readability */
+  pointer-events: auto;
+  background: var(--surface-3);
+  border: 0;
+  /* Its icon (--item-r) sits 10px in. */
+  border-radius: calc(var(--item-r) + 10px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  padding: 10px;
+  animation: alert-toast-enter 220ms ease-out;
 }
+
+.alert-toast:hover {
+  border-color: transparent;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.36);
+}
+
+/* Upsize icon and text specifically for toasts */
 .alert-toast .alert-icon {
-  width: 26px;
-  height: 26px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--item-r);
 }
+
 .alert-toast .alert-icon i {
-  font-size: 18px;
+  font-size: 17px;
 }
+
 .alert-toast .alert-content {
-  font-size: 14px;
+  min-height: 30px;
+  font-size: var(--fs-lg);
   line-height: 1.35;
-  color: #fff;
 }
+
 .alert-toast .alert-content strong {
-  font-size: 15px;
+  font-size: var(--fs-lg);
   line-height: 1.3;
-  color: #fff;
 }
+
 .alert-toast .btn-dismiss {
-  padding: 4px 8px;
-  background: transparent;
-  color: #fff;
-  border: none;
+  padding: 3px 8px;
 }
+
+/* Single-line (title only) toast polish */
 .alert-toast.single-line .alert-content {
-  display: flex;
-  align-items: center;
+  display: grid;
+  align-content: center;
+  min-height: 30px;
 }
+
 .alert-toast.single-line .alert-content > div:first-child strong {
   font-size: 16px;
   line-height: 1.2;
 }
+
 .alert-toast.single-line {
   padding-top: 10px;
   padding-bottom: 10px;
 }
 
-/* Ensure toasts don't overflow on very small screens */
-@media (max-width: 420px) {
-  .alert-toast {
-    min-width: 90vw;
+@keyframes alert-toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 
-/* Empty state helpers */
-#EMPTY_STATE .card strong {
-  font-size: 1rem;
+@media (max-width: 768px) {
+  #SHOWTRAK_CONFIRM_TOAST.confirm-toast {
+    width: calc(100vw - 16px);
+    bottom: calc(var(--bottom-bar-height) + 8px);
+  }
+
+  #SHOWTRAK_CONFIRM_TOAST .confirm-toast-body {
+    grid-template-columns: 1fr;
+  }
+
+  #SHOWTRAK_CONFIRM_TOAST .confirm-toast-actions {
+    justify-content: flex-end;
+  }
 }
-#EMPTY_STATE .text-sm {
-  font-size: 0.9rem;
-  opacity: 0.9;
+
+@media (prefers-reduced-motion: reduce) {
+  .alert-item,
+  .alert-item .btn-dismiss,
+  .alert-toast {
+    transition: none;
+    animation: none;
+  }
+}
+/* Extracted from ShowTrak Server's src/UI/css/parts/05-monitoring.css: only the rules
+   the Timers markup uses (scripts/sync-server-css.js). Edit Server's copy and
+   re-run the sync, rather than editing these by hand. */
+
+/* Solid tile colours for Grid and Compact.
+ *
+ * The status colours above are translucent, so a tile took on its group's
+ * tint: green on a red-tinted group read as olive, and the same state looked
+ * different from group to group. Here each state is the same colour already
+ * composited over the plain (untinted) group background, so a tile looks
+ * exactly as it did in an untinted group, whatever group it is in.
+ *
+ * The mixes read the same --status-*-rgb hue and --status-*-a strength as
+ * the translucent --status-* colours (01-base.css), so the two cannot drift.
+ * Solid colours rather than a layered background, so a change of state still
+ * fades.
+ *
+ * Not the list view, whose rows are neutral and whose groups are untinted, and
+ * not an identifying tile, whose pulse animates its background. */
+:root {
+  --tile-solid-base: var(--surface-1);
+  --tile-solid-offline: color-mix(
+    in srgb,
+    rgb(var(--status-offline-rgb)) var(--status-offline-a),
+    var(--tile-solid-base)
+  );
+  --tile-solid-online: color-mix(
+    in srgb,
+    rgb(var(--status-online-rgb)) var(--status-online-a),
+    var(--tile-solid-base)
+  );
+  --tile-solid-degraded: color-mix(
+    in srgb,
+    rgb(var(--status-degraded-rgb)) var(--status-degraded-a),
+    var(--tile-solid-base)
+  );
+  --tile-solid-idle: color-mix(
+    in srgb,
+    rgb(var(--status-idle-rgb)) var(--status-idle-a),
+    var(--tile-solid-base)
+  );
+  --tile-solid-pending: color-mix(
+    in srgb,
+    rgb(var(--status-pending-rgb)) var(--status-pending-a),
+    var(--tile-solid-base)
+  );
+}
+
+/* =========================================================================
+   Mobile / narrow-viewport layout (body.mobile-view)
+   -------------------------------------------------------------------------
+   `body.mobile-view` is toggled from JS (see InitMobileView in 02-mode.ts) in
+   lockstep with the `(max-width: 768px)` media query, and mobile is *locked* to
+   compact mode, so `body.compact-mode` is always present too and the compact
+   tile/font styling is inherited as-is (no re-declaration needed, which keeps
+   the sizing identical to a normal compact toggle).
+
+   The mobile-only structural changes are:
+     - a single full-width column of groups,
+     - each group's title reflowed into a horizontal header ABOVE its clients
+       (normally a thin vertical rail to the left, hidden in compact mode),
+     - hidden mode/alert/compact toggles,
+     - a taller, more touch-friendly bottom bar with larger buttons,
+     - left-aligned selection status.
+   ========================================================================= */
+@media (max-width: 768px) {
+  /* --- Taller, touch-friendly bottom bar --- */
+  /* Installed as a PWA (viewport-fit=cover) the page extends under the rounded
+       screen corners / home indicator, which clipped the bar's icon and
+       "N Targets Selected" text. Grow the bar by the device's safe-area inset and
+       pad its content up above the unsafe region. */
+  :root {
+    --bottom-bar-height-mobile: 60px;
+    --bottom-bar-total-mobile: calc(
+      var(--bottom-bar-height-mobile) + env(safe-area-inset-bottom, 0px)
+    );
+  }
+}
+/* Extracted from ShowTrak Server's src/UI/css/parts/07-list-view.css: only the rules
+   the Timers markup uses (scripts/sync-server-css.js). Edit Server's copy and
+   re-run the sync, rather than editing these by hand. */
+
+/* --- The fade between the tile layouts and the table --------------------- */
+#APPLICATION_CONTENT {
+  transition: opacity 200ms ease;
+}
+/* =========================================================================
+   ShowTrak Timers
+   -------------------------------------------------------------------------
+   Everything here is Timers' own: the timer tiles and grid, the editor's
+   duration fields, the Web Dashboard page. It follows ShowTrak Server's design
+   rules and uses only the design tokens in 01-base.css (colours, surfaces,
+   radii, type scale); the parts before this file are extracted from Server by
+   scripts/sync-server-css.js and are not edited here.
+   ========================================================================= */
+
+/* --- The grid -------------------------------------------------------------
+   Tiles flow into as many columns as fit (one in a narrow window), the same
+   gap as Server's tiles. */
+.timer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--timer-tile-min-width), 1fr));
+  gap: var(--group-pad);
+  padding: 0.75rem;
+  align-content: start;
+}
+
+:root {
+  --timer-tile-min-width: 240px;
+  --timer-readout-size: clamp(2rem, 9vw, 2.75rem);
+}
+
+/* --- Timer tile -----------------------------------------------------------
+   Shaped and coloured like Server's client tiles (.SHOWTRAK_PC): the tile
+   radius, a transparent 2px border that lights on hover, and the solid status
+   washes from 05-monitoring.css. Standby reads as idle (grey), Running as online
+   (green), Paused as degraded (orange), Complete and Overrun as offline (red). */
+.SHOWTRAK_TIMER {
+  position: relative;
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.6rem 0.75rem 0.5rem;
+  border-radius: var(--tile-r);
+  border: 2px solid transparent;
+  background-color: var(--tile-solid-idle);
+  color: var(--text-strong);
+  text-align: left;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease;
 }
 
 .SHOWTRAK_TIMER:hover {
-  border-color: rgba(255, 255, 255, 0.4) !important;
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
-.SHOWTRAK_TIMER.SELECTED {
-  border-color: rgba(255, 255, 255, 1) !important;
+.SHOWTRAK_TIMER.RUNNING {
+  background-color: var(--tile-solid-online);
 }
 
-.SHOWTRAK_TIMER.ONLINE {
-  background-color: rgba(26, 255, 0, 0.25) !important;
+.SHOWTRAK_TIMER.PAUSED {
+  background-color: var(--tile-solid-degraded);
 }
 
-.SHOWTRAK_TIMER {
-  text-align: left;
+.SHOWTRAK_TIMER.COMPLETE,
+.SHOWTRAK_TIMER.OVERRUN {
+  background-color: var(--tile-solid-offline);
 }
 
-.timer-chip-right {
-  position: absolute;
-  top: 0.6rem;
-  right: 0.6rem;
-  display: inline-flex;
+/* Inside the warning window: an amber pulse round the tile, whatever its
+   colour, like Server's identify pulse but in the warning hue. */
+@keyframes timer-warning-pulse {
+  0%,
+  100% {
+    border-color: rgb(var(--warning-rgb) / 0.35);
+    box-shadow: 0 0 0 0 rgb(var(--warning-rgb) / 0.45);
+  }
+  50% {
+    border-color: rgb(var(--warning-rgb) / 0.95);
+    box-shadow: 0 0 0 6px rgb(var(--warning-rgb) / 0);
+  }
+}
+
+.SHOWTRAK_TIMER.WARNING {
+  animation: timer-warning-pulse 1.2s ease-in-out infinite;
+}
+
+.timer-tile-head {
+  display: flex;
   align-items: center;
-  gap: 0.4rem;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 1rem;
 }
 
-.timer-chip-right .TIMER_CONTROLS,
-.timer-chip-right .TIMER_ID {
-  padding: 0 0.8rem;
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.85rem;
+.timer-tile-status {
+  font-size: var(--fs-xs);
   font-weight: 700;
-  border-radius: 0.4rem;
-  background-color: rgba(255, 255, 255, 0.08);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  color: var(--text-secondary);
 }
 
-.timer-chip-right .TIMER_ID {
+.SHOWTRAK_TIMER.WARNING .timer-tile-status {
+  color: var(--warning-text);
+}
+
+.timer-tile-id {
+  display: none;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface-ghost-hover);
+  border-radius: var(--radius-xs);
+  padding: 0 0.35rem;
+}
+
+.timer-tile-name {
+  font-size: var(--tile-name-font-size);
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Hover overlay controls (no layout shift) */
-.timer-controls-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: grid;
-  place-items: center;
-  background: rgba(0, 0, 0, 0); /* transparent, only show buttons */
-  z-index: 3;
-  opacity: 0;
-  pointer-events: none; /* do not block until visible */
-  transition: opacity 120ms ease;
+.timer-tile-readout {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.5rem;
+  line-height: 1.1;
 }
-.SHOWTRAK_TIMER:hover .timer-controls-overlay {
-  opacity: 1;
-  pointer-events: auto;
+
+.timer-tile-primary {
+  font-size: var(--timer-readout-size);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
 }
-.timer-controls-overlay .controls {
-  display: inline-flex;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 7px;
-  background: rgb(0 0 0 / 93%);
-  border: none;
-  /* box-shadow: 0 6px 14px rgba(0,0,0,0.35); */
+
+.SHOWTRAK_TIMER.OVERRUN .timer-tile-primary {
+  color: var(--danger-text-soft);
+}
+
+.timer-tile-secondary {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.timer-tile-secondary:empty {
+  display: none;
+}
+
+/* The bar: Server's tile bar (white on a faint track), scaled rather than
+   resized so a repaint never lays the page out. */
+.timer-tile-progress.progress {
+  height: 4px;
+  margin-top: 0.35rem;
+  background-color: rgb(255 255 255 / 0.15);
+}
+
+.timer-tile-progress .progress-bar {
   width: 100%;
-  height: 100%;
-  justify-content: center;
-  align-items: center;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 120ms linear;
 }
-.timer-controls-overlay .overlay-btn {
+
+@media (prefers-reduced-motion: reduce) {
+  .SHOWTRAK_TIMER.WARNING {
+    animation: none;
+    border-color: rgb(var(--warning-rgb) / 0.9);
+  }
+
+  .timer-tile-progress .progress-bar {
+    transition: none;
+  }
+}
+
+/* --- Tile controls --------------------------------------------------------
+   Always visible (1.x hid them behind a hover, which a touchscreen cannot
+   do). Ghost buttons sized like Server's bottom-bar buttons. */
+.timer-tile-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+}
+
+.timer-tile-spacer {
+  flex: 1 1 auto;
+}
+
+.timer-tile-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 12px;
+  width: 34px;
+  height: 28px;
   border: 0;
-  background: rgba(255, 255, 255, 0.216);
-  color: #fff;
-  cursor: pointer;
+  border-radius: var(--item-r);
+  background: rgb(0 0 0 / 0.18);
+  color: var(--text-strong);
+  font-size: 1rem;
+  line-height: 1;
   transition:
     background-color 120ms ease,
-    transform 60ms ease;
-}
-.timer-controls-overlay .overlay-btn:hover {
-  background: rgba(255, 255, 255, 0.18);
-}
-.timer-controls-overlay .overlay-btn:active {
-  transform: scale(0.98);
-}
-.timer-controls-overlay .overlay-btn i {
-  font-size: 28px;
-  line-height: 1;
+    color 120ms ease;
 }
 
-/* Ensure edit button can be hidden without layout shift */
-.timer-controls-overlay .overlay-btn.d-none {
+.timer-tile-btn:hover,
+.timer-tile-btn:focus-visible {
+  background: rgb(0 0 0 / 0.32);
+  color: #fff;
+}
+
+.timer-tile-btn:focus-visible {
+  outline: 2px solid rgb(var(--accent-rgb) / 0.9);
+  outline-offset: 1px;
+}
+
+/* EDIT mode: the ID chip, the cog, and drag to reorder. */
+.edit-only {
   display: none !important;
 }
 
-.STANDBY {
-  background-color: hsl(38, 72%, 14%);
+body.mode-edit .edit-only {
+  display: inline-flex !important;
 }
 
-.RUNNING {
-  background-color: hsl(223, 61%, 15%);
+body.mode-edit .timer-tile-id {
+  display: inline-block;
 }
 
-.PAUSED {
-  background-color: hsl(0, 60%, 15%);
+body.mode-edit .SHOWTRAK_TIMER[draggable='true'] {
+  cursor: grab;
 }
 
-.COMPLETE {
-  background-color: hsl(111, 61%, 15%);
+.SHOWTRAK_TIMER.dragging {
+  opacity: 0.45;
 }
+
+/* --- Empty state ------------------------------------------------------- */
+.timer-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 1rem;
+}
+
+.timer-empty-card {
+  max-width: 520px;
+  padding: var(--panel-pad);
+  border-radius: var(--inner-r);
+}
+
+.timer-empty-logo {
+  width: 28px;
+  height: 28px;
+}
+
+/* --- Bottom bar -------------------------------------------------------- */
+/* The New Timer button, matching Server's cog button beside it. */
 #ADD_TIMER_BUTTON.settings-btn {
-  margin-right: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 0;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+#ADD_TIMER_BUTTON.settings-btn:hover {
+  color: #fff;
+}
+
+#ADD_TIMER_BUTTON.settings-btn .bi {
+  font-size: 18px;
+  line-height: 1;
+}
+
+#BOTTOM_BAR_STATUS {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --- Editors and modals ------------------------------------------------ */
+.timer-duration-input {
+  width: 8.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.setting-inline-control .btn {
+  flex: 0 0 auto;
+}
+
+.web-dashboard-qr svg {
+  width: 200px;
+  height: 200px;
+  border-radius: var(--item-r);
+}
+
+/* --- Web Dashboard page --------------------------------------------------
+   The same tiles, larger, under a bar styled like the desktop title bar. */
+body.web-dashboard {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--app-bg-gradient);
+  background-attachment: fixed;
+  color: var(--text-strong);
+  --timer-tile-min-width: 300px;
+  --timer-readout-size: clamp(2.5rem, 7vw, 4rem);
+}
+
+.dashboard-bar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+  background: rgb(var(--surface-2-rgb) / 0.99);
+  border-bottom: 1px solid var(--border-subtle);
+  font-weight: 700;
+}
+
+.dashboard-bar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dashboard-bar-brand img {
+  width: 20px;
+  height: 20px;
+}
+
+.dashboard-connection {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: var(--radius-pill);
+  padding: 0.15rem 0.6rem;
+}
+
+.dashboard-connection.is-online {
+  color: var(--success-text);
+  background: rgb(var(--success-text-rgb) / 0.12);
+}
+
+.dashboard-connection.is-offline {
+  color: var(--danger-text);
+  background: rgb(var(--danger-text-rgb) / 0.12);
+}
+
+.dashboard-container {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Offline: the last known timers, greyed out, until the host is back. */
+body.is-offline .SHOWTRAK_TIMER {
+  opacity: 0.4;
+  filter: grayscale(1);
+  animation: none;
+}
+
+body.web-dashboard .SHOWTRAK_TIMER:hover {
+  border-color: transparent;
+}
+
+@media (max-width: 420px) {
+  body.web-dashboard {
+    --timer-tile-min-width: 100%;
+  }
+
+  .timer-grid {
+    padding: 0.5rem;
+  }
 }

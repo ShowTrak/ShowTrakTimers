@@ -1,0 +1,8 @@
+/* Extracted from ShowTrak Server's src/UI/css/parts/07-list-view.css: only the rules
+   the Timers markup uses (scripts/sync-server-css.js). Edit Server's copy and
+   re-run the sync, rather than editing these by hand. */
+
+/* --- The fade between the tile layouts and the table --------------------- */
+#APPLICATION_CONTENT {
+  transition: opacity 200ms ease;
+}

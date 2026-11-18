@@ -1,0 +1,705 @@
+/* Extracted from ShowTrak Server's src/UI/css/parts/02-controls.css: only the rules
+   the Timers markup uses (scripts/sync-server-css.js). Edit Server's copy and
+   re-run the sync, rather than editing these by hand. */
+
+/* Settings (cog) and show file buttons */
+#NAVBAR_CORE_BUTTON.settings-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 0;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    transform 120ms ease;
+}
+
+#SETTINGS_MENU_DROPDOWN .dropdown-toggle::after {
+  display: none;
+}
+
+#SETTINGS_MENU.dropdown-menu {
+  --ctl-r: var(--menu-item-r);
+  min-width: 240px;
+  border: 0;
+  border-radius: var(--menu-r);
+  background: rgb(var(--surface-2-rgb) / 0.98);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  padding: var(--menu-pad);
+  /* These menus open from the bottom bar. Capped to the space above it so Popper
+     can always flip them upward; a menu taller than the window would otherwise
+     open downward, off-screen, and look like the button does nothing. */
+  max-height: calc(100vh - var(--bottom-bar-height) - 24px);
+  overflow-y: auto;
+}
+
+#SETTINGS_MENU .dropdown-item {
+  color: var(--text-strong);
+  border-radius: var(--menu-item-r);
+  font-size: var(--fs-md);
+  padding: 0.45rem 0.6rem;
+}
+
+#SETTINGS_MENU .dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+#SETTINGS_MENU .dropdown-item .menu-shortcut {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+#SETTINGS_MENU .dropdown-item:hover,
+#SETTINGS_MENU .dropdown-item:focus {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+#SETTINGS_MENU .dropdown-header {
+  color: var(--text-subtle);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.35rem 0.6rem 0.15rem;
+}
+
+#SETTINGS_MENU .dropdown-divider {
+  border-top-color: var(--border-default);
+  margin: 0.3rem 0.2rem;
+}
+
+#SETTINGS_MENU .dropdown-item.text-danger {
+  color: var(--danger-text) !important;
+}
+
+#SETTINGS_MENU .dropdown-item.text-danger:hover,
+#SETTINGS_MENU .dropdown-item.text-danger:focus {
+  background: rgb(var(--danger-text-rgb) / 0.15);
+  color: var(--danger-text-hover) !important;
+}
+
+#NAVBAR_CORE_BUTTON.settings-btn:hover {
+  color: #fff;
+}
+
+#NAVBAR_CORE_BUTTON.settings-btn .bi {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.alert-item {
+  --alert-accent: rgb(var(--warning-soft-rgb) / 0.9);
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03)),
+    rgb(var(--surface-0-rgb) / 0.68);
+  border: 1px solid var(--border-default);
+  border-radius: var(--inner-r);
+  padding: var(--inner-pad);
+  box-shadow:
+    0 7px 18px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.alert-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--alert-accent);
+  opacity: 0.95;
+}
+
+.alert-item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.alert-item .alert-icon {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  /* The item's padding plus its 1px border sit between this and the item's
+     corner. */
+  border-radius: calc(var(--inner-r) - var(--inner-pad) - 1px);
+  background: color-mix(in srgb, var(--alert-accent) 24%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--alert-accent) 32%, transparent);
+}
+
+.alert-item .alert-icon i {
+  font-size: var(--fs-xl);
+  color: color-mix(in srgb, var(--alert-accent) 86%, #fff);
+}
+
+.alert-item .alert-content {
+  display: grid;
+  align-content: center;
+  min-height: 26px;
+  font-size: var(--fs-sm);
+  line-height: 1.3;
+  color: var(--text-strong);
+}
+
+.alert-item .alert-content > div:first-child {
+  display: flex;
+  align-items: center;
+  min-height: 16px;
+}
+
+.alert-item .alert-content strong {
+  color: #fff;
+  font-size: var(--fs-md);
+  letter-spacing: 0.01em;
+}
+
+.alert-item .alert-meta {
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  opacity: 1;
+}
+
+.alert-item.single-line .alert-content {
+  min-height: 30px;
+}
+
+.alert-item .alert-dismiss {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.alert-item .btn-dismiss {
+  border: 0;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-strong);
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.alert-item .btn-dismiss:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.alert-item[data-severity='success'] {
+  --alert-accent: rgb(var(--success-text-rgb) / 0.92);
+}
+
+.alert-item[data-severity='warning'] {
+  --alert-accent: rgb(var(--warning-soft-rgb) / 0.96);
+}
+
+.alert-item[data-severity='error'] {
+  --alert-accent: rgb(var(--danger-text-rgb) / 0.96);
+}
+
+.alert-item[data-severity='info'] {
+  --alert-accent: rgb(var(--info-rgb) / 0.96);
+}
+
+/* Compact Audio Asset rows */
+.audio-asset-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.1fr) minmax(120px, 1fr) minmax(170px, 1fr) auto;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.audio-asset-row .audio-asset-label-inline {
+  height: 30px;
+  padding: 0.35rem 0.55rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  color: #fff;
+}
+
+.audio-asset-row .audio-asset-label-inline:focus {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: none;
+}
+
+.audio-asset-row .audio-asset-meta {
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.audio-asset-row .audio-asset-meta .badge {
+  vertical-align: baseline;
+}
+
+.audio-asset-row .audio-asset-volume-wrap {
+  min-width: 0;
+}
+
+.audio-asset-row [data-audio-volume-label] {
+  min-width: 3.2em;
+  text-align: right;
+}
+
+.audio-asset-row .audio-asset-actions .btn {
+  height: 30px;
+  min-width: 30px;
+  padding: 0.2rem 0.45rem;
+}
+
+@media (max-width: 991px) {
+  .audio-asset-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'label actions'
+      'meta actions'
+      'volume actions';
+    row-gap: 0.4rem;
+  }
+
+  .audio-asset-row .audio-asset-label-inline {
+    grid-area: label;
+  }
+
+  .audio-asset-row .audio-asset-meta {
+    grid-area: meta;
+  }
+
+  .audio-asset-row .audio-asset-volume-wrap {
+    grid-area: volume;
+  }
+
+  .audio-asset-row .audio-asset-actions {
+    grid-area: actions;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+/* Sliders, app-wide: the monitoring volume bar. A macOS-style level pill
+   whose filled part IS the control, no visible knob. The thumb is a
+   fill-coloured circle the height of the track, so the fill ends in a rounded
+   cap; its shadow paints the fill to its left, and the input clips that
+   shadow to the pill. Firefox paints the fill with ::-moz-range-progress. */
+input[type='range'],
+.form-range {
+  --st-level-height: 0.6rem;
+  /* Opaque: a translucent fill would show where the cap overlaps it. */
+  --st-level-fill: #e2e2ea;
+  -webkit-appearance: none;
+  appearance: none;
+  height: var(--st-level-height);
+  padding: 0;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+input[type='range']:hover,
+input[type='range']:focus-visible,
+.form-range:hover,
+.form-range:focus-visible {
+  --st-level-fill: #ffffff;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+input[type='range']:focus,
+.form-range:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+input[type='range']:focus-visible,
+.form-range:focus-visible {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+
+input[type='range']:disabled,
+.form-range:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+input[type='range']::-webkit-slider-runnable-track,
+.form-range::-webkit-slider-runnable-track {
+  height: var(--st-level-height);
+  border-radius: var(--radius-pill);
+  background: transparent;
+}
+
+input[type='range']::-webkit-slider-thumb,
+.form-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: var(--st-level-height);
+  height: var(--st-level-height);
+  margin-top: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--st-level-fill);
+  box-shadow: calc(-100vw - var(--st-level-height) / 2) 0 0 100vw var(--st-level-fill);
+}
+
+input[type='range']::-moz-range-track,
+.form-range::-moz-range-track {
+  height: var(--st-level-height);
+  border: none;
+  background: transparent;
+}
+
+input[type='range']::-moz-range-progress,
+.form-range::-moz-range-progress {
+  height: var(--st-level-height);
+  border-radius: var(--radius-pill);
+  background: var(--st-level-fill);
+}
+
+input[type='range']::-moz-range-thumb,
+.form-range::-moz-range-thumb {
+  width: var(--st-level-height);
+  height: var(--st-level-height);
+  border: none;
+  border-radius: 50%;
+  background: var(--st-level-fill);
+  box-shadow: none;
+}
+
+/* Toggles, checkboxes and radios, matching ShowTrak Portal: flat, borderless
+   squares on the ghost fill, purple once on. Bare .form-check-input boxes in
+   tables and the picker menus' plain checkboxes get the same look. */
+:root {
+  --st-check-fill: rgba(255, 255, 255, 0.04);
+  --st-check-on-fill: rgba(147, 51, 234, 0.35);
+  --st-check-on: #a855f7;
+  --st-check-off: #6b7280;
+  --st-check-focus: 0 0 0 2px rgba(147, 51, 234, 0.18);
+}
+
+.form-check-input[type='checkbox'],
+.form-check-input[type='radio'] {
+  width: 1.125rem;
+  height: 1.125rem;
+  background-color: var(--st-check-fill);
+  background-image: none;
+  background-size: 0.75rem;
+  background-repeat: no-repeat;
+  background-position: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  -webkit-appearance: none;
+  appearance: none;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.form-check-input[type='radio'] {
+  border-radius: 50%;
+}
+
+.form-check-input[type='checkbox']:focus,
+.form-check-input[type='radio']:focus {
+  border-color: transparent;
+  box-shadow: var(--st-check-focus);
+  outline: none;
+}
+
+.form-check-input[type='checkbox']:checked {
+  background-color: var(--st-check-on-fill);
+  border-color: transparent;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23a855f7' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
+}
+
+.form-check-input[type='checkbox']:indeterminate {
+  background-color: var(--st-check-on-fill);
+  border-color: transparent;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23a855f7' stroke-linecap='round' stroke-width='3' d='M6 10h8'/%3e%3c/svg%3e");
+}
+
+.form-check-input[type='radio']:checked {
+  background-color: var(--st-check-on-fill);
+  border-color: transparent;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='2' fill='%23a855f7'/%3e%3c/svg%3e");
+  background-size: 0.625rem;
+}
+
+.form-check-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Toggle: a rounded-square track as tall as a .form-control-sm, with a square
+   knob drawn by ::before. Overrides Bootstrap's pill switch. */
+.form-switch {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 0;
+  margin: 0;
+  min-height: 0;
+  vertical-align: middle;
+}
+
+.form-switch .form-check-input {
+  /* height = knob + 2 x gap + 2 x border: 1.225 + 0.5 + 0.125 = 1.85rem */
+  --st-toggle-h: 1.85rem;
+  --st-toggle-w: 3.25rem;
+  --st-toggle-knob: 1.225rem;
+  --st-toggle-gap: 0.25rem;
+  --st-toggle-knob-r: var(--radius-xs);
+
+  position: relative;
+  float: none;
+  width: var(--st-toggle-w);
+  height: var(--st-toggle-h);
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  /* knob radius + gap + 1px border, so the knob's corners sit concentric */
+  border-radius: calc(var(--st-toggle-knob-r) + var(--st-toggle-gap) + 1px);
+  background-image: none;
+  transition: background-color 0.15s ease;
+}
+
+.form-switch .form-check-input::before {
+  content: '';
+  position: absolute;
+  top: var(--st-toggle-gap);
+  left: var(--st-toggle-gap);
+  width: var(--st-toggle-knob);
+  height: var(--st-toggle-knob);
+  border-radius: var(--st-toggle-knob-r);
+  background: var(--st-check-off);
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
+}
+
+.form-switch .form-check-input:checked,
+.form-switch .form-check-input:focus {
+  background-image: none;
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translateX(
+    calc(var(--st-toggle-w) - var(--st-toggle-knob) - var(--st-toggle-gap) * 2 - 2px)
+  );
+  background: var(--st-check-on);
+}
+
+/* Number inputs: the native spin buttons are hidden everywhere; a plain
+   chevron pair (number-steppers.ts) sits on the right edge instead. */
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Preferences: a short value (a number, a 4-digit PIN, a select of short
+   options) sits right of its label, right-aligned, and drops beneath it when
+   the two no longer fit on one line. */
+.setting-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.setting-inline-label {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.setting-inline-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.setting-inline-control > .form-control {
+  width: 8.5rem;
+}
+
+.setting-inline-control .form-control {
+  text-align: right;
+}
+
+.setting-inline-control .form-select {
+  width: auto;
+  min-width: 8.5rem;
+}
+
+.bg-ghost {
+  background-color: var(--surface-ghost) !important;
+}
+
+/* Shared modal titlebar: back button + centred title + close button. The row
+   stretches its children, so the back/close buttons automatically match the
+   height of the (taller) title box without any per-panel sizing. */
+.st-modal-header-btn {
+  flex: 0 0 auto;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* Light ghost background, used for modal section headings */
+.bg-ghost-light {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Reusable segmented toggle: a pill container with an inset dark track and a
+   raised, brighter "active" segment. Used by the OSC/HTTP reference switch and
+   the bottom-bar SHOW/EDIT switch. Mark the selected button with `.is-active`. */
+.st-segmented-toggle {
+  --st-seg-pad: 0.15rem;
+  display: inline-flex;
+  padding: var(--st-seg-pad);
+  /* The tray is a control (--ctl-r); its segments sit concentric in it, as
+     in ShowTrak Portal. */
+  border-radius: var(--ctl-r);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.st-segmented-toggle-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.25rem 0.85rem;
+  border-radius: calc(var(--ctl-r) - var(--st-seg-pad));
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.st-segmented-toggle-btn:hover:not(:disabled) {
+  color: var(--text-strong);
+}
+
+.st-segmented-toggle-btn.is-active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.st-segmented-toggle-btn:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+/* Settings modal: two-pane layout with a tab rail on the left and the active
+   category's settings on the right, one category shown at a time as in the
+   Client Info modal. The header stays pinned at the top; the rail and content
+   each scroll independently, and a fixed height stops the dialog resizing as
+   tabs are switched. */
+#SHOWTRAK_MODAL_SETTINGS .modal-body {
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+  overflow: hidden;
+}
+
+#SHOWTRAK_MODAL_SETTINGS .modal-body.is-tabbed {
+  height: min(85vh, 46rem);
+}
+
+.settings-layout {
+  display: flex;
+  gap: 0.75rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  text-align: left;
+}
+
+.settings-nav {
+  flex: 0 0 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+
+.settings-nav-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  /* Sits straight in the modal's padding. */
+  border-radius: var(--inner-r);
+  padding: 0.5rem 0.7rem;
+  font-size: var(--fs-lg);
+  color: var(--text-muted);
+  background-color: var(--surface-ghost);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.settings-nav-item:hover {
+  background-color: var(--surface-ghost-hover);
+  color: var(--text-strong);
+}
+
+.settings-nav-item.active {
+  background-color: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.settings-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+/* The sections are .d-grid, whose display is !important. */
+.settings-content .settings-section.is-inactive-tab {
+  display: none !important;
+}

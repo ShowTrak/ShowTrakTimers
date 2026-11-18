@@ -1,0 +1,199 @@
+/* Extracted from ShowTrak Server's src/UI/css/parts/04-toasts.css: only the rules
+   the Timers markup uses (scripts/sync-server-css.js). Edit Server's copy and
+   re-run the sync, rather than editing these by hand. */
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Compact bottom-center confirmation toast */
+#SHOWTRAK_CONFIRM_TOAST.confirm-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--bottom-bar-height) + 12px); /* sit above bottom bar */
+  transform: translateX(-50%);
+  z-index: var(--z-toast);
+  width: min(560px, calc(100vw - 20px));
+  background: var(--surface-3);
+  border: 0;
+  /* Its buttons sit about 10px in from its edge. */
+  --ctl-r: var(--item-r);
+  border-radius: calc(var(--item-r) + 10px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  color: #fff;
+}
+
+#SHOWTRAK_CONFIRM_TOAST .confirm-toast-body {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 12px;
+}
+
+#SHOWTRAK_CONFIRM_TOAST .confirm-toast-msg {
+  font-size: var(--fs-md);
+  line-height: 1.3;
+  color: var(--text-strong);
+}
+
+#SHOWTRAK_CONFIRM_TOAST .confirm-toast-actions {
+  display: flex;
+  gap: 8px;
+}
+
+#SHOWTRAK_CONFIRM_TOAST .btn {
+  padding: 4px 10px;
+}
+
+#SHOWTRAK_CONFIRM_TOAST .btn:focus,
+#SHOWTRAK_CONFIRM_TOAST .btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.85) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18) !important;
+}
+
+#SHOWTRAK_CONFIRM_TOAST #CONFIRM_TOAST_CONFIRM:focus,
+#SHOWTRAK_CONFIRM_TOAST #CONFIRM_TOAST_CONFIRM:focus-visible {
+  outline-color: rgb(var(--danger-rgb) / 0.95) !important;
+  box-shadow: 0 0 0 3px rgb(var(--danger-rgb) / 0.35) !important;
+}
+
+.osc-action-card {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.osc-route-section-header {
+  margin-top: 0.5rem;
+  padding: 0.1rem 0.15rem 0.35rem;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.osc-route-section-header:first-child {
+  margin-top: 0;
+}
+
+.osc-action-title {
+  line-height: 1.2;
+}
+
+.osc-route-path {
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+  padding: 0.55rem;
+  border-radius: var(--item-r);
+  background: var(--surface-ghost);
+}
+
+#ALERTS_TOAST_HOST {
+  position: fixed;
+  top: 56px; /* below dragbar */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-banner);
+  display: grid;
+  gap: 10px;
+  width: min(680px, calc(100vw - 20px));
+  pointer-events: none;
+}
+
+.alert-toast {
+  pointer-events: auto;
+  background: var(--surface-3);
+  border: 0;
+  /* Its icon (--item-r) sits 10px in. */
+  border-radius: calc(var(--item-r) + 10px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  padding: 10px;
+  animation: alert-toast-enter 220ms ease-out;
+}
+
+.alert-toast:hover {
+  border-color: transparent;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.36);
+}
+
+/* Upsize icon and text specifically for toasts */
+.alert-toast .alert-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--item-r);
+}
+
+.alert-toast .alert-icon i {
+  font-size: 17px;
+}
+
+.alert-toast .alert-content {
+  min-height: 30px;
+  font-size: var(--fs-lg);
+  line-height: 1.35;
+}
+
+.alert-toast .alert-content strong {
+  font-size: var(--fs-lg);
+  line-height: 1.3;
+}
+
+.alert-toast .btn-dismiss {
+  padding: 3px 8px;
+}
+
+/* Single-line (title only) toast polish */
+.alert-toast.single-line .alert-content {
+  display: grid;
+  align-content: center;
+  min-height: 30px;
+}
+
+.alert-toast.single-line .alert-content > div:first-child strong {
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.alert-toast.single-line {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+@keyframes alert-toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 768px) {
+  #SHOWTRAK_CONFIRM_TOAST.confirm-toast {
+    width: calc(100vw - 16px);
+    bottom: calc(var(--bottom-bar-height) + 8px);
+  }
+
+  #SHOWTRAK_CONFIRM_TOAST .confirm-toast-body {
+    grid-template-columns: 1fr;
+  }
+
+  #SHOWTRAK_CONFIRM_TOAST .confirm-toast-actions {
+    justify-content: flex-end;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alert-item,
+  .alert-item .btn-dismiss,
+  .alert-toast {
+    transition: none;
+    animation: none;
+  }
+}

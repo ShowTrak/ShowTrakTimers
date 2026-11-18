@@ -1,0 +1,386 @@
+/* =========================================================================
+   ShowTrak Timers
+   -------------------------------------------------------------------------
+   Everything here is Timers' own: the timer tiles and grid, the editor's
+   duration fields, the Web Dashboard page. It follows ShowTrak Server's design
+   rules and uses only the design tokens in 01-base.css (colours, surfaces,
+   radii, type scale); the parts before this file are extracted from Server by
+   scripts/sync-server-css.js and are not edited here.
+   ========================================================================= */
+
+/* --- The grid -------------------------------------------------------------
+   Tiles flow into as many columns as fit (one in a narrow window), the same
+   gap as Server's tiles. */
+.timer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--timer-tile-min-width), 1fr));
+  gap: var(--group-pad);
+  padding: 0.75rem;
+  align-content: start;
+}
+
+:root {
+  --timer-tile-min-width: 240px;
+  --timer-readout-size: clamp(2rem, 9vw, 2.75rem);
+}
+
+/* --- Timer tile -----------------------------------------------------------
+   Shaped and coloured like Server's client tiles (.SHOWTRAK_PC): the tile
+   radius, a transparent 2px border that lights on hover, and the solid status
+   washes from 05-monitoring.css. Standby reads as idle (grey), Running as online
+   (green), Paused as degraded (orange), Complete and Overrun as offline (red). */
+.SHOWTRAK_TIMER {
+  position: relative;
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.6rem 0.75rem 0.5rem;
+  border-radius: var(--tile-r);
+  border: 2px solid transparent;
+  background-color: var(--tile-solid-idle);
+  color: var(--text-strong);
+  text-align: left;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+
+.SHOWTRAK_TIMER:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.SHOWTRAK_TIMER.RUNNING {
+  background-color: var(--tile-solid-online);
+}
+
+.SHOWTRAK_TIMER.PAUSED {
+  background-color: var(--tile-solid-degraded);
+}
+
+.SHOWTRAK_TIMER.COMPLETE,
+.SHOWTRAK_TIMER.OVERRUN {
+  background-color: var(--tile-solid-offline);
+}
+
+/* Inside the warning window: an amber pulse round the tile, whatever its
+   colour, like Server's identify pulse but in the warning hue. */
+@keyframes timer-warning-pulse {
+  0%,
+  100% {
+    border-color: rgb(var(--warning-rgb) / 0.35);
+    box-shadow: 0 0 0 0 rgb(var(--warning-rgb) / 0.45);
+  }
+  50% {
+    border-color: rgb(var(--warning-rgb) / 0.95);
+    box-shadow: 0 0 0 6px rgb(var(--warning-rgb) / 0);
+  }
+}
+
+.SHOWTRAK_TIMER.WARNING {
+  animation: timer-warning-pulse 1.2s ease-in-out infinite;
+}
+
+.timer-tile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 1rem;
+}
+
+.timer-tile-status {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.SHOWTRAK_TIMER.WARNING .timer-tile-status {
+  color: var(--warning-text);
+}
+
+.timer-tile-id {
+  display: none;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface-ghost-hover);
+  border-radius: var(--radius-xs);
+  padding: 0 0.35rem;
+}
+
+.timer-tile-name {
+  font-size: var(--tile-name-font-size);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timer-tile-readout {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.5rem;
+  line-height: 1.1;
+}
+
+.timer-tile-primary {
+  font-size: var(--timer-readout-size);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.SHOWTRAK_TIMER.OVERRUN .timer-tile-primary {
+  color: var(--danger-text-soft);
+}
+
+.timer-tile-secondary {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.timer-tile-secondary:empty {
+  display: none;
+}
+
+/* The bar: Server's tile bar (white on a faint track), scaled rather than
+   resized so a repaint never lays the page out. */
+.timer-tile-progress.progress {
+  height: 4px;
+  margin-top: 0.35rem;
+  background-color: rgb(255 255 255 / 0.15);
+}
+
+.timer-tile-progress .progress-bar {
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 120ms linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .SHOWTRAK_TIMER.WARNING {
+    animation: none;
+    border-color: rgb(var(--warning-rgb) / 0.9);
+  }
+
+  .timer-tile-progress .progress-bar {
+    transition: none;
+  }
+}
+
+/* --- Tile controls --------------------------------------------------------
+   Always visible (1.x hid them behind a hover, which a touchscreen cannot
+   do). Ghost buttons sized like Server's bottom-bar buttons. */
+.timer-tile-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+}
+
+.timer-tile-spacer {
+  flex: 1 1 auto;
+}
+
+.timer-tile-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--item-r);
+  background: rgb(0 0 0 / 0.18);
+  color: var(--text-strong);
+  font-size: 1rem;
+  line-height: 1;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.timer-tile-btn:hover,
+.timer-tile-btn:focus-visible {
+  background: rgb(0 0 0 / 0.32);
+  color: #fff;
+}
+
+.timer-tile-btn:focus-visible {
+  outline: 2px solid rgb(var(--accent-rgb) / 0.9);
+  outline-offset: 1px;
+}
+
+/* EDIT mode: the ID chip, the cog, and drag to reorder. */
+.edit-only {
+  display: none !important;
+}
+
+body.mode-edit .edit-only {
+  display: inline-flex !important;
+}
+
+body.mode-edit .timer-tile-id {
+  display: inline-block;
+}
+
+body.mode-edit .SHOWTRAK_TIMER[draggable='true'] {
+  cursor: grab;
+}
+
+.SHOWTRAK_TIMER.dragging {
+  opacity: 0.45;
+}
+
+/* --- Empty state ------------------------------------------------------- */
+.timer-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 1rem;
+}
+
+.timer-empty-card {
+  max-width: 520px;
+  padding: var(--panel-pad);
+  border-radius: var(--inner-r);
+}
+
+.timer-empty-logo {
+  width: 28px;
+  height: 28px;
+}
+
+/* --- Bottom bar -------------------------------------------------------- */
+/* The New Timer button, matching Server's cog button beside it. */
+#ADD_TIMER_BUTTON.settings-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 0;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+#ADD_TIMER_BUTTON.settings-btn:hover {
+  color: #fff;
+}
+
+#ADD_TIMER_BUTTON.settings-btn .bi {
+  font-size: 18px;
+  line-height: 1;
+}
+
+#BOTTOM_BAR_STATUS {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --- Editors and modals ------------------------------------------------ */
+.timer-duration-input {
+  width: 8.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.setting-inline-control .btn {
+  flex: 0 0 auto;
+}
+
+.web-dashboard-qr svg {
+  width: 200px;
+  height: 200px;
+  border-radius: var(--item-r);
+}
+
+/* --- Web Dashboard page --------------------------------------------------
+   The same tiles, larger, under a bar styled like the desktop title bar. */
+body.web-dashboard {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--app-bg-gradient);
+  background-attachment: fixed;
+  color: var(--text-strong);
+  --timer-tile-min-width: 300px;
+  --timer-readout-size: clamp(2.5rem, 7vw, 4rem);
+}
+
+.dashboard-bar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+  background: rgb(var(--surface-2-rgb) / 0.99);
+  border-bottom: 1px solid var(--border-subtle);
+  font-weight: 700;
+}
+
+.dashboard-bar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dashboard-bar-brand img {
+  width: 20px;
+  height: 20px;
+}
+
+.dashboard-connection {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: var(--radius-pill);
+  padding: 0.15rem 0.6rem;
+}
+
+.dashboard-connection.is-online {
+  color: var(--success-text);
+  background: rgb(var(--success-text-rgb) / 0.12);
+}
+
+.dashboard-connection.is-offline {
+  color: var(--danger-text);
+  background: rgb(var(--danger-text-rgb) / 0.12);
+}
+
+.dashboard-container {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Offline: the last known timers, greyed out, until the host is back. */
+body.is-offline .SHOWTRAK_TIMER {
+  opacity: 0.4;
+  filter: grayscale(1);
+  animation: none;
+}
+
+body.web-dashboard .SHOWTRAK_TIMER:hover {
+  border-color: transparent;
+}
+
+@media (max-width: 420px) {
+  body.web-dashboard {
+    --timer-tile-min-width: 100%;
+  }
+
+  .timer-grid {
+    padding: 0.5rem;
+  }
+}

@@ -1,0 +1,503 @@
+/* Extracted from ShowTrak Server's src/UI/css/parts/01-base.css: only the rules
+   the Timers markup uses (scripts/sync-server-css.js). Edit Server's copy and
+   re-run the sync, rather than editing these by hand. */
+
+/* =========================================================================
+   Design tokens
+   -------------------------------------------------------------------------
+   Every shared colour, surface, radius, type size, layer and layout constant
+   lives here, so the rest of the parts say what a value MEANS rather than
+   repeating it. Dark theme only; Bootstrap 5.0.2 loads before this file.
+
+   Colours that need translucent variants are declared as bare channel
+   triplets (`--x-rgb: R G B`) and used as `rgb(var(--x-rgb) / alpha)`, so a
+   hue changes in exactly one place.
+   ========================================================================= */
+:root {
+  /* --- Status palette ------------------------------------------------------
+   * Tile washes: the translucent fills behind client tiles, the check editor's
+   * live status card and drag ghosts. IDLE / UNAVAILABLE -> grey,
+   * OFFLINE -> red, DEGRADED -> orange, ONLINE -> green, PENDING -> blue.
+   * The alphas are percentages so the solid tile colours in 05-monitoring.css
+   * can color-mix by exactly the same amount. */
+  --status-online-rgb: 18 255 0;
+  --status-online-a: 32%;
+  --status-offline-rgb: 255 0 0;
+  --status-offline-a: 24%;
+  --status-degraded-rgb: 255 140 0;
+  --status-degraded-a: 32%;
+  --status-idle-rgb: 64 64 64;
+  --status-idle-a: 50%;
+  /* Pending adoption AND identify share this one blue, everywhere. */
+  --status-pending-rgb: 52 152 219;
+  --status-pending-a: 25%;
+
+  --status-online: rgb(var(--status-online-rgb) / var(--status-online-a));
+  --status-offline: rgb(var(--status-offline-rgb) / var(--status-offline-a));
+  --status-degraded: rgb(var(--status-degraded-rgb) / var(--status-degraded-a));
+  --status-idle: rgb(var(--status-idle-rgb) / var(--status-idle-a));
+  --status-pending: rgb(var(--status-pending-rgb) / var(--status-pending-a));
+
+  /* Saturated variants for timeline blocks, chart lines and status dots.
+   * Tuned apart from the washes on purpose: a solid 18,255,0 block reads as
+   * neon, so the graph hues are their own triplets. Pending has no separate
+   * graph hue; it is the same blue at full strength. */
+  --status-graph-online-rgb: 38 214 44;
+  --status-graph-offline-rgb: 224 36 36;
+  --status-graph-degraded-rgb: 255 149 0;
+  --status-graph-idle-rgb: 120 126 134;
+  --status-graph-online: rgb(var(--status-graph-online-rgb) / 0.98);
+  --status-graph-offline: rgb(var(--status-graph-offline-rgb) / 0.98);
+  --status-graph-degraded: rgb(var(--status-graph-degraded-rgb) / 0.98);
+  --status-graph-idle: rgb(var(--status-graph-idle-rgb) / 0.9);
+  --status-graph-pending: rgb(var(--status-pending-rgb) / 0.98);
+
+  /* A failing monitored condition (USB, audio, display, network, system,
+   * application) turns its client tile DEGRADED, so it wears the degraded
+   * hue. Apply it with `.st-condition-failing`. */
+  --condition-failing-rgb: var(--status-graph-degraded-rgb);
+  --condition-failing: var(--status-graph-degraded);
+
+  /* --- Semantic colours ----------------------------------------------------
+   * The base hues match Bootstrap's so they sit beside .btn-danger /
+   * .text-success and friends; the -text variants are the lighter shades that
+   * stay readable on the dark surfaces. */
+  --danger-rgb: 220 53 69;
+  --danger: rgb(var(--danger-rgb));
+  --danger-text-rgb: 255 107 107;
+  --danger-text: rgb(var(--danger-text-rgb));
+  --danger-text-hover: #ff8787;
+  --danger-text-soft: #ffb3bc;
+
+  --success-rgb: 40 167 69;
+  --success: rgb(var(--success-rgb));
+  --success-text-rgb: 79 209 139;
+  --success-text: rgb(var(--success-text-rgb));
+  --success-text-soft: #96e6b3;
+
+  --warning-rgb: 255 193 7;
+  --warning: rgb(var(--warning-rgb));
+  /* The softer amber the alerts system uses (tray accent, bell icon). */
+  --warning-soft-rgb: 255 181 77;
+  --warning-text: #ffe08a;
+
+  --info-rgb: 77 159 255;
+  --info: rgb(var(--info-rgb));
+  --info-text: #a8d2ff;
+  /* Bootstrap's cyan info, used by the software-update surfaces. */
+  --info-cyan-rgb: 13 202 240;
+  --info-cyan: #3dd5f3;
+  --info-cyan-soft: #6edff6;
+
+  /* The purple that lifts a hovered/focused menu row. */
+  --accent-rgb: 120 95 200;
+
+  /* --- Surfaces ------------------------------------------------------------
+   * 0 is the deepest (the edge of the app backdrop, popovers); each step up is
+   * a raised panel: 1 modals / menu foot, 2 bars, trays and cards, 3 toasts
+   * and sticky table heads. */
+  --surface-0-rgb: 12 9 28;
+  --surface-1-rgb: 23 20 46;
+  --surface-2-rgb: 29 26 47;
+  --surface-3-rgb: 39 35 59;
+  --surface-0: rgb(var(--surface-0-rgb));
+  --surface-1: rgb(var(--surface-1-rgb));
+  --surface-2: rgb(var(--surface-2-rgb));
+  --surface-3: rgb(var(--surface-3-rgb));
+
+  /* Ghost surfaces: a white wash over whatever is underneath. */
+  --surface-ghost: rgb(255 255 255 / 0.03);
+  --surface-ghost-hover: rgb(255 255 255 / 0.08);
+  --surface-ghost-active: rgb(255 255 255 / 0.12);
+
+  --app-bg-gradient: radial-gradient(circle at 50% 80%, var(--surface-1) 0%, var(--surface-0) 100%);
+  /* Right-click menu and the check-actions menu share this surface. */
+  --menu-bg: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-1) 100%);
+
+  --border-subtle: rgb(255 255 255 / 0.08);
+  --border-default: rgb(255 255 255 / 0.12);
+
+  /* --- Fields ----------------------------------------------------------------
+   * Inputs, textareas and selects are solid and borderless; each state is
+   * its own shade. Disabled sits nearest the modal surface, focus leans
+   * toward the accent purple, invalid toward red. */
+  --field-bg: rgb(38 34 62);
+  --field-bg-hover: rgb(45 41 72);
+  --field-bg-focus: rgb(52 45 88);
+  --field-bg-disabled: rgb(29 26 50);
+  --field-bg-invalid: rgb(66 30 50);
+
+  /* --- Text ------------------------------------------------------------------
+   * White at fixed strengths, strongest first. */
+  --text-strong: rgb(255 255 255 / 0.92);
+  --text-soft: rgb(255 255 255 / 0.85);
+  --text-secondary: rgb(255 255 255 / 0.72);
+  --text-muted: rgb(255 255 255 / 0.6);
+  --text-subtle: rgb(255 255 255 / 0.45);
+  --text-faint: rgb(255 255 255 / 0.35);
+
+  /* --- Radii ----------------------------------------------------------------
+   * Nested corners follow ONE rule, as in ShowTrak Portal:
+   *   outer radius = inner radius + the padding between them
+   * so anything rounded sitting in a rounded container's padding runs
+   * concentric with it. Three tiers, each a step out from the last:
+   *   panel (--panel-r): modals and other free-standing surfaces, padded
+   *     --panel-pad.
+   *   inner (--inner-r): cards and rows sitting straight in a panel's
+   *     padding (the .bg-ghost.p-2 rows, title bars, tab rails), padded
+   *     --inner-pad (.p-2).
+   *   item  (--item-r): things sitting straight in an inner card's padding.
+   * Controls (buttons, fields, toggles) take --ctl-r, which each container
+   * sets for whatever sits straight in its own padding: a modal gives the
+   * inner radius, an inner card or a menu the item radius. Anywhere else a
+   * control falls back to the item radius.
+   *
+   * A component with its own padding derives its corners from these with
+   * calc(), e.g. calc(var(--item-r) + 4px) for a tray padded 4px around
+   * item-radius buttons, rather than picking a fixed size. */
+  --item-r: 6px;
+  --inner-pad: 0.5rem;
+  --inner-r: calc(var(--item-r) + var(--inner-pad));
+  --panel-pad: 0.75rem;
+  --panel-r: calc(var(--inner-r) + var(--panel-pad));
+
+  /* Menus (the bottom-bar dropdowns, the right-click menu, in-field pickers):
+   * an inner-card-sized surface padded --menu-pad, with rows that sit
+   * concentric in it. */
+  --menu-pad: 0.375rem;
+  --menu-r: var(--inner-r);
+  --menu-item-r: calc(var(--menu-r) - var(--menu-pad));
+
+  /* Tiles (grid and compact) and list rows. */
+  --tile-r: 8px;
+
+  /* Fixed sizes for things that do not nest: badges, chips, pills. */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  --ctl-r: var(--item-r);
+
+  /* --- Type scale ----------------------------------------------------------- */
+  --fs-3xs: 9px;
+  --fs-2xs: 10px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 14px;
+  --fs-xl: 15px;
+
+  /* --- Layout --------------------------------------------------------------- */
+  --bottom-bar-height: 36px;
+  --bottom-bar-toggle-height: 26px;
+  --tile-name-font-size: 1rem;
+  --tile-hostname-font-size: var(--fs-sm);
+  --tile-expanded-width: 220px;
+  --tile-compact-width: 244px;
+  --tile-expanded-height: 100px;
+  /* Grid view: the space round and between the tiles in a group's panel. */
+  --group-pad: 0.5rem;
+  --tile-status-height: 20px;
+
+  /* --- Layers --------------------------------------------------------------
+   * Bootstrap 5.0.2 stacks: dropdown 1000, sticky 1020, fixed 1030,
+   * modal-backdrop 1040, modal 1060, popover 1070, tooltip 1080. The app's
+   * layers are placed around those, so keep the relative order:
+   *   bottom bar  < modal backdrop   (an open modal covers the bar)
+   *   toast/tray  > modal            (feedback shows over an open modal)
+   *   dropdown    > Bootstrap tooltip (in-modal pickers and chart tooltips)
+   *   overlay < context menu < dragbar < critical confirm */
+  --z-base: 1;
+  --z-raised: 2;
+  --z-float: 3;
+  --z-sticky: 5;
+  --z-bottom-bar: 1000;
+  --z-toast: 1100;
+  --z-banner: 1200;
+  --z-dropdown: 2000;
+  --z-overlay: 20000;
+  --z-context-menu: 100000;
+  --z-dragbar: 1000000;
+  --z-critical: 1000001;
+}
+
+/* Text selection is opt-in. An app surface (menus, dialogs, tiles, labels)
+   should not highlight on a stray drag, so nothing is selectable except what
+   an operator would reasonably copy: what they type, code and console
+   output, addresses, and the audit trail. */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='button']),
+textarea,
+[contenteditable]:not([contenteditable='false']),
+pre,
+code,
+.SHOWTRAK_NET_ADDRESS {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.dragbar {
+  z-index: var(--z-dragbar);
+  position: fixed;
+  width: 100vw;
+  height: 2rem;
+  -webkit-app-region: drag; /* allow window dragging on Electron */
+  background-color: rgb(var(--surface-2-rgb) / 0.99) !important;
+  padding: 0.3rem 0.8rem !important;
+  color: #ffffff !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  font-weight: 700;
+}
+
+#APPLICATION_NAVBAR_TITLE {
+  color: var(--text-strong);
+}
+
+#APPLICATION_CONTAINER {
+  position: absolute;
+  width: 100%;
+  height: calc(100% - 2rem);
+  overflow: auto;
+  /* Block flow, NOT grid: as a grid item #APPLICATION gets pinned to the
+     container's height instead of growing with an overflowing client list, so
+     its content spills past its bottom edge and the padding-bottom reserved
+     for the fixed bottom bar lands mid-list instead of below it, and the end of
+     the list then scrolls to rest underneath the bar, unreachable. In block
+     flow #APPLICATION grows with its content and the padding counts toward
+     the scrollable overflow. (#APPLICATION's min-height still fills the
+     viewport when the list is short.) */
+  background: var(--app-bg-gradient) !important;
+}
+
+#APPLICATION {
+  /* min-height (not height): fill the viewport when content is sparse so the
+     gradient covers the screen, but GROW past it when the group/client list is
+     tall; a fixed height here clips the overflow and kills scrolling on mobile,
+     where the list is a single tall column. */
+  min-height: max(100%, 100vh);
+  padding-top: 2rem !important;
+  padding-bottom: var(--bottom-bar-height) !important; /* space for bottom bar */
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  /* iOS: stop long-press raising the link/image callout, so a touch
+     long-press can open the context menu instead (wire-context-menu.ts). */
+  -webkit-touch-callout: none;
+  background: transparent !important;
+}
+
+/* Bottom thin bar */
+#APP_BOTTOM_BAR {
+  /* Its switches keep their small shape: about 8px trays round 6px
+     segments. */
+  --ctl-r: calc(6px + 0.15rem);
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--bottom-bar-height);
+  background: var(--surface-2); /* solid, not transparent */
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  z-index: var(--z-bottom-bar);
+}
+
+#APP_BOTTOM_BAR .bar-content {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 0 8px;
+}
+
+#APP_BOTTOM_BAR .bar-section.left {
+  justify-self: start;
+}
+
+#APP_BOTTOM_BAR .bar-section.center {
+  justify-self: center;
+  color: var(--text-soft);
+  font-weight: 700;
+  font-size: var(--fs-sm);
+}
+
+#APP_BOTTOM_BAR .bar-section.right {
+  justify-self: end;
+}
+
+#APP_BOTTOM_BAR .bar-section.right {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Ensure left section content is vertically centered in the bar */
+#APP_BOTTOM_BAR .bar-section.left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Bottom-bar toggles */
+/* The bottom-bar SHOW/EDIT and GRID/COMPACT/LIST switches use the shared
+   `.st-segmented-toggle` look (see 02-controls.css); here they are just sized
+   to the bottom-bar toggle height. */
+.mode-group.st-segmented-toggle {
+  height: var(--bottom-bar-toggle-height);
+  align-items: stretch;
+}
+
+.mode-group .st-segmented-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: var(--fs-sm);
+}
+
+@media (max-width: 1150px) {
+  #APP_BOTTOM_BAR .mode-group .st-segmented-toggle-btn {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    font-size: var(--fs-xs);
+    letter-spacing: 0.02em;
+  }
+}
+
+/* Bootstrap gives every .btn a 1px border; the app's buttons are borderless,
+   outline variants included (they render as the neutral tint below). Plain
+   `.btn` specificity, so component rules later in the cascade can still set
+   their own. */
+.btn {
+  border: none;
+  border-radius: var(--ctl-r);
+}
+
+/* --- Radius tiers (see the Radii tokens) ------------------------------------
+   Which radius a control takes depends on what it sits in: these containers
+   set --ctl-r for whatever sits straight in their padding. */
+.modal-content {
+  --ctl-r: var(--inner-r);
+}
+
+/* Bootstrap's rounding utilities only ever wrap a padded card or row here
+   (.bg-ghost.p-2 and friends), so they are the inner tier, and what sits in
+   them is the item tier. A card with no padding of its own still lines up
+   with the panel it sits in. */
+.rounded,
+.rounded-3 {
+  border-radius: var(--inner-r) !important;
+  --ctl-r: var(--item-r);
+}
+
+/* Bootstrap's colour variants, retinted to the app's look: text in the hue
+   over a translucent wash of it, deepening on hover. Never a solid fill.
+   .btn-success matches the "+ New" button (.script-manager-create-btn).
+   The !importants beat Bootstrap's :active / .show / :disabled fills. */
+.btn-success {
+  --st-btn-rgb: var(--success-text-rgb);
+  --st-btn-hover: var(--success-text);
+}
+
+.btn-light,
+.btn-secondary,
+[class*='btn-outline-'] {
+  --st-btn-rgb: 255 255 255;
+  --st-btn-hover: #fff;
+}
+
+.btn-success,
+.btn-light,
+.btn-secondary,
+[class*='btn-outline-'] {
+  color: rgb(var(--st-btn-rgb) / 0.9) !important;
+  background-color: rgb(var(--st-btn-rgb) / 0.1) !important;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+}
+
+.btn-success:hover,
+.btn-light:hover,
+.btn-secondary:hover,
+[class*='btn-outline-']:hover,
+.btn-success:active,
+.btn-light:active,
+.btn-secondary:active,
+[class*='btn-outline-']:active {
+  color: var(--st-btn-hover) !important;
+  background-color: rgb(var(--st-btn-rgb) / 0.2) !important;
+}
+
+.btn-success:focus,
+.btn-light:focus,
+.btn-secondary:focus,
+[class*='btn-outline-']:focus,
+.btn-danger:focus,
+.btn-delete:focus {
+  box-shadow: none;
+}
+
+.btn-success:focus-visible,
+.btn-light:focus-visible,
+.btn-secondary:focus-visible,
+[class*='btn-outline-']:focus-visible {
+  box-shadow: 0 0 0 2px rgb(var(--st-btn-rgb) / 0.35);
+}
+
+/* A toolbar row of content-sized buttons sits on a faint panel so it reads as
+   an action bar. Rows of full-width buttons go without. */
+.st-action-row {
+  --st-action-row-pad: 6px;
+  padding: var(--st-action-row-pad);
+  /* Sits straight in a modal's padding; its buttons sit concentric in it. */
+  border-radius: var(--inner-r);
+  --ctl-r: calc(var(--inner-r) - var(--st-action-row-pad));
+  background-color: var(--surface-ghost);
+}
+
+/* THE delete button, app-wide: light red text on a translucent red tint, never
+   a solid fill. Works with .btn, .btn-sm and .w-100. The !importants let it win
+   if it lands beside .btn-ghost / .btn-danger / .text-danger, which it replaces.
+   .btn-danger takes the same look. */
+.btn-delete,
+.btn-danger {
+  color: var(--danger-text) !important;
+  background-color: rgb(var(--danger-rgb) / 0.14) !important;
+  border: none;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+}
+
+.btn-delete:hover,
+.btn-delete:focus-visible,
+.btn-delete:active,
+.btn-delete.active,
+.btn-danger:hover,
+.btn-danger:focus-visible,
+.btn-danger:active,
+.btn-danger.active {
+  color: var(--danger-text-hover) !important;
+  background-color: rgb(var(--danger-rgb) / 0.26) !important;
+}
+
+.btn-delete:disabled,
+.btn-delete.disabled,
+.btn-danger:disabled,
+.btn-danger.disabled {
+  color: var(--danger-text) !important;
+  background-color: rgb(var(--danger-rgb) / 0.08) !important;
+}

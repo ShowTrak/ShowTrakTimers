@@ -2,276 +2,421 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <!-- <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!--
+      Local-only renderer CSP, as in ShowTrak Server. Scripts are locked to
+      same-origin bundles (no inline JS, no eval, no remote). style-src allows
+      'unsafe-inline' because jQuery/Bootstrap set inline style attributes;
+      media allows data: for imported sounds, played from data URLs.
+    -->
     <meta
-      http-equiv="X-Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'"
-    /> -->
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' data:; font-src 'self'; connect-src 'self' data:; object-src 'none'; base-uri 'self'"
+    />
     <link rel="stylesheet" href="./vendors/bootstrap/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="./vendors/bootstrap-icons/font/bootstrap-icons.css" />
-    <link rel="stylesheet" type="text/css" href="./vendors/toastify/index.min.css" />
+    <link rel="stylesheet" href="./vendors/bootstrap-icons/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="./css/main.css" />
 
     <title>ShowTrak Timers</title>
   </head>
   <body>
-    <!-- Alerts Toast Host (Server-style) -->
-    <div
-      id="ALERTS_TOAST_HOST"
-      class="alert-toast-host"
-      aria-live="polite"
-      aria-label="Notifications"
-    ></div>
     <div class="dragbar bg-light d-flex justify-content-center gap-3 align-items-center p-2">
-      <img id="APPLICATION_NAVBAR_LOGO" src="./img/icon.png" alt="ShowTrak Logo" />
-      <span id="APPLICATION_NAVBAR_TITLE">ShowTrak Timers</span>
-      <span id="APPLICATION_NAVBAR_STATUS"></span>
+      <img class="no-drag" id="APPLICATION_NAVBAR_LOGO" src="./img/icon.png" alt="ShowTrak Logo" />
+      <span class="no-drag" id="APPLICATION_NAVBAR_TITLE">ShowTrak Timers</span>
     </div>
     <div id="APPLICATION_CONTAINER" class="h-100">
-      <div id="APPLICATION" class="container-fluid text-center text-light p-0">
-        <div id="APPLICATION_CONTENT" class="p-3 gap-3 flex-wrap"></div>
+      <div id="APPLICATION" class="container-fluid text-center text-light p-0 d-grid">
+        <div id="APPLICATION_CONTENT" class="pb-3">
+          <div id="TIMER_GRID" class="timer-grid" aria-live="off"></div>
+          <div id="EMPTY_STATE" class="timer-empty-state d-none">
+            <div class="bg-ghost rounded timer-empty-card text-start">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <img src="./img/icon.png" alt="" class="timer-empty-logo" />
+                <strong>Welcome to ShowTrak Timers</strong>
+              </div>
+              <p class="text-sm text-muted mb-2">
+                You don't have any timers yet. Timers count up to a duration, countdowns count down
+                to zero, and stopwatches just count. Control them from here, over OSC, or watch them
+                on the Web Dashboard.
+              </p>
+              <div class="d-flex gap-2 flex-wrap">
+                <button type="button" id="EMPTY_CREATE_BUTTON" class="btn btn-sm btn-success">
+                  <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Create a Timer
+                </button>
+                <button type="button" id="EMPTY_SETTINGS_BUTTON" class="btn btn-sm btn-light">
+                  Open Preferences
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
+
+    <!-- Floating Software Update progress (wire-app-updates.ts) -->
+    <button
+      type="button"
+      id="APP_UPDATE_FLOAT"
+      class="d-none"
+      role="status"
+      aria-live="polite"
+      title="Open Software Update"
+    >
+      <span class="app-update-float-head">
+        <span class="app-update-float-title">
+          <i class="bi bi-cloud-arrow-down" aria-hidden="true"></i>
+          Software Update
+        </span>
+        <span id="APP_UPDATE_FLOAT_VERSION" class="app-update-float-version"></span>
+      </span>
+      <span
+        id="APP_UPDATE_FLOAT_TRACK"
+        class="app-update-float-track"
+        role="progressbar"
+        aria-label="Software update download progress"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="0"
+      >
+        <span id="APP_UPDATE_FLOAT_BAR" class="app-update-float-bar"></span>
+      </span>
+      <span id="APP_UPDATE_FLOAT_DETAIL" class="app-update-float-detail"></span>
+    </button>
+
     <!-- Bottom Bar -->
     <div id="APP_BOTTOM_BAR">
       <div class="bar-content">
         <div class="bar-section left">
-          <div class="mode-group btn-group btn-group-sm" role="group" aria-label="Mode Switch">
-            <button type="button" id="MODE_BTN_SHOW" class="btn btn-outline-light">SHOW</button>
-            <button type="button" id="MODE_BTN_EDIT" class="btn btn-outline-light">EDIT</button>
+          <div class="mode-group st-segmented-toggle" role="group" aria-label="Mode Switch">
+            <button type="button" id="MODE_BTN_SHOW" class="st-segmented-toggle-btn">SHOW</button>
+            <button type="button" id="MODE_BTN_EDIT" class="st-segmented-toggle-btn">EDIT</button>
           </div>
         </div>
         <div class="bar-section center">
-          <div
-            id="REMOTE_CLIENT_COUNT"
-            class="client-count-pill"
-            aria-live="polite"
-            aria-atomic="true"
-          >
-            Remote Web Clients:
-            <span class="count-value">--</span>
-          </div>
+          <span id="BOTTOM_BAR_STATUS" aria-live="polite"></span>
         </div>
         <div class="bar-section right">
           <button
+            type="button"
             id="ADD_TIMER_BUTTON"
-            class="settings-btn"
-            title="Add Timer"
-            aria-label="Add Timer"
+            class="settings-btn no-drag"
+            title="New Timer (Ctrl/Cmd+N)"
+            aria-label="New Timer"
           >
             <i class="bi bi-plus-lg"></i>
           </button>
-          <button
-            id="NAVBAR_CORE_BUTTON"
-            class="settings-btn"
-            title="Settings"
-            aria-label="Settings"
-          >
-            <i class="bi bi-gear-fill"></i>
-          </button>
+          <div class="dropdown no-drag" id="SETTINGS_MENU_DROPDOWN">
+            <button
+              type="button"
+              id="NAVBAR_CORE_BUTTON"
+              class="settings-btn dropdown-toggle no-drag"
+              title="Menu"
+              aria-label="Menu"
+              data-bs-toggle="dropdown"
+              data-bs-offset="0,6"
+              data-bs-auto-close="true"
+              aria-expanded="false"
+            >
+              <i class="bi bi-gear"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" id="SETTINGS_MENU">
+              <li><h6 class="dropdown-header">Timers</h6></li>
+              <li>
+                <button type="button" class="dropdown-item" id="MENU_PAUSE_ALL">
+                  Pause All Timers
+                </button>
+              </li>
+              <li>
+                <button type="button" class="dropdown-item" id="MENU_RESUME_ALL">
+                  Resume All Timers
+                </button>
+              </li>
+              <li>
+                <button type="button" class="dropdown-item" id="MENU_STOP_ALL">
+                  Stop All Timers
+                </button>
+              </li>
+              <li><hr class="dropdown-divider" /></li>
+              <li><h6 class="dropdown-header">Manage</h6></li>
+              <li>
+                <button type="button" class="dropdown-item" id="SHOWTRAK_MENU_SOUND_LIBRARY">
+                  Sound Library
+                </button>
+              </li>
+              <li>
+                <button type="button" class="dropdown-item" id="SHOWTRAK_MENU_WEB_DASHBOARD">
+                  Web Dashboard
+                </button>
+              </li>
+              <li>
+                <button type="button" class="dropdown-item" id="SHOWTRAK_MENU_OSC_REFERENCE">
+                  OSC Reference
+                </button>
+              </li>
+              <li>
+                <button type="button" class="dropdown-item" id="SHOWTRAK_MENU_LOGS_FOLDER">
+                  Open Logs Folder
+                </button>
+              </li>
+              <li><hr class="dropdown-divider" /></li>
+              <li><h6 class="dropdown-header">Help &amp; Support</h6></li>
+              <li>
+                <button type="button" class="dropdown-item" id="SHOWTRAK_MENU_SHORTCUTS">
+                  <span>Keyboard Shortcuts</span>
+                  <span class="menu-shortcut">Ctrl/Cmd+K</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="dropdown-item" id="SHOWTRAK_MENU_CHECK_UPDATES">
+                  Check for Updates
+                </button>
+              </li>
+              <li>
+                <button type="button" class="dropdown-item" id="SHOWTRAK_MENU_ABOUT">About</button>
+              </li>
+              <li><hr class="dropdown-divider" /></li>
+              <li>
+                <button type="button" class="dropdown-item" id="SHOWTRAK_MENU_PREFERENCES">
+                  <span>ShowTrak Timers Preferences</span>
+                  <span class="menu-shortcut">Ctrl/Cmd+,</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="dropdown-item text-danger" id="SHOWTRAK_MENU_SHUTDOWN">
+                  Close ShowTrak Timers
+                </button>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>
     <!-- End Bottom Bar -->
-    <!-- Context Menu -->
-    <div id="SHOWTRAK_CONTEXT_MENU"></div>
-    <!-- End Context Menu -->
-
-    <!-- Timer Edit Modal -->
-    <div
-      class="modal fade"
-      id="TIMER_EDIT_MODAL"
-      tabindex="-1"
-      aria-labelledby="TIMER_EDIT_MODAL_LABEL"
-      aria-hidden="true"
-    >
-      <div class="modal-dialog modal-md modal-dialog-centered">
-        <div class="modal-content">
-          <div class="modal-body text-start">
-            <div class="d-flex justify-content-center mb-1">
-              <img class="SHOWTRAK_MODEL_CORE_LOGO" src="./img/icon.png" alt="ShowTrak Logo" />
-            </div>
-            <strong id="TIMER_EDIT_MODAL_LABEL">Edit Timer</strong>
-            <div class="d-grid gap-2 mt-2">
-              <div>
-                <label class="form-label text-sm mb-1">Label</label>
-                <input
-                  type="text"
-                  class="form-control form-control-sm"
-                  id="TIMER_EDIT_NAME"
-                  placeholder="Enter name"
-                />
-              </div>
-              <div>
-                <label class="form-label text-sm mb-1">Type</label>
-                <select class="form-select form-select-sm" id="TIMER_EDIT_TYPE">
-                  <option value="TIMER">Timer</option>
-                  <option value="COUNTDOWN">Countdown</option>
-                  <option value="STOPWATCH">Stopwatch</option>
-                </select>
-              </div>
-              <div id="TIMER_EDIT_DURATION_GROUP">
-                <label class="form-label text-sm mb-1"
-                  >Duration (mm:ss) for Timer/Countdown, leave blank for Stopwatch</label
-                >
-                <input
-                  type="text"
-                  class="form-control form-control-sm"
-                  id="TIMER_EDIT_DURATION"
-                  placeholder="e.g. 05:00"
-                />
-                <small class="text-sm text-light"
-                  >Set to mm:ss or hh:mm:ss. Countdown timers require a duration.</small
-                >
-              </div>
-              <div class="form-check form-switch mt-2">
-                <input class="form-check-input" type="checkbox" id="TIMER_EDIT_SHOWONWEB" checked />
-                <label class="form-check-label text-sm" for="TIMER_EDIT_SHOWONWEB"
-                  >Show in Web Panel</label
-                >
-              </div>
-            </div>
-            <div class="row g-2 mt-2">
-              <div class="col-4 d-grid">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                  Cancel
-                </button>
-              </div>
-              <div class="col-4 d-grid">
-                <button type="button" class="btn btn-danger" id="TIMER_EDIT_DELETE">Delete</button>
-              </div>
-              <div class="col-4 d-grid">
-                <button type="button" class="btn btn-light" id="TIMER_EDIT_SAVE">Save</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <!-- End Timer Edit Modal -->
 
     <!-- Keyboard Shortcuts Modal -->
     <div
       class="modal fade"
       id="SHOWTRAK_MODAL_SHORTCUTS"
       tabindex="-1"
-      aria-labelledby="SHOWTRAK_MODAL_SHORTCUTS_Label"
+      aria-labelledby="SHORTCUTS_HEADER"
       aria-hidden="true"
     >
       <div class="modal-dialog modal-md modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-body text-center">
-            <div class="d-flex justify-content-center">
-              <img class="SHOWTRAK_MODEL_CORE_LOGO" src="./img/icon.png" alt="ShowTrak Logo" />
-            </div>
-
-            <strong class="mb-0"> Keyboard Shortcuts </strong>
-
+            <div id="SHORTCUTS_HEADER"></div>
             <div id="KEYBOARD_SHORTCUTS_LIST" class="d-grid gap-2 text-start mt-2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-            <div class="row g-2 mt-2">
-              <div class="col-12 d-grid">
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+    <!-- About -->
+    <div
+      class="modal fade"
+      id="SHOWTRAK_MODAL_ABOUT"
+      tabindex="-1"
+      aria-labelledby="ABOUT_HEADER"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content SHOWTRAK_ABOUT_MODAL_CONTENT">
+          <div class="modal-body text-center SHOWTRAK_ABOUT_MODAL_BODY">
+            <div id="ABOUT_HEADER"></div>
+            <div class="d-flex justify-content-center my-5">
+              <img
+                class="SHOWTRAK_MODEL_CORE_LOGO"
+                src="./img/icon.png"
+                alt="ShowTrak Logo"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+
+            <strong class="mb-0 SHOWTRAK_ABOUT_TITLE">ShowTrak Timers</strong>
+            <div id="SHOWTRAK_ABOUT_VERSION" class="SHOWTRAK_ABOUT_VERSION mb-2"></div>
+
+            <div class="card bg-ghost-light border-0 rounded SHOWTRAK_ABOUT_CARD">
+              <div class="card-body p-2">
+                ShowTrak is an open-source project founded by
+                <span class="text-info">Tom Kirkman-Wood</span>.
+              </div>
+            </div>
+
+            <div class="d-grid gap-2 mt-2">
+              <div class="d-flex gap-2">
+                <button
+                  type="button"
+                  class="btn btn-light SHOWTRAK_ABOUT_WEBSITE_BTN"
+                  id="SHOWTRAK_ABOUT_WEBSITE"
+                  style="width: 50%"
+                >
+                  Visit ShowTrak Website
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-light SHOWTRAK_ABOUT_WEBSITE_BTN"
+                  id="SHOWTRAK_ABOUT_GITHUB"
+                  style="width: 50%"
+                >
+                  View on GitHub
+                </button>
+              </div>
+              <button
+                type="button"
+                class="btn btn-light SHOWTRAK_ABOUT_WEBSITE_BTN"
+                id="SHOWTRAK_ABOUT_DISCORD"
+              >
+                Open Support Discord
+              </button>
+            </div>
+
+            <div class="d-grid gap-2 mt-2">
+              <button
+                type="button"
+                class="btn btn-light SHOWTRAK_ABOUT_WEBSITE_BTN"
+                id="SHOWTRAK_ABOUT_CHECK_UPDATES"
+              >
+                <i class="bi bi-arrow-repeat me-1"></i> Check for Updates
+              </button>
+            </div>
+
+            <div class="card border-0 rounded mt-2 SHOWTRAK_ABOUT_CARD">
+              <div class="card-body p-2 text-start SHOWTRAK_ABOUT_UPDATE_BODY">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <strong>Dependencies</strong>
+                  <span id="SHOWTRAK_ABOUT_DEPENDENCY_COUNT" class="text-muted small"></span>
+                </div>
+                <div
+                  id="SHOWTRAK_ABOUT_DEPENDENCIES"
+                  class="SHOWTRAK_ABOUT_DEPENDENCIES_LIST text-muted"
+                >
+                  Loading dependencies...
+                </div>
+              </div>
+            </div>
+
+            <div class="card border-0 rounded mt-2 SHOWTRAK_ABOUT_CARD">
+              <div class="card-body p-2 text-start SHOWTRAK_ABOUT_UPDATE_BODY">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <strong>Licence</strong>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-light"
+                    id="SHOWTRAK_ABOUT_LICENSE_TOGGLE"
+                  >
+                    Show full licence
+                  </button>
+                </div>
+                <div class="text-muted small mb-2">
+                  ShowTrak Timers is released under the GNU Affero General Public License v3.0.
+                </div>
+                <pre
+                  id="SHOWTRAK_ABOUT_LICENSE"
+                  class="SHOWTRAK_ABOUT_LICENSE_TEXT rounded bg-ghost-light p-2 small d-none mb-0"
+                >
+Loading licence...</pre>
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-    <!-- End Keyboard Shortcuts Modal -->
 
+    <!-- Software Update -->
     <div
       class="modal fade"
-      id="SHOWTRAK_MODEL_CORE"
+      id="SHOWTRAK_MODAL_APP_UPDATE"
       tabindex="-1"
-      aria-labelledby="SHOWTRAK_MODEL_CORE_Label"
+      aria-labelledby="APP_UPDATE_HEADER"
       aria-hidden="true"
     >
-      <div class="modal-dialog modal-md modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
-          <div class="modal-body text-center">
-            <div class="d-flex justify-content-center">
-              <img class="SHOWTRAK_MODEL_CORE_LOGO" src="./img/icon.png" alt="ShowTrak Logo" />
-            </div>
+          <div class="modal-body text-start">
+            <div id="APP_UPDATE_HEADER" class="mb-2"></div>
 
-            <strong class="mb-0"> ShowTrak Timers </strong>
-
-            <div class="d-grid gap-2">
-              <a class="btn btn-sm btn-light" id="SHOWTRAK_MODEL_CORE_OPEN_SETTINGS"> Settings </a>
-              <a class="btn btn-sm btn-light" id="SHOWTRAK_MODEL_CORE_OSC_ROUTE_LIST_BUTTON">
-                OSC Dictionary
-              </a>
-
-              <a class="btn btn-sm btn-light" id="SHOWTRAK_MODEL_CORE_LOGSFOLDER">
-                Open Logs Directory
-              </a>
-
-              <!-- Backup/Import removed in Timers app -->
-
-              <a class="btn btn-sm btn-light" id="SHOWTRAK_MODEL_CORE_SUPPORTDISCORD">
-                Open Suppport Discord
-              </a>
-
-              <a class="btn btn-sm btn-danger" id="SHOWTRAK_MODEL_CORE_SHUTDOWN_BUTTON">
-                Close ShowTrak Timers
-              </a>
-            </div>
-
-            <strong class="mb-0"> About ShowTrak </strong>
-
-            <div class="card bg-ghost-light border-0 rounded">
-              <div class="card-body text-sm p-2">
-                ShowTrak Timers is an open-source project founded by
-                <span class="text-info">Tom Kirkman-Wood</span> in 2025
+            <div class="SHOWTRAK_APP_UPDATE_HERO d-flex align-items-center gap-3 rounded p-3 mb-3">
+              <div id="APP_UPDATE_ICON_WRAP" class="SHOWTRAK_APP_UPDATE_ICON_WRAP">
+                <svg class="SHOWTRAK_APP_UPDATE_RING" viewBox="0 0 48 48" aria-hidden="true">
+                  <circle class="SHOWTRAK_APP_UPDATE_RING_TRACK" cx="24" cy="24" r="22"></circle>
+                  <circle
+                    id="APP_UPDATE_RING_BAR"
+                    class="SHOWTRAK_APP_UPDATE_RING_BAR"
+                    cx="24"
+                    cy="24"
+                    r="22"
+                  ></circle>
+                </svg>
+                <div class="SHOWTRAK_APP_UPDATE_ICON">
+                  <i id="APP_UPDATE_ICON" class="bi bi-arrow-repeat"></i>
+                </div>
+              </div>
+              <div class="flex-grow-1">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                  <strong id="APP_UPDATE_STATUS" class="SHOWTRAK_APP_UPDATE_STATUS">
+                    Checking for updates...
+                  </strong>
+                  <span
+                    id="APP_UPDATE_VERSION"
+                    class="badge SHOWTRAK_APP_UPDATE_VERSION_BADGE d-none"
+                  ></span>
+                </div>
+                <div id="APP_UPDATE_SUBTEXT" class="text-muted small mt-1">
+                  Contacting the update server.
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <div
-      class="modal fade"
-      id="OSC_ROUTE_LIST_MODAL"
-      tabindex="-1"
-      aria-labelledby="OSC_ROUTE_LIST_MODAL_Label"
-      aria-hidden="true"
-    >
-      <div class="modal-dialog modal-md modal-dialog-centered modal-dialog-scrollable modal-lg">
-        <div class="modal-content">
-          <div class="modal-body text-center">
-            <div class="d-flex justify-content-center">
-              <img class="SHOWTRAK_MODEL_CORE_LOGO" src="./img/icon.png" alt="ShowTrak Logo" />
+            <div id="APP_UPDATE_CHANNEL_NOTE" class="text-muted small mb-3"></div>
+
+            <div id="APP_UPDATE_NOTES_WRAPPER" class="d-none">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <strong class="SHOWTRAK_APP_UPDATE_NOTES_TITLE">What's New</strong>
+                <span id="APP_UPDATE_NOTES_VERSION" class="text-muted small"></span>
+              </div>
+              <div
+                id="APP_UPDATE_CHANGELOG"
+                class="SHOWTRAK_APP_UPDATE_CHANGELOG rounded p-3"
+              ></div>
             </div>
 
-            <div id="OSC_ROUTE_LIST" class="d-grid gap-2 text-start"></div>
+            <div class="d-flex gap-2 mt-3">
+              <button type="button" class="btn btn-light" id="APP_UPDATE_CHECK_BTN">
+                <i class="bi bi-arrow-clockwise me-1"></i> Check Again
+              </button>
+              <div class="flex-grow-1"></div>
+              <button type="button" class="btn btn-light" id="APP_UPDATE_LATER_BTN">Close</button>
+              <button type="button" class="btn btn-success d-none" id="APP_UPDATE_INSTALL_BTN">
+                Install &amp; Restart
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
+    <!-- Preferences -->
     <div
       class="modal fade"
       id="SHOWTRAK_MODAL_SETTINGS"
       tabindex="-1"
-      aria-labelledby="SHOWTRAK_MODAL_SETTINGS_Label"
+      aria-labelledby="SETTINGS_HEADER"
       aria-hidden="true"
     >
-      <div class="modal-dialog modal-md modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
           <div class="modal-body text-center">
-            <div class="d-flex justify-content-center">
-              <img class="SHOWTRAK_MODEL_CORE_LOGO" src="./img/icon.png" alt="ShowTrak Logo" />
-            </div>
-
-            <div id="SETTINGS" class="d-grid gap-2"></div>
-
-            <div class="row g-2 mt-2">
-              <div class="col-12 d-grid">
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+            <div id="SETTINGS_HEADER" class="mb-2"></div>
+            <div id="SETTINGS_LAYOUT" class="settings-layout">
+              <nav
+                id="SETTINGS_NAV"
+                class="settings-nav"
+                role="tablist"
+                aria-label="Preferences categories"
+              ></nav>
+              <div id="SETTINGS_CONTENT" class="settings-content">
+                <div id="SETTINGS" class="d-grid gap-2"></div>
               </div>
             </div>
           </div>
@@ -279,46 +424,286 @@
       </div>
     </div>
 
+    <!-- OSC Reference -->
     <div
       class="modal fade"
-      id="SHOWTRAL_MODAL_CONFIRMATION"
+      id="OSC_ROUTE_LIST_MODAL"
       tabindex="-1"
-      aria-labelledby="SHOWTRAL_MODAL_CONFIRMATION_Label"
+      aria-labelledby="OSC_ROUTE_LIST_HEADER"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-body text-center">
+            <div id="OSC_ROUTE_LIST_HEADER"></div>
+            <div id="OSC_ROUTE_LIST" class="d-grid gap-2 text-start mt-2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Web Dashboard -->
+    <div
+      class="modal fade"
+      id="SHOWTRAK_MODAL_WEB_DASHBOARD"
+      tabindex="-1"
+      aria-labelledby="WEB_DASHBOARD_HEADER"
       aria-hidden="true"
     >
       <div class="modal-dialog modal-md modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-body text-center">
-            <div class="d-flex justify-content-center">
-              <img class="SHOWTRAK_MODEL_CORE_LOGO" src="./img/icon.png" alt="ShowTrak Logo" />
+            <div id="WEB_DASHBOARD_HEADER"></div>
+            <div id="WEB_DASHBOARD_INFO" class="d-grid gap-2 text-start mt-2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sound Library (the Timers counterpart of ShowTrak Server's Audio Assets) -->
+    <div
+      class="modal fade"
+      id="SHOWTRAK_MODAL_SOUND_LIBRARY"
+      tabindex="-1"
+      aria-labelledby="SOUND_LIBRARY_HEADER"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-body text-center">
+            <div class="d-grid gap-2 text-start mt-1">
+              <div id="SOUND_LIBRARY_HEADER"></div>
+              <div class="text-sm text-muted px-1">
+                Imported sounds can be chosen as a timer's warning or completion sound. The files
+                are copied into ShowTrak Timers, so the originals can be moved or deleted.
+              </div>
+              <div id="SOUND_LIBRARY_LIST" class="d-grid gap-2"></div>
+              <button type="button" class="btn btn-sm btn-success" id="SOUND_LIBRARY_IMPORT">
+                <i class="bi bi-folder2-open me-1" aria-hidden="true"></i>Import a Sound
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timer Editor -->
+    <div
+      class="modal fade"
+      id="SHOWTRAK_MODAL_TIMER_EDITOR"
+      tabindex="-1"
+      aria-labelledby="TIMER_EDITOR_HEADER"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-md modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-body text-start">
+            <div id="TIMER_EDITOR_HEADER" class="mb-2"></div>
+            <div class="d-flex justify-content-between align-items-center mb-2 st-action-row">
+              <span id="TIMER_EDITOR_ID" class="text-sm text-muted"></span>
+              <button
+                type="button"
+                id="TIMER_EDITOR_DELETE"
+                class="btn btn-sm btn-delete"
+                title="Delete timer"
+              >
+                <i class="bi bi-trash"></i> Delete Timer
+              </button>
             </div>
 
-            <h6 id="SHOWTRAK_CONFIRMATION_MESSAGE" class="mb-0">
-              Are you sure you want to do this?
-            </h6>
-
-            <div class="row g-2 mt-1">
-              <div class="col-6 d-grid">
-                <button type="button" class="btn btn-secondary" id="SHOWTRAK_CONFIRMATION_CANCEL">
-                  Cancel
-                </button>
+            <div class="d-grid gap-2">
+              <div class="form-floating">
+                <input
+                  type="text"
+                  id="TIMER_EDITOR_NAME"
+                  class="form-control bg-transparent text-light border-0"
+                  placeholder="Timer Name"
+                  autocomplete="off"
+                  maxlength="120"
+                />
+                <label for="TIMER_EDITOR_NAME">Timer Name</label>
               </div>
-              <div class="col-6 d-grid">
-                <button type="button" class="btn btn-danger" id="SHOWTRAK_CONFIRMATION_CONFIRM">
-                  Confirm
-                </button>
+
+              <div class="bg-ghost p-2 rounded setting-inline text-start">
+                <div class="d-grid setting-inline-label">
+                  <span>Type</span>
+                  <span class="text-sm mb-0 text-muted" id="TIMER_EDITOR_TYPE_HINT"></span>
+                </div>
+                <div class="setting-inline-control">
+                  <select
+                    id="TIMER_EDITOR_TYPE"
+                    class="form-select form-select-sm bg-ghost-light text-light border-0"
+                  >
+                    <option value="TIMER">Timer</option>
+                    <option value="COUNTDOWN">Countdown</option>
+                    <option value="STOPWATCH">Stopwatch</option>
+                  </select>
+                </div>
+              </div>
+
+              <div
+                class="bg-ghost p-2 rounded setting-inline text-start"
+                data-timer-field="duration"
+              >
+                <div class="d-grid setting-inline-label">
+                  <span>Duration</span>
+                  <span class="text-sm mb-0 text-muted" id="TIMER_EDITOR_DURATION_HINT"
+                    >mm:ss or hh:mm:ss (or "90s", "5m", "1h 30m").</span
+                  >
+                </div>
+                <div class="setting-inline-control">
+                  <input
+                    type="text"
+                    id="TIMER_EDITOR_DURATION"
+                    class="form-control form-control-sm bg-ghost-light text-light border-0 timer-duration-input"
+                    placeholder="05:00"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                </div>
+              </div>
+
+              <div class="bg-ghost p-2 rounded d-flex justify-content-between text-start">
+                <div class="d-grid">
+                  <span>Show on the Web Dashboard</span>
+                  <span class="text-sm mb-0 text-muted"
+                    >Include this timer on the read-only dashboard served to other devices.</span
+                  >
+                </div>
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="TIMER_EDITOR_SHOWONWEB" />
+                </div>
+              </div>
+
+              <div class="bg-ghost-light p-2 rounded" data-timer-field="ending">
+                <strong>When It Ends</strong>
+              </div>
+
+              <div class="bg-ghost p-2 rounded setting-inline text-start" data-timer-field="ending">
+                <div class="d-grid setting-inline-label">
+                  <span>At the End</span>
+                  <span class="text-sm mb-0 text-muted">What the timer does at its duration.</span>
+                </div>
+                <div class="setting-inline-control">
+                  <select
+                    id="TIMER_EDITOR_END_BEHAVIOUR"
+                    class="form-select form-select-sm bg-ghost-light text-light border-0"
+                  ></select>
+                </div>
+              </div>
+
+              <div class="bg-ghost p-2 rounded setting-inline text-start" data-timer-field="ending">
+                <div class="d-grid setting-inline-label">
+                  <span>Completion Sound</span>
+                </div>
+                <div class="setting-inline-control">
+                  <select
+                    id="TIMER_EDITOR_COMPLETION_SOUND"
+                    class="form-select form-select-sm bg-ghost-light text-light border-0"
+                    data-sound-select
+                  ></select>
+                  <button
+                    type="button"
+                    class="btn btn-sm bg-ghost-light text-white"
+                    data-sound-preview="TIMER_EDITOR_COMPLETION_SOUND"
+                    title="Preview"
+                    aria-label="Preview completion sound"
+                  >
+                    <i class="bi bi-play"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div
+                class="bg-ghost p-2 rounded d-flex justify-content-between align-items-center text-start"
+                data-timer-field="ending"
+              >
+                <div class="d-grid">
+                  <span>Completion Notification</span>
+                </div>
+                <div class="form-check form-switch">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="TIMER_EDITOR_COMPLETION_TOAST"
+                  />
+                </div>
+              </div>
+
+              <div class="bg-ghost-light p-2 rounded" data-timer-field="ending">
+                <strong>Warning</strong>
+              </div>
+
+              <div class="bg-ghost p-2 rounded setting-inline text-start" data-timer-field="ending">
+                <div class="d-grid setting-inline-label">
+                  <span>Warn Before the End</span>
+                  <span class="text-sm mb-0 text-muted"
+                    >Turns the timer amber this long before it ends. Leave blank for no
+                    warning.</span
+                  >
+                </div>
+                <div class="setting-inline-control">
+                  <input
+                    type="text"
+                    id="TIMER_EDITOR_WARNING"
+                    class="form-control form-control-sm bg-ghost-light text-light border-0 timer-duration-input"
+                    placeholder="Off"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                </div>
+              </div>
+
+              <div
+                class="bg-ghost p-2 rounded setting-inline text-start"
+                data-timer-field="warning"
+              >
+                <div class="d-grid setting-inline-label">
+                  <span>Warning Sound</span>
+                </div>
+                <div class="setting-inline-control">
+                  <select
+                    id="TIMER_EDITOR_WARNING_SOUND"
+                    class="form-select form-select-sm bg-ghost-light text-light border-0"
+                    data-sound-select
+                  ></select>
+                  <button
+                    type="button"
+                    class="btn btn-sm bg-ghost-light text-white"
+                    data-sound-preview="TIMER_EDITOR_WARNING_SOUND"
+                    title="Preview"
+                    aria-label="Preview warning sound"
+                  >
+                    <i class="bi bi-play"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div
+                class="bg-ghost p-2 rounded d-flex justify-content-between align-items-center text-start"
+                data-timer-field="warning"
+              >
+                <div class="d-grid">
+                  <span>Warning Notification</span>
+                </div>
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="TIMER_EDITOR_WARNING_TOAST" />
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-  </body>
-  <footer>
+
+    <!-- Vendor globals, then the app. All deferred, so they run in this order
+         once the document is parsed. -->
     <script src="./vendors/jquery/index.js" defer></script>
     <script src="./vendors/bootstrap/js/bootstrap.bundle.min.js" defer></script>
-    <script src="./vendors/toastify/index.js" defer></script>
-    <script src="./vendors/howler/index.min.js"></script>
-    <script src="./js/app.js" defer></script>
-  </footer>
+    <script src="./vendors/howler/index.min.js" defer></script>
+    <!-- The renderer is authored as TypeScript ES modules under js/app and
+         bundled by esbuild (scripts/build-renderer.js) into a single classic
+         script. Entry point: js/app/main.ts. -->
+    <script src="./js/app/bundle.js" defer></script>
+  </body>
 </html>

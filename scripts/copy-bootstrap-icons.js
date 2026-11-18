@@ -1,4 +1,10 @@
-// Copies Bootstrap Icons font and CSS from node_modules into src/UI/vendors for local serving
+// Copies Bootstrap Icons font and CSS from node_modules into src/UI/vendors for local serving.
+// bootstrap-icons is a devDependency (build-time only; the copied font/CSS ships in dist/), so
+// this postinstall hook requires a full install; it will fail under `npm ci --omit=dev`.
+//
+// The copied files are gitignored: package.json is the one place the version lives, so a
+// Dependabot bump updates what ships. That makes this copy the ONLY source of the icons, so a
+// failure fails the install rather than producing an app with blank icon glyphs.
 const fs = require('fs');
 const path = require('path');
 
@@ -22,12 +28,14 @@ function copyDir(srcDir, destDir) {
   }
 }
 
-const ROOT = path.resolve(__dirname, '..');
-const NODE_ROOT = path.join(ROOT, 'node_modules', 'bootstrap-icons');
-const UI_VENDOR_ROOT = path.join(ROOT, 'src', 'UI', 'vendors', 'bootstrap-icons');
+const SRC_ROOT = path.resolve(__dirname, '..');
+const NODE_ROOT = path.join(SRC_ROOT, 'node_modules', 'bootstrap-icons');
+const UI_VENDOR_ROOT = path.join(SRC_ROOT, 'src', 'UI', 'vendors', 'bootstrap-icons');
 
 try {
+  // Copy full font folder and the main CSS files
   copyDir(path.join(NODE_ROOT, 'font'), path.join(UI_VENDOR_ROOT, 'font'));
+  // Copy unminified and minified CSS for flexibility
   copyFile(
     path.join(NODE_ROOT, 'font', 'bootstrap-icons.css'),
     path.join(UI_VENDOR_ROOT, 'font', 'bootstrap-icons.css')
@@ -38,5 +46,6 @@ try {
   );
   console.log('[postinstall] Copied Bootstrap Icons to UI/vendors/bootstrap-icons');
 } catch (e) {
-  console.warn('[postinstall] Failed to copy Bootstrap Icons:', e.message);
+  console.error('[postinstall] Failed to copy Bootstrap Icons:', e.message);
+  process.exit(1);
 }
