@@ -2379,9 +2379,11 @@ body.is-web .mode-group .st-segmented-toggle-btn:disabled {
 
 .timer-tile-head {
   grid-area: head;
+  justify-self: end;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
+  text-align: right;
   gap: 0.5rem;
   min-height: 1rem;
 }
@@ -2484,11 +2486,18 @@ body.is-web .mode-group .st-segmented-toggle-btn:disabled {
   grid-area: controls;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.25rem;
 }
 
+/* Sets the EDIT-mode cog apart; with no cog it would only push the buttons in
+   from the tile's edge, out of line with the status above them. */
 .timer-tile-spacer {
   width: 0.25rem;
+}
+
+body:not(.mode-edit) .timer-tile-spacer {
+  display: none;
 }
 
 .timer-tile-btn {
