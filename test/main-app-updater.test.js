@@ -402,6 +402,14 @@ test('updater errors are explained per platform', () => {
   // The Linux wording is for Linux only.
   assert.deepEqual(errorFor('win32', MissingLinuxYml), { state: 'error', error: MissingLinuxYml });
 
+  // The wording electron-updater 6 actually uses (from a real beta.1 report):
+  // a Mac on Stable checking v1.2.0, a Windows-only release.
+  const RealWording =
+    'Cannot find latest-mac.yml in the latest release artifacts (https://github.com/ShowTrak/ShowTrakTimers/releases/download/v1.2.0/latest-mac.yml): HttpError: 404 "method: GET url: https://github.com/ShowTrak/ShowTrakTimers/releases/download/v1.2.0/latest-mac.yml\\n\\nPlease double check that your authentication token is correct. Due to security reasons, actual status maybe not reported, but 404.\\n"';
+  assert.deepEqual(errorFor('darwin', RealWording), {
+    state: 'none',
+    info: { reason: 'latest-mac.yml is missing from release assets' },
+  });
   // A release without latest-mac.yml simply has no macOS update.
   assert.deepEqual(errorFor('darwin', 'Cannot find latest-mac.yml: status 404'), {
     state: 'none',

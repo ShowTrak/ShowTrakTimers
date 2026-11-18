@@ -258,7 +258,11 @@ function sendAppUpdateStatus(payload: AppUpdateStatusPayload) {
 function normalizeUpdaterError(err: unknown): AppUpdateStatusPayload {
   const message = toErrorMessage(err);
   const isMac = process.platform === 'darwin';
-  const has404 = message.includes('status 404');
+  // electron-updater words a 404 several ways ("status 404", "HttpError: 404"),
+  // so any standalone 404 counts. Matching only "status 404" (as ShowTrak Server
+  // did) let a Stable-channel Mac check against a release with no macOS build
+  // (1.x was Windows-only) surface a raw HttpError instead of "up to date".
+  const has404 = /\b404\b/.test(message);
   const referencesManifest = message.includes('latest-mac.yml');
   const referencesReleaseZip =
     message.includes('Cannot download') &&
