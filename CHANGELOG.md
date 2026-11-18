@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.0.0-beta.2] - 2026-11-18
+
+### Changed
+
+- The app uses the ShowTrak Timers icon (orange), as on the ShowTrak Portal.
+
+### Fixed
+
+- On macOS, Check for Updates on the Stable channel showed a raw "HttpError: 404"
+  instead of "You're up to date" when the latest stable release had no macOS build.
+
 ## [2.0.0-beta.1] - 2026-11-19
 
 The app is rebuilt on ShowTrak Server's foundations: TypeScript, the same build,
@@ -132,6 +143,7 @@ test, lint and release tooling, the same update system, and the same look.
 - Data storage:
   - SQLite-backed persistence layer and DB module foundation.
 
+[2.0.0-beta.2]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.1...v2.0.0-beta.2
 [2.0.0-beta.1]: https://github.com/ShowTrak/ShowTrakTimers/compare/v1.2.0...v2.0.0-beta.1
 [1.1.1]: https://github.com/ShowTrak/ShowTrakTimers/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/ShowTrak/ShowTrakTimers/releases/tag/v1.1.0
