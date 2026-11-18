@@ -96,8 +96,10 @@ export function NormalizeDuration(
 export function NormalizeWarningMs(Value: unknown): number | null {
   if (Value === null || Value === undefined || Value === '') return null;
   const Num = Number(Value);
-  if (!Number.isFinite(Num) || Num <= 0) return null;
-  return Math.min(Math.floor(Num), MAX_DURATION_MS);
+  if (!Number.isFinite(Num)) return null;
+  // Whole milliseconds; anything under one is no warning at all.
+  const Ms = Math.floor(Num);
+  return Ms > 0 ? Math.min(Ms, MAX_DURATION_MS) : null;
 }
 
 function Pad2(Value: number): string {
@@ -154,8 +156,10 @@ export function ParseDuration(Input: unknown): number | null {
     return ClampParsed(((H ?? 0) * 3600 + (M ?? 0) * 60 + (S ?? 0)) * 1000);
   }
 
+  // Longest unit names first: alternation takes the first that matches, so "h"
+  // ahead of "hr" would leave the "r" over and reject "1hr".
   const UnitPattern =
-    /(\d+(?:\.\d+)?)\s*(h|hr|hrs|hours?|m|min|mins|minutes?|s|sec|secs|seconds?)/g;
+    /(\d+(?:\.\d+)?)\s*(hours|hour|hrs|hr|h|minutes|minute|mins|min|m|seconds|second|secs|sec|s)/g;
   const Stripped = Text.replace(UnitPattern, '').replace(/[\s,]+/g, '');
   if (Stripped.length > 0) return null;
   let Total = 0;

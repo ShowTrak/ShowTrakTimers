@@ -57,6 +57,9 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   opus: 'audio/ogg',
 };
 
+// The file name Import gives a sound: its id and its extension.
+const STORED_FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9-]*\.[a-z0-9]{1,8}$/;
+
 export function SanitizeLabel(Input: unknown): string {
   const Cleaned = String(Input ?? '')
     .replace(/[^A-Za-z0-9 _-]/g, '')
@@ -127,8 +130,9 @@ export function CreateAudioLibrary(Directory: () => string = () => AppData.GetAu
               S &&
               typeof S.ID === 'string' &&
               typeof S.FileName === 'string' &&
-              // Never follow a manifest entry out of the library folder.
-              path.basename(S.FileName) === S.FileName
+              // Only names this library writes ("<id>.<ext>"): a manifest entry
+              // can never point out of the folder, or at the folder itself.
+              STORED_FILE_NAME.test(S.FileName)
           )
         : [];
     } catch (Err) {

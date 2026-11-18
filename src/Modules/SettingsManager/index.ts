@@ -89,7 +89,13 @@ export function CreateSettingsManager(
   const DefinitionsByKey = new Map(Definitions.map((Def) => [Def.Key, Def]));
   let Initializing: Promise<void> | null = null;
 
-  const Snapshot = (S: Setting): Setting => ({ ...S });
+  // A copy a caller may change freely: the arrays too, since Options is what
+  // CoerceValue validates against.
+  const Snapshot = (S: Setting): Setting => ({
+    ...S,
+    Options: S.Options ? [...S.Options] : null,
+    ShowWhen: S.ShowWhen ? [...S.ShowWhen] : null,
+  });
 
   const Manager: SettingsManagerShape = {
     Initialized: false,
@@ -116,11 +122,11 @@ export function CreateSettingsManager(
             isDefault: Value === Def.DefaultValue,
             DefaultValue: Def.DefaultValue,
             OnUpdateEvent: Def.OnUpdateEvent || null,
-            Options: Def.Options || null,
+            Options: Def.Options ? [...Def.Options] : null,
             Min: typeof Def.Min === 'number' ? Def.Min : null,
             Max: typeof Def.Max === 'number' ? Def.Max : null,
             Unit: Def.Unit || null,
-            ShowWhen: Def.ShowWhen || null,
+            ShowWhen: Def.ShowWhen ? [...Def.ShowWhen] : null,
             RequiresSave: !!Def.RequiresSave,
           });
         }

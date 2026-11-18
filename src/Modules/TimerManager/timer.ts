@@ -138,9 +138,12 @@ export class Timer {
     const Target = this.TargetMs();
     const Elapsed = this.ElapsedMs(At);
     if (Target === null) {
+      // No end any more (made a stopwatch, or its duration cleared): nothing is
+      // complete or overrunning, and a timer held at its end can carry on.
       this.WarningFired = false;
       this.CompletionFired = false;
       if (this.Status === 'OVERRUN') this.Status = 'RUNNING';
+      if (this.Status === 'COMPLETE') this.Status = 'PAUSED';
       return;
     }
     const Lead = this.Config.WarningMs;
@@ -148,6 +151,9 @@ export class Timer {
     if (Elapsed < Target) {
       this.CompletionFired = false;
       if (this.Status === 'OVERRUN') this.Status = 'RUNNING';
+      // Held at its old end, now short of the new one: paused there, ready to
+      // carry on.
+      if (this.Status === 'COMPLETE') this.Status = 'PAUSED';
     }
   }
 
@@ -169,13 +175,27 @@ export class Timer {
       Events.push(this.MakeEvent('warning'));
     }
 
-    if (this.CompletionFired || Elapsed < Target) return Events;
+    if (Elapsed < Target) return Events;
+    if (this.CompletionFired) {
+      // Already past its end, having overrun, but told since to end some other
+      // way (its end behaviour was edited): apply that now, without announcing
+      // the completion a second time. Otherwise it would run on as RUNNING past
+      // its end, forever.
+      if (this.Config.EndBehaviour === 'OVERRUN') this.Status = 'OVERRUN';
+      else this.ApplyEnd(Target, Elapsed, At, Events);
+      return Events;
+    }
     this.CompletionFired = true;
     // A warning skipped over (a warning longer than the whole run, or a jump
     // straight past it) is not fired late, after the end it was warning about.
     this.WarningFired = true;
     Events.push(this.MakeEvent('complete'));
+    this.ApplyEnd(Target, Elapsed, At, Events);
+    return Events;
+  }
 
+  // Do what the timer's end behaviour says, now that it is at (or past) its end.
+  private ApplyEnd(Target: number, Elapsed: number, At: number, Events: TimerEvent[]): void {
     switch (this.Config.EndBehaviour) {
       case 'OVERRUN':
         this.Status = 'OVERRUN';
@@ -203,7 +223,6 @@ export class Timer {
       default:
         this.HoldAt(Target);
     }
-    return Events;
   }
 
   private HoldAt(Target: number): void {

@@ -10,10 +10,17 @@ interface StorageLike {
   setItem(Key: string, Value: string): void;
 }
 
+// Entries are normalised on the way out: the 1.x page cached its raw payloads
+// under the same key, which have no ElapsedMs, and drawn as they were they would
+// show 00:00 until the first push arrived.
 export function ReadCachedTimers(Storage: StorageLike | null): DashboardTimerLike[] {
   try {
     const Parsed = JSON.parse(Storage?.getItem(DASHBOARD_CACHE_KEY) || '[]');
-    return Array.isArray(Parsed) ? Parsed.filter(IsDashboardTimer) : [];
+    return Array.isArray(Parsed)
+      ? Parsed.filter(IsDashboardTimer).map((Entry) =>
+          NormalizeDashboardTimer(Entry as unknown as Record<string, unknown>)
+        )
+      : [];
   } catch {
     return [];
   }
@@ -45,6 +52,7 @@ export function IsDashboardTimer(Value: unknown): Value is DashboardTimerLike {
 export function NormalizeDashboardTimer(Value: Record<string, unknown>): DashboardTimerLike {
   const State = (Value.State as Record<string, unknown> | undefined) ?? {};
   const Elapsed = Number(Value.ElapsedMs ?? State.ElapsedTime ?? 0);
+  const Weight = Number(Value.Weight);
   return {
     ID: Number(Value.ID),
     Name: String(Value.Name ?? ''),
@@ -55,6 +63,7 @@ export function NormalizeDashboardTimer(Value: Record<string, unknown>): Dashboa
     Status: String(Value.Status || 'STANDBY') as TimerView['Status'],
     ElapsedMs: Number.isFinite(Elapsed) ? Elapsed : 0,
     Warning: Value.Warning === true,
-    Weight: Number.isFinite(Number(Value.Weight)) ? Number(Value.Weight) : undefined,
+    // Only when there is one: an absent weight stays absent.
+    ...(Value.Weight !== undefined && Number.isFinite(Weight) ? { Weight } : {}),
   };
 }

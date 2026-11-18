@@ -84,7 +84,11 @@ export function RegisterBroadcastBridge(): void {
             'Notify',
             String(Message ?? ''),
             String(Type || 'info'),
-            Number.isFinite(Number(Duration)) ? Number(Duration) : null
+            // No duration (null/undefined) means the renderer's default, not 0,
+            // which would make the toast stay until dismissed.
+            Duration !== null && Duration !== undefined && Number.isFinite(Number(Duration))
+              ? Number(Duration)
+              : null
           );
         })
         .catch((Err) => Logger.error('Failed to forward a notification:', Err));

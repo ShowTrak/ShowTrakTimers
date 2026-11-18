@@ -42,12 +42,12 @@ export async function initLiveSettings(Deps: LiveSettingsDeps): Promise<void> {
   };
 
   StartKeepAwake(Deps.PowerSaveBlocker);
-  await ApplyProtection();
-  await ApplyAutomaticUpdates();
-
+  // Subscribe first: a failed read at boot must not leave later saves unapplied.
   BroadcastManager.on('SettingsUpdated', Guarded('shutdown protection', ApplyProtection));
   BroadcastManager.on(
     'AutoUpdateSettingsChanged',
     Guarded('automatic updates', ApplyAutomaticUpdates)
   );
+  await ApplyProtection();
+  await ApplyAutomaticUpdates();
 }

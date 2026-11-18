@@ -2,8 +2,13 @@
 // loop, drag-to-reorder in EDIT mode, and what happens on a timer's warning or
 // completion (sound, notification).
 import { Anchor, ElapsedAt, type AnchoredTimer } from './lib/anchor';
-import { BuildTileModel, SummariseTimers, type TileModel } from './lib/timer-tile';
-import { FormatRemaining, type TimerView } from '../../../common/timers';
+import {
+  BuildTileModel,
+  DescribeTimerEvent,
+  SummariseTimers,
+  type TileModel,
+} from './lib/timer-tile';
+import type { TimerView } from '../../../common/timers';
 import { Mode, Services } from './state';
 import { Notify } from './lib/toasts';
 import { HandleNonFatalError } from './utils';
@@ -246,13 +251,6 @@ function WireDragAndDrop(): void {
 }
 
 // --- Warnings and completions ----------------------------------------------
-
-export function DescribeTimerEvent(Event: TimerEventView, Timer: TimerView | undefined): string {
-  const Name = Event.Name || `Timer ${Event.TimerID}`;
-  if (Event.Kind === 'complete') return `${Name} has finished.`;
-  const Lead = Timer?.WarningMs;
-  return Lead ? `${Name}: ${FormatRemaining(Lead)} remaining.` : `${Name} is nearly finished.`;
-}
 
 function HandleTimerEvent(Event: TimerEventView): void {
   if (Event.Sound) void PlaySoundRef(Event.Sound);

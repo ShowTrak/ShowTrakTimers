@@ -34,6 +34,7 @@ import {
 } from './Modules/Config/constants';
 import { Manager as TimerManager } from './Modules/TimerManager';
 import { Manager as DB } from './Modules/DB';
+import { Manager as BroadcastManager } from './Modules/Broadcast';
 import { Wait } from './Modules/Utils';
 import { RegisterRendererSink, PushToRenderers } from './main/renderer-bus';
 import { getMainWindow, hasMainWindow, setMainWindow } from './main/app-window';
@@ -127,6 +128,8 @@ async function DeliverInitialState(): Promise<void> {
 }
 
 RegisterBroadcastBridge();
+// A remote shutdown (OSC /ShowTrak/Shutdown) needs no confirmation.
+BroadcastManager.on('Shutdown', () => Shutdown.RequestShutdown(true));
 RegisterAllHandlers({
   DeliverInitialState,
   RequestShutdown: (Confirmed) => Shutdown.RequestShutdown(Confirmed),

@@ -8,6 +8,11 @@ export class ValidationError extends Error {}
 const CONTROL_ACTIONS: readonly ControlAction[] = ['Start', 'Stop', 'Pause', 'Unpause'];
 
 export function TimerID(Value: unknown): number {
+  // A number, or a numeric string; not anything Number() happens to coerce
+  // (true is 1, [5] is 5).
+  if (typeof Value !== 'number' && !(typeof Value === 'string' && /^\s*\d+\s*$/.test(Value))) {
+    throw new ValidationError('Invalid timer ID');
+  }
   const ID = Number(Value);
   if (!Number.isInteger(ID) || ID <= 0) throw new ValidationError('Invalid timer ID');
   return ID;

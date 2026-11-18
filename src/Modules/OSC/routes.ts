@@ -35,6 +35,16 @@ export interface OscRoute {
 const Ok = (Message: string): OscOutcome => ({ Ok: true, Message });
 const Fail = (Message: string): OscOutcome => ({ Ok: false, Message });
 
+// A millisecond value from a path segment or argument. Number('') is 0, so an
+// empty or blank value (an unfilled parameter in the sender) is rejected rather
+// than read as zero.
+function Milliseconds(Value: unknown): number | null {
+  const Text = String(Value ?? '').trim();
+  if (!Text) return null;
+  const Ms = Number(Text);
+  return Number.isFinite(Ms) && Ms >= 0 ? Ms : null;
+}
+
 function TimerID(Params: OscParams): number | null {
   const ID = Number(Params.TimerID);
   return Number.isInteger(ID) && ID > 0 ? ID : null;
@@ -122,8 +132,8 @@ export const ROUTES: OscRoute[] = [
     async Handler(Params, Context) {
       const ID = TimerID(Params);
       if (ID === null) return Fail(`Invalid timer ID "${Params.TimerID}"`);
-      const Ms = Number(Params.ms);
-      if (!Number.isFinite(Ms) || Ms < 0) return Fail(`Invalid duration "${Params.ms}"`);
+      const Ms = Milliseconds(Params.ms);
+      if (Ms === null) return Fail(`Invalid duration "${Params.ms}"`);
       const Err = await Context.SetDuration(ID, Math.floor(Ms));
       return Err
         ? Fail(`Timer ${ID}: ${Err}`)
@@ -136,8 +146,8 @@ export const ROUTES: OscRoute[] = [
     async Handler(Params, Context) {
       const ID = TimerID(Params);
       if (ID === null) return Fail(`Invalid timer ID "${Params.TimerID}"`);
-      const Ms = Number(Params.TimeInMS);
-      if (!Number.isFinite(Ms) || Ms < 0) return Fail(`Invalid time "${Params.TimeInMS}"`);
+      const Ms = Milliseconds(Params.TimeInMS);
+      if (Ms === null) return Fail(`Invalid time "${Params.TimeInMS}"`);
       const Err = await Context.JumpTo(ID, Ms);
       return Err ? Fail(`Timer ${ID}: ${Err}`) : Ok(`Timer ${ID} moved to ${Math.floor(Ms)} ms`);
     },

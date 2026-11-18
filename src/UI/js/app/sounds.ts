@@ -6,7 +6,7 @@ import { GetAlertVolume, HandleNonFatalError, Safe } from './utils';
 import { Notify, ConfirmationDialog } from './lib/toasts';
 import { openModal } from './lib/modal';
 import { CloseAllModals } from './modals';
-import { BuildSoundOptions } from './lib/sound-options';
+import { BuildSoundOptions, FormatSoundSize } from './lib/sound-options';
 import type { LibrarySoundView } from '../../../common/api';
 
 // The built-in sounds: AAC first (small), WAV as the fallback for a browser that
@@ -107,12 +107,6 @@ type SoundOptionGroup = 'none' | 'builtin' | 'library';
 
 // --- Sound Library modal ----------------------------------------------------
 
-function FormatSize(Bytes: number): string {
-  if (!Number.isFinite(Bytes) || Bytes <= 0) return '0 KB';
-  if (Bytes < 1024 * 1024) return `${Math.max(1, Math.round(Bytes / 1024))} KB`;
-  return `${(Bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 const LabelTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const VolumeTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -127,7 +121,7 @@ export function RenderSoundLibrary(): void {
   }
   $Host.html(
     Sounds.map((Sound: LibrarySoundView) => {
-      const Meta = [Sound.Extension.toUpperCase(), FormatSize(Sound.Size)].join(' · ');
+      const Meta = [Sound.Extension.toUpperCase(), FormatSoundSize(Sound.Size)].join(' · ');
       const Missing = Sound.Missing
         ? '<span class="badge bg-warning text-dark ms-2" title="The sound file is missing">Missing</span>'
         : '';

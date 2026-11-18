@@ -44,10 +44,9 @@ function LoadSqlite(): Sqlite3Module {
 }
 
 export function CreateDatabase(FilePath: string): Database {
-  fs.mkdirSync(path.dirname(FilePath), { recursive: true });
-  const Sqlite = LoadSqlite();
-
   let Db: SqliteDatabase | null = null;
+  // Whether the file actually opened; only then is there anything to close.
+  let Opened = false;
 
   // Low-level helpers that bypass the readiness gate; only the schema set-up
   // below uses them directly.
@@ -112,12 +111,23 @@ export function CreateDatabase(FilePath: string): Database {
   }
 
   const ReadyPromise: Promise<void> = new Promise<void>((resolve, reject) => {
-    Db = new Sqlite.Database(FilePath, (Err: Error | null) => {
+    // A folder that cannot be created (a file in the way, no permission) fails
+    // the database like any other open error, through Ready() and the query
+    // results, rather than as an exception from whoever touched it first.
+    try {
+      fs.mkdirSync(path.dirname(FilePath), { recursive: true });
+    } catch (Err) {
+      Logger.databaseError('Failed to create the database folder:', Err);
+      reject(Err);
+      return;
+    }
+    Db = new (LoadSqlite().Database)(FilePath, (Err: Error | null) => {
       if (Err) {
         Logger.databaseError('Failed to open the database:', Err);
         reject(Err);
         return;
       }
+      Opened = true;
       InitializeSchema().then(resolve, (SchemaErr) => {
         Logger.databaseError('Failed to prepare the database schema:', SchemaErr);
         reject(SchemaErr);
@@ -150,10 +160,13 @@ export function CreateDatabase(FilePath: string): Database {
       await ReadyPromise;
       return UserVersion();
     },
+    // Safe after a failed open: sqlite3 never calls the close callback for a
+    // database that did not open, so that case resolves without asking it.
     Close() {
       return new Promise<void>((resolve) => {
         ReadyPromise.catch(() => {}).finally(() => {
-          if (!Db) return resolve();
+          if (!Db || !Opened) return resolve();
+          Opened = false;
           Db.close(() => resolve());
         });
       });

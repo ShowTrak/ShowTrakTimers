@@ -88,6 +88,20 @@ export interface WebDashboardOptions {
   StaticRoot?: string;
 }
 
+// The dashboard page runs only its own scripts (no inline JS, nothing remote)
+// and talks only to this host (Socket.IO over HTTP polling or a WebSocket).
+export const DASHBOARD_CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "font-src 'self'",
+  "connect-src 'self' ws: wss:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "frame-ancestors 'self'",
+].join('; ');
+
 // Coalesce bursts (an "all timers" OSC command, a quick run of edits) into one
 // push per browser.
 const PUSH_COALESCE_MS = 50;
@@ -128,6 +142,7 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
       Res.setHeader('X-Content-Type-Options', 'nosniff');
       Res.setHeader('X-Frame-Options', 'SAMEORIGIN');
       Res.setHeader('Referrer-Policy', 'no-referrer');
+      Res.setHeader('Content-Security-Policy', DASHBOARD_CSP);
       Next();
     });
     App.get('/healthz', (_Req, Res) => {
@@ -156,6 +171,8 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
         Number(await Settings.GetValue('WEB_DASHBOARD_PORT')) || DEFAULT_WEB_DASHBOARD_PORT;
       const Host = String((await Settings.GetValue('WEB_DASHBOARD_BIND')) || '0.0.0.0');
 
+      // The list a browser gets on connecting: ready before anyone can connect.
+      Latest = ToDashboardTimers(await Timers.GetAll());
       const Server = http.createServer(BuildApp());
       const Sockets = new SocketServer(Server, {
         cors: { origin: true, methods: ['GET'], credentials: false },
@@ -191,7 +208,6 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
       HttpServer = Server;
       IO = Sockets;
       Bound = { Host, Port: (Server.address() as { port: number }).port };
-      Latest = ToDashboardTimers(await Timers.GetAll());
       Broadcast.on('TimersUpdated', OnTimersUpdated);
       Logger.success(`Web Dashboard listening on http://${Host}:${Bound.Port}`);
       AnnounceClientCount();

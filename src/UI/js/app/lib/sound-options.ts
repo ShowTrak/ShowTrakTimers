@@ -39,3 +39,10 @@ export function SoundLabel(Ref: string | null, Library: readonly LibrarySoundVie
   if (Parsed.Kind === 'builtin') return Parsed.Sound.Label;
   return Library.find((S) => S.ID === Parsed.ID)?.Label ?? 'Deleted sound';
 }
+
+/** A file size as the Sound Library lists it: whole KB, or MB to one place. */
+export function FormatSoundSize(Bytes: number): string {
+  if (!Number.isFinite(Bytes) || Bytes <= 0) return '0 KB';
+  if (Bytes < 1024 * 1024) return `${Math.max(1, Math.round(Bytes / 1024))} KB`;
+  return `${(Bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

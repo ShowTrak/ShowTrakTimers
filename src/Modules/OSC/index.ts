@@ -20,8 +20,13 @@ interface OscSocketLike {
   on(Event: 'error', Handler: (Err: Error) => void): void;
 }
 
+interface OscBundle {
+  elements?: unknown[];
+}
+
 interface OscServerLike {
   on(Event: 'message', Handler: (Message: unknown[], Info?: unknown) => void): void;
+  on(Event: 'bundle', Handler: (Bundle: OscBundle, Info?: unknown) => void): void;
   on(Event: 'error', Handler: (Err: Error, Info?: unknown) => void): void;
   close(Callback?: () => void): void;
   _sock?: OscSocketLike;
@@ -47,12 +52,10 @@ export function CreateOSC(Options: OscOptions = {}) {
   const Settings = Options.Settings ?? AppSettings;
   const Timers = Options.Timers ?? AppTimers;
   const Broadcast = Options.Broadcast ?? BroadcastManager;
-  const Quit =
-    Options.Quit ??
-    (() => {
-      const { app } = require('electron') as typeof import('electron');
-      app.quit();
-    });
+  // /ShowTrak/Shutdown is a deliberate remote command, so (as in 1.x) it closes
+  // the app without the "are you sure" prompt, which nobody at the OSC sender
+  // could answer. main.ts handles the 'Shutdown' broadcast.
+  const Quit = Options.Quit ?? (() => Broadcast.emit('Shutdown'));
 
   let Server: OscServerLike | null = null;
   let Bound: { Host: string; Port: number } | null = null;
@@ -117,8 +120,23 @@ export function CreateOSC(Options: OscOptions = {}) {
     }
   }
 
+  // Messages from a bundle, nested bundles included, in the order sent. Bounded
+  // so a hostile packet cannot nest without end.
+  async function HandleBundle(Bundle: OscBundle, Depth = 0): Promise<void> {
+    if (!Bundle || !Array.isArray(Bundle.elements) || Depth > 8) return;
+    for (const Element of Bundle.elements) {
+      if (Array.isArray(Element)) await HandleMessage(Element);
+      else await HandleBundle(Element as OscBundle, Depth + 1);
+    }
+  }
+
   function HandleSocketError(Port: number, Err: Error): void {
-    if (IsTransientNetworkError(Err)) {
+    // A failed bind is fatal whatever the code: EADDRNOTAVAIL counts as a
+    // transient network error elsewhere (an interface dropping mid-show), but at
+    // bind time it means the configured address is not on this machine.
+    const BindFailed =
+      (Err as NodeJS.ErrnoException).syscall === 'bind' || /^bind /.test(String(Err.message));
+    if (!BindFailed && IsTransientNetworkError(Err)) {
       Logger.warn(`OSC socket transient network error on port ${Port}: ${DescribeError(Err)}`);
       return;
     }
@@ -154,6 +172,9 @@ export function CreateOSC(Options: OscOptions = {}) {
         });
         Server = Instance;
         Instance.on('message', (Message) => void HandleMessage(Message));
+        // 1.x ignored bundles. Their messages are run in order, at once (OSC
+        // timetags, scheduling a bundle for later, are not honoured).
+        Instance.on('bundle', (Bundle) => void HandleBundle(Bundle));
         const Sock = Instance._sock;
         const SocketGuarded = !!Sock && typeof Sock.on === 'function';
         if (SocketGuarded) Sock!.on('error', (Err) => HandleSocketError(Port, Err));
@@ -206,6 +227,7 @@ export function CreateOSC(Options: OscOptions = {}) {
 
     /** Dispatch a message as if it had arrived over UDP (tests, loopback). */
     HandleMessage,
+    HandleBundle,
   };
 
   return OSC;

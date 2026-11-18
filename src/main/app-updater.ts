@@ -269,6 +269,17 @@ function normalizeUpdaterError(err: unknown): AppUpdateStatusPayload {
     message.includes('did not pass validation') &&
     message.includes('code failed to satisfy specified code requirement');
 
+  // Releases carry no latest-linux.yml (they ship zip/deb/rpm, which the
+  // updater cannot install in place), so say what to do instead of a raw 404.
+  if (process.platform === 'linux' && has404 && message.includes('latest-linux.yml')) {
+    return {
+      state: 'error',
+      error:
+        'In-app updates are not available for Linux packages. Download the new version from the GitHub releases page.',
+      info: { reason: 'linux_updates_unavailable', details: message },
+    };
+  }
+
   if (isMac && has404 && referencesManifest) {
     return {
       state: 'none',

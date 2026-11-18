@@ -53,8 +53,10 @@ export function register(Deps: SystemDeps): void {
   });
 
   RPC.handle('App:OpenExternal', async (_E, Link) => {
-    const Url = EXTERNAL_LINKS[String(Link) as ExternalLink];
-    if (!Url) return;
+    const Name = String(Link);
+    // Own keys only: "constructor" and friends are inherited, not links.
+    if (!Object.prototype.hasOwnProperty.call(EXTERNAL_LINKS, Name)) return;
+    const Url = EXTERNAL_LINKS[Name as ExternalLink];
     const { shell } = require('electron') as typeof import('electron');
     await shell.openExternal(Url);
   });

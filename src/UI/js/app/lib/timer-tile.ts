@@ -6,8 +6,10 @@
 // RUNNING green (online), PAUSED orange (degraded), COMPLETE and OVERRUN red
 // (offline). A timer inside its warning window keeps its colour and gains the
 // WARNING class (an amber pulse).
+import type { TimerEventView } from '../../../../common/api';
 import {
   ComputeTimerDisplay,
+  FormatRemaining,
   IsTicking,
   StatusLabel,
   type TimerStatus,
@@ -91,4 +93,12 @@ export function SummariseTimers(Timers: readonly Pick<TimerView, 'Status'>[]): s
   if (Running) Parts.push(`${Running} Running`);
   if (Paused) Parts.push(`${Paused} Paused`);
   return Parts.join(' · ');
+}
+
+/** The notification text for a timer's warning or completion. */
+export function DescribeTimerEvent(Event: TimerEventView, Timer: TimerView | undefined): string {
+  const Name = Event.Name || `Timer ${Event.TimerID}`;
+  if (Event.Kind === 'complete') return `${Name} has finished.`;
+  const Lead = Timer?.WarningMs;
+  return Lead ? `${Name}: ${FormatRemaining(Lead)} remaining.` : `${Name} is nearly finished.`;
 }
