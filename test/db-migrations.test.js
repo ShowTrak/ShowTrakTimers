@@ -45,16 +45,28 @@ const TIMERS_1_1 = `CREATE TABLE Timers (
   AudioAlert BOOLEAN, ShowOnWeb BOOLEAN NOT NULL DEFAULT 1)`;
 const SETTINGS_1_X = 'CREATE TABLE Settings (Key TEXT PRIMARY KEY, Value BLOB)';
 
+// Databases each test opened, closed before its workspace is removed. t.after
+// hooks run in the order they were registered, and the workspace is made before
+// any database in it, so closing in a hook of its own would come too late:
+// Windows refuses to delete a file SQLite still has open (EPERM).
+const OpenDatabases = new WeakMap();
+
 function Workspace(t) {
   const Temp = TempDir('st-timers-dbmig-');
-  t.after(() => Temp.cleanup());
+  OpenDatabases.set(t, []);
+  t.after(async () => {
+    for (const Db of OpenDatabases.get(t) ?? []) await WithinMs(Db.Close(), 2000);
+    Temp.cleanup();
+  });
   return Temp.Dir;
 }
 
 // Open with the code under test and close it again when the test ends.
 function Open(t, FilePath) {
   const Db = CreateDatabase(FilePath);
-  t.after(() => WithinMs(Db.Close(), 2000));
+  const List = OpenDatabases.get(t);
+  if (List) List.push(Db);
+  else t.after(() => WithinMs(Db.Close(), 2000));
   return Db;
 }
 
