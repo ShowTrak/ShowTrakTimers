@@ -1,13 +1,14 @@
 // Offline shell for the Web Dashboard. Bumped to v2 with the 2.0 page, so a
 // browser holding the 1.x shell drops it on its next visit.
-const STATIC_CACHE = 'showtrak-dashboard-static-v2';
+const STATIC_CACHE = 'showtrak-dashboard-static-v3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/dashboard.js',
   '/manifest.webmanifest',
   '/favicon.ico',
-  '/ui/img/icon.png',
+  '/ui/img/icon-192.png',
+  '/ui/img/icon-filled.png',
   '/ui/vendors/bootstrap/css/bootstrap.min.css',
   '/ui/vendors/bootstrap-icons/font/bootstrap-icons.min.css',
   '/ui/css/main.css',
