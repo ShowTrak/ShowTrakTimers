@@ -9,25 +9,25 @@
    ========================================================================= */
 
 /* --- Timers palette --------------------------------------------------------
-   Timers swaps Server's purple surfaces for a very dark orange, almost brown,
-   so the two apps are told apart at a glance. Only the hue-carrying tokens
-   are overridden (same lightness steps as Server's); the status, semantic and
-   text colours are shared. This file loads after the synced parts, so these
+   Timers swaps Server's purple surfaces for neutral dark greys, with an orange
+   accent, so the two apps are told apart at a glance. Only the hue-carrying
+   tokens are overridden (same lightness steps as Server's); the status,
+   semantic and text colours are shared. This file loads after the synced parts, so these
    win, and the sync never touches it. The preloader and the Web Dashboard's
    theme-color hard-code the two background stops to match. */
 :root {
   --accent-rgb: 196 104 40;
 
-  --surface-0-rgb: 22 12 6;
-  --surface-1-rgb: 42 23 12;
-  --surface-2-rgb: 46 30 20;
-  --surface-3-rgb: 60 41 29;
+  --surface-0-rgb: 14 14 15;
+  --surface-1-rgb: 30 30 32;
+  --surface-2-rgb: 38 38 40;
+  --surface-3-rgb: 52 52 55;
 
-  --field-bg: rgb(62 41 28);
-  --field-bg-hover: rgb(72 48 33);
-  --field-bg-focus: rgb(88 56 34);
-  --field-bg-disabled: rgb(48 32 23);
-  --field-bg-invalid: rgb(72 30 26);
+  --field-bg: rgb(50 50 53);
+  --field-bg-hover: rgb(58 58 62);
+  --field-bg-focus: rgb(68 66 66);
+  --field-bg-disabled: rgb(40 40 42);
+  --field-bg-invalid: rgb(72 30 30);
 
   --st-check-on-fill: rgba(194, 94, 20, 0.35);
   --st-check-on: #e07b2a;

@@ -5,8 +5,8 @@
   "scope": "./",
   "display": "standalone",
   "description": "A read-only view of ShowTrak Timers, updated live.",
-  "background_color": "#160c06",
-  "theme_color": "#160c06",
+  "background_color": "#0e0e0f",
+  "theme_color": "#0e0e0f",
   "icons": [
     {
       "src": "/ui/img/icon.png",
