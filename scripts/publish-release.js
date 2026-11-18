@@ -95,8 +95,8 @@ function parseArgs(argv) {
   return options;
 }
 
-// owner/repo from the origin remote, so this script works unchanged in both the
-// Server and the Client repositories.
+// owner/repo from the origin remote, so this script works unchanged in every
+// ShowTrak app repository (Server, Client, Timers).
 function resolveRepo() {
   const url = tryRun('git', ['remote', 'get-url', 'origin']);
   if (!url.ok) fail('No `origin` remote found.', url.out);

@@ -7,7 +7,9 @@
 
 <h3 align="center">ShowTrak Timers</h3>
   <p align="center">
-    OSC Controlled Timers.
+    OSC controlled show timers, part of the ShowTrak ecosystem.
+    <br />
+    <a href="https://github.com/ShowTrak/ShowTrakServer"><strong>View ShowTrak Server (Related Project) »</strong></a>
     <br />
     <br />
     <a href="https://github.com/ShowTrak/ShowTrakTimers/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
@@ -16,23 +18,228 @@
   </p>
 </div>
 
-## About The Project
+## What This Project Is
 
-Please see the ShowTrak repo <a href="https://github.com/ShowTrak"><strong>here</strong></a>
+ShowTrak Timers is a desktop app for running the timers of a show: walk-in
+countdowns, act timers, changeover stopwatches. Timers are controlled from the
+app or over OSC (QLab, Bitfocus Companion, any OSC sender), and shown to anyone
+on the network through a read-only Web Dashboard.
+
+It is built on the same foundations as ShowTrak Server and looks and behaves
+like it: the same title bar, bottom bar, menus, Preferences, toasts, update
+flow and design tokens.
+
+## Key Features
+
+### Timers
+
+- **Timer**: counts up to a duration (shown as `elapsed / total`).
+- **Countdown**: counts down from a duration to zero.
+- **Stopwatch**: counts up with no end.
+- Start, pause, resume and stop from the tile, the menu, the keyboard or OSC.
+- Timing is measured against the clock, so timers never drift, however busy
+  the machine is.
+- SHOW and EDIT modes: edit mode shows each timer's ID (for OSC), its editor,
+  and lets you drag tiles to reorder them.
+
+### Per-Timer Endings and Warnings
+
+Each Timer or Countdown can be set to:
+
+- **At the end:** stop there, keep counting into overrun (`+00:12`, in red),
+  reset to standby, or restart from zero.
+- **Completion sound and notification.**
+- **Warning:** a lead time before the end (the tile pulses amber), with its own
+  sound and notification.
+
+Sounds are chosen from three built-ins or imported into the **Sound Library**
+(MP3, WAV, OGG, M4A, AAC, FLAC, Opus; per-sound volume). A sound that has since
+been deleted falls back to the built-in chime, so an alert is never silently
+dropped.
+
+### Web Dashboard
+
+A read-only page for any browser on the network (phones, a backstage screen),
+served on port 4300 by default. Timers are shown or hidden per timer. It keeps
+the last known timers when the connection drops and reconnects on its own, and
+can be installed as a PWA. The Web Dashboard modal in the app lists its
+addresses with a QR code.
+
+### OSC Control
+
+UDP port 3333 by default. Timer IDs are shown on each tile in EDIT mode.
+
+| Address                                       | Action                                      |
+| --------------------------------------------- | ------------------------------------------- |
+| `/ShowTrak/Timer/<ID>/Start`                  | Start a timer from zero                     |
+| `/ShowTrak/Timer/<ID>/Stop`                   | Stop a timer and reset it                   |
+| `/ShowTrak/Timer/<ID>/Pause`                  | Pause a running timer                       |
+| `/ShowTrak/Timer/<ID>/Unpause` (or `/Resume`) | Resume a paused timer                       |
+| `/ShowTrak/Timer/<ID>/SetLabel/<Name>`        | Rename a timer                              |
+| `/ShowTrak/Timer/<ID>/SetDuration/<ms>`       | Set the duration, in milliseconds           |
+| `/ShowTrak/Timer/<ID>/JumpToTime/<ms>`        | Jump to a point in the run, in milliseconds |
+| `/ShowTrak/All/Start`                         | Start every timer                           |
+| `/ShowTrak/All/Stop`                          | Stop every timer                            |
+| `/ShowTrak/All/Pause`                         | Pause every running timer                   |
+| `/ShowTrak/All/Unpause` (or `/Resume`)        | Resume every paused timer                   |
+| `/ShowTrak/Shutdown`                          | Close ShowTrak Timers                       |
+
+A trailing value can also be sent as the message's first argument instead of
+a path segment (for example `/ShowTrak/Timer/3/SetLabel` with the string
+`Walk In`), which is the only way to send a name with spaces. The full list is
+in the app under the menu, **OSC Reference**.
+
+### Updates
+
+As in ShowTrak Server: **Check for Updates** in the menu, a **Stable** or
+**Beta** update channel (Beta also offers pre-releases), and optional
+**Automatic Updates** that download in the background and install the next
+time the app restarts. Updates never restart the app mid-show.
+
+## Tech Stack
+
+[![Electron][Electronjs.org]][Electron-url] [![Bootstrap][Bootstrap.com]][Bootstrap-url] [![JQuery][JQuery.com]][JQuery-url]
+
+Additional runtime components include Socket.IO, Express, SQLite, node-osc,
+Howler and electron-updater.
+
+## Requirements
+
+- Node.js 24+ (CI uses Node 24)
+- npm
+- macOS, Windows, or Linux
+
+## Installation (End Users)
+
+1. Download the latest package from GitHub Releases.
+2. Install and launch ShowTrak Timers.
+
+1.x installs on Windows update in place: settings and timers are kept.
+
+## Local Development
+
+```bash
+git clone --recurse-submodules https://github.com/ShowTrak/ShowTrakTimers.git
+npm ci
+npm run start
+```
+
+`npm run start` builds once, then rebuilds only what each edit touches.
+Renderer, markup and CSS edits reload the window in place; main-process edits
+restart the app. Add `-- --no-app` to build and watch without launching
+Electron.
+
+### Useful Scripts
+
+```bash
+# Run app in development
+npm run start
+
+# Build distributables for current platform
+npm run make
+
+# Run test suite (builds first, then runs all tests against an empty
+# sandboxed app-data directory, never your real timers)
+npm run test
+
+# Run one test file
+npm test -- test/timer-engine.test.js
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Lint, format, typecheck
+npm run lint
+npm run format
+npm run format:check
+npm run typecheck
+
+# Re-extract the styling shared with ShowTrak Server (see below)
+npm run sync:server-css
+
+# Cut a release (dispatches the Build workflow; see below)
+npm run publish
+```
+
+### Styling Shared With ShowTrak Server
+
+Every UI element Timers shares with ShowTrak Server takes its styling straight
+from Server. `npm run sync:server-css` reads Server's stylesheet (from a
+`ShowTrakServer` checkout beside this one) and writes only the rules Timers'
+markup uses into `src/UI/css/parts/0*.css`. Timers' own styling lives in
+`src/UI/css/parts/10-timers.css` and uses Server's design tokens. Re-run the sync
+after Server's styling changes and review the diff.
+
+## Data and Storage
+
+Application data root:
+
+- Windows: `%APPDATA%/ShowTrakTimers`
+- macOS: `~/Library/Application Support/ShowTrakTimers` (1.x used
+  `~/Library/Preferences/ShowTrakTimers`; it is moved across on first launch)
+- Linux: `$XDG_DATA_HOME/ShowTrakTimers` or `~/.local/share/ShowTrakTimers`
+
+Inside app data:
+
+- `Logs/` (one file per day)
+- `Storage/DB.sqlite` (timers and settings)
+- `Audio/` (the Sound Library and its manifest)
+
+## Security Model (Desktop)
+
+- Electron renderer isolation enabled, Node integration disabled, sandboxed
+  renderer, strict Content-Security-Policy
+- Navigation/window-open guards for external URLs
+- IPC bridge allowlists exposed channels (`window.API`); every argument is
+  validated in the main process
+- The Web Dashboard is read-only: its socket accepts no commands
+
+## Build and Release Workflow
+
+- `.github/workflows/ci.yml`: lint, format check and typecheck, then the test
+  suite on Ubuntu, macOS and Windows, on every push and pull request.
+- `.github/workflows/build-and-draft-release.yml`: waits for a green CI run on
+  the commit, then builds on Ubuntu, macOS and Windows (macOS unsigned, signed,
+  or signed + notarized), uploads the artifacts, generates `latest-mac.yml`, and
+  drafts or publishes the GitHub release. A version with a pre-release part
+  (`2.1.0-beta.1`) is published as a GitHub pre-release, offered only to the
+  Beta channel.
+
+`npm run publish` checks the branch is pushed and CI has passed, dispatches the
+Build workflow and waits for the release (`-- --draft` to stop at a draft).
+Bump the version first with `npm version <x.y.z>`.
+
+### macOS Signing/Notarization Environment Variables
+
+Used by packaging and CI when signing/notarization is enabled:
+
+- `APPLE_SIGN_IDENTITY`
+- `APPLE_KEYCHAIN_PATH`
+- `APPLE_API_KEY_PATH`
+- `APPLE_API_KEY_ID`
+- `APPLE_API_ISSUER_ID`
+
+## Repository Layout
+
+- `src/main.ts` - Electron main process and lifecycle orchestration
+- `src/main/` - main-process wiring: IPC registrars, updater, services, shutdown
+- `src/bridge_main.ts` - preload bridge and IPC channel allowlists
+- `src/common/` - timer maths and the IPC contract, shared by every surface
+- `src/Modules/` - timers, database, settings, OSC, Web Dashboard, Sound Library
+- `src/UI/` - desktop renderer UI (and the Web Dashboard's script)
+- `src/WebDashboard/` - the Web Dashboard page
+- `shared/` - `@showtrak/protocol`, runtime shared with ShowTrak Server (git submodule)
+- `test/` - Node test runner suite
+- `forge.config.js` - Electron Forge packaging/maker/signing configuration
 
 ## Support
 
-Join our [Discord Server](https://discord.gg/DACmwsbSGW) for support
+- Discord: [ShowTrak Discord](https://discord.gg/DACmwsbSGW)
+- Issues: [GitHub Issues](https://github.com/ShowTrak/ShowTrakTimers/issues)
 
-### Built With
+## License
 
-[![Electron][Electronjs.org]][Electron-url] [![Bootstrap][Bootstrap.com]][Bootstrap-url]
-[![JQuery][JQuery.com]][JQuery-url]
-
-### Installation
-
-1. Download the installer from the releases page
-2. Run the installer.
+Licensed under AGPL-3.0-only. See [LICENSE](LICENSE).
 
 [Electronjs.org]: https://img.shields.io/badge/Electron-563D7C?style=for-the-badge&logo=electron&logoColor=white
 [Electron-url]: https://www.electronjs.org/

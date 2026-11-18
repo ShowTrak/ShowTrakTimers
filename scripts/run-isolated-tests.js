@@ -1,15 +1,14 @@
-// `npm test`: run the suite with no ShowTrak application data.
+// `npm test`: run the suite with no ShowTrak Timers application data (from
+// ShowTrak Server).
 //
-// Several managers require ../DB and open a live sqlite connection when their
-// module is first loaded. Run against a developer's real app-data directory,
-// that connection succeeds against (and migrates) the real working database,
-// and a test that forgot to stub such a manager passes in milliseconds. CI has
-// no such database, and the same test hangs until it times out, which is how a
-// green local run has three times shipped a red pipeline.
+// The managers open the app's sqlite database on first use. Run against a
+// developer's real app-data directory, a test that forgot to inject its own
+// database would read (and migrate) the real one, and pass locally while CI,
+// which has no such database, sees something else.
 //
 // Pointing HOME (and the Windows/XDG equivalents) at an empty directory moves
 // the app-data path somewhere that does not exist, so every run (local, CI and
-// coverage) sees the same empty machine and never touches real show data.
+// coverage) sees the same empty machine and never touches real timers.
 //
 // Extra arguments are passed through to `node --test`, so a single file runs as
 // `npm test -- test/db.test.js`.
@@ -30,8 +29,7 @@ try {
     [
       '--test',
       '--test-concurrency=1',
-      // Per file. The MX-8A suite waits out the unit's 1 s connection release
-      // between sessions and runs past 30 s on Windows.
+      // Per file. Generous for slow Windows runners; a hung test still fails.
       '--test-timeout=60000',
       '--test-force-exit',
       ...process.argv.slice(2),

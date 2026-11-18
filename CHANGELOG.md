@@ -4,6 +4,65 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.0.0-beta.1] - 2026-11-19
+
+The app is rebuilt on ShowTrak Server's foundations: TypeScript, the same build,
+test, lint and release tooling, the same update system, and the same look.
+
+### Added
+
+- macOS (signed and notarized) and Linux (zip, deb, rpm) builds alongside Windows.
+- Software updates as in ShowTrak Server: Check for Updates, a Stable or Beta
+  update channel, and optional Automatic Updates that install on the next restart.
+- Per-timer endings: stop at the end, keep counting into overrun, reset to
+  standby, or restart from zero.
+- Per-timer warning lead time (the tile pulses amber), and warning/completion
+  sounds and notifications.
+- Sound Library: import your own alert sounds, with per-sound volume.
+- Alert Volume setting.
+- Web Dashboard modal listing the dashboard's addresses with a QR code.
+- Drag to reorder timers in EDIT mode.
+- About modal (dependencies, licence), Keyboard Shortcuts, macOS app menu.
+- OSC bundles are accepted: each message in a bundle is run, in order (1.x
+  ignored bundles).
+- Durations can be typed as `5:00`, `1:30:00`, `90` (seconds) or with units
+  (`90s`, `5m`, `1h 30m`, `2 minutes`).
+- OSC: a route's trailing value can be sent as the message's first argument
+  (e.g. `/ShowTrak/Timer/3/SetLabel` with `Walk In`), so names may contain spaces.
+
+### Changed
+
+- New look, taken from ShowTrak Server: title bar, bottom bar, menus, modals,
+  Preferences with tabs, toasts and confirmations; timer tiles use Server's status
+  colours (Standby grey, Running green, Paused orange, Complete/Overrun red).
+- Tile controls are always visible (they were hover-only, unusable on a touchscreen).
+- Timers animate smoothly between updates instead of ticking at uneven intervals.
+- Automatic Updates default to off for new installs, as in ShowTrak Server (a
+  value saved in 1.x is kept).
+- Display sleep is always prevented (the Prevent Display Sleep setting is gone).
+- "Stop Accidental Shutdowns" and "Automatic Updates" apply immediately; no restart.
+- Network settings (ports, bind addresses) are saved with a Save button and
+  checked before they are applied.
+- The Web Dashboard is rebuilt on the same tiles as the app, and only serves the
+  files it needs.
+
+### Fixed
+
+- Timers ran slow and drifted apart: each tick added a fixed 300 ms whatever
+  time had really passed. Time is now measured against the clock.
+- Countdowns showed 00:00 for their whole last second, and one second less than
+  their duration at the start.
+- "Unpause all" started timers that were stopped; pausing a stopped timer left it
+  in a broken paused state.
+- Jumping a stopped timer to a time was undone by the next start.
+- Completion sounds and alerts never played, although each timer stored the flags.
+- A malformed OSC packet or a busy OSC port could crash the app.
+- "Open Logs Folder" only worked on Windows; on macOS the app kept running with
+  no window and stored its data under ~/Library/Preferences.
+- Text containing quotes broke out of the Preferences fields it was shown in.
+- Settings were re-read from the database on every lookup.
+- The Windows icon was a single 32 px image.
+
 ## [1.1.1] - 2025-08-16
 
 ### Added
@@ -65,5 +124,6 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Data storage:
   - SQLite-backed persistence layer and DB module foundation.
 
+[2.0.0-beta.1]: https://github.com/ShowTrak/ShowTrakTimers/compare/v1.2.0...v2.0.0-beta.1
 [1.1.1]: https://github.com/ShowTrak/ShowTrakTimers/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/ShowTrak/ShowTrakTimers/releases/tag/v1.1.0
