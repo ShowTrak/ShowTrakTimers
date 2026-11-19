@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+
+- The File menu button in the bottom bar now shows a save (floppy disk) icon,
+  and sits after the Settings menu, matching ShowTrak Server.
+
 ### Fixed
 
 - A timer whose alert sound cannot be played now plays the built-in Chime
