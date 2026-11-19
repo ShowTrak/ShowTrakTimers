@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.0.0-beta.4] - 2026-11-19
+
+### Added
+
+- `.showtraktimers` show files open in ShowTrak Timers from Finder and Explorer
+  (double-click, Open With, or dropping one on the Dock icon). You are asked
+  before an open show is replaced.
+
+### Changed
+
+- Running timers use far less CPU and GPU: only timers whose readout changes are
+  repainted, and only when it changes, and the timer engine sleeps until the next
+  threshold instead of checking every 50 ms. The warning pulse is cheaper to draw.
+- New app icon on Windows.
+
 ## [2.0.0-beta.3] - 2026-11-18
 
 ### Added
@@ -181,6 +196,7 @@ test, lint and release tooling, the same update system, and the same look.
 - Data storage:
   - SQLite-backed persistence layer and DB module foundation.
 
+[2.0.0-beta.4]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.3...v2.0.0-beta.4
 [2.0.0-beta.3]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.2...v2.0.0-beta.3
 [2.0.0-beta.2]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.1...v2.0.0-beta.2
 [2.0.0-beta.1]: https://github.com/ShowTrak/ShowTrakTimers/compare/v1.2.0...v2.0.0-beta.1
