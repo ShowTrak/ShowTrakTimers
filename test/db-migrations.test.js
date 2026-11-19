@@ -556,7 +556,9 @@ test('a 1.x working database is copied to Backups, untouched, before it is migra
   const Before = fs.readFileSync(FilePath);
   const Backups = path.join(Dir, 'Backups');
   const Working = CreateWorkingDatabase(() => FilePath, { BackupsDirectory: () => Backups });
-  t.after(() => WithinMs(Working.Close(), 2000));
+  // Closed with the workspace's databases, before its folder is removed
+  // (Windows will not remove a folder holding an open file).
+  OpenDatabases.get(t).push(Working);
   await Working.Ready();
   const Files = fs.readdirSync(Backups);
   assert.equal(Files.length, 1);

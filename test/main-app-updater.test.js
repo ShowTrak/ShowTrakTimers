@@ -97,9 +97,15 @@ const restore = installModuleMocks([
   { match: matchesModule('/Logger'), value: logger.module },
 ]);
 const TempYml = path.join(os.tmpdir(), 'showtrak-timers-app-update.yml');
+// The packaged tests drive electron-updater's flow, which on Linux only runs
+// from an AppImage; the Linux-package case has its own test.
+const SavedAppImage = process.env.APPIMAGE;
+process.env.APPIMAGE = path.join(os.tmpdir(), 'ShowTrak-Timers-test.AppImage');
 test.after(() => {
   restore();
   fs.rmSync(TempYml, { force: true });
+  if (SavedAppImage === undefined) delete process.env.APPIMAGE;
+  else process.env.APPIMAGE = SavedAppImage;
 });
 
 const { Manager } = require('../dist/main/app-updater');
@@ -577,4 +583,24 @@ test('Squirrel.Windows is detected only beside an Update.exe', () => {
   // A test runner's node binary has no Squirrel install around it.
   assert.equal(Manager.isSquirrelWindows(), false);
   withPlatform('linux', () => assert.equal(Manager.isSquirrelWindows(), false));
+});
+
+test('a Linux package (not an AppImage) is told at once that in-app updates are unavailable', async () => {
+  const WasPackaged = appState.isPackaged;
+  const AppImage = process.env.APPIMAGE;
+  appState.isPackaged = true;
+  settle();
+  delete process.env.APPIMAGE;
+  try {
+    // The check decides before its first await, so the platform can be put back straight after.
+    const Checked = withPlatform('linux', () => handlers['AppUpdate:Check']());
+    await Checked;
+  } finally {
+    process.env.APPIMAGE = AppImage;
+    appState.isPackaged = WasPackaged;
+  }
+  assert.deepEqual(states(), ['error']);
+  assert.match(statuses()[0].error, /not available for Linux packages/);
+  assert.equal(statuses()[0].info.reason, 'linux_updates_unavailable');
+  settle();
 });
