@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-11-19
+
 ### Changed
 
 - The File menu button in the bottom bar now shows a save (floppy disk) icon,
@@ -341,7 +343,8 @@ test, lint and release tooling, the same update system, and the same look.
 - Data storage:
   - SQLite-backed persistence layer and DB module foundation.
 
-[Unreleased]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/ShowTrak/ShowTrakTimers/compare/v1.2.0...v2.0.0
 [2.0.0-beta.7]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.6...v2.0.0-beta.7
 [2.0.0-beta.6]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.5...v2.0.0-beta.6
