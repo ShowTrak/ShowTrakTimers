@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.0.0] - 2026-11-19
+
+The first stable release of ShowTrak Timers 2. It brings everything from
+2.0.0-beta.1 to 2.0.0-beta.7 (see below) to the Stable update channel, so 1.x
+installs are offered the upgrade.
+
+### Added
+
+- ARM64 Linux packages (zip, deb, rpm) for the Raspberry Pi and other ARM
+  boards. They run on Raspberry Pi OS 12 (Bookworm) and newer.
+
 ## [2.0.0-beta.7] - 2026-11-19
 
 ### Changed
@@ -315,6 +326,7 @@ test, lint and release tooling, the same update system, and the same look.
 - Data storage:
   - SQLite-backed persistence layer and DB module foundation.
 
+[2.0.0]: https://github.com/ShowTrak/ShowTrakTimers/compare/v1.2.0...v2.0.0
 [2.0.0-beta.7]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.6...v2.0.0-beta.7
 [2.0.0-beta.6]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.5...v2.0.0-beta.6
 [2.0.0-beta.5]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.4...v2.0.0-beta.5
