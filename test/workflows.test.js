@@ -77,7 +77,7 @@ test('CI lints, checks formatting and typechecks with the package scripts', () =
   }
 });
 
-test('CI runs the tests on Linux, macOS and Windows without cancelling the others', () => {
+test('CI runs the tests on Linux (x64 and ARM64), macOS and Windows without cancelling the others', () => {
   const Test = [...CI_JOBS.values()].find((Job) => /run: npm test\s*$/m.test(Job));
   assert.ok(Test, 'no job runs npm test');
   const Matrix = /os:\s*\[([^\]]+)\]/.exec(Test);
@@ -87,7 +87,7 @@ test('CI runs the tests on Linux, macOS and Windows without cancelling the other
       .split(',')
       .map((S) => S.trim())
       .sort(),
-    ['macos-latest', 'ubuntu-latest', 'windows-latest']
+    ['macos-latest', 'ubuntu-24.04-arm', 'ubuntu-latest', 'windows-latest']
   );
   assert.match(Test, /runs-on: \$\{\{ matrix\.os \}\}/);
   assert.match(Test, /fail-fast: false/);
@@ -153,11 +153,33 @@ test('the build checks out the shared submodule and builds on every platform', (
     .exec(Make)[1]
     .split(',')
     .map((S) => S.trim());
-  assert.equal(Matrix.length, 3);
-  assert.ok(Matrix.some((Os) => Os.startsWith('ubuntu')));
+  assert.equal(Matrix.length, 4);
+  // x64 Linux, and ARM64 Linux for the Raspberry Pi packages
+  assert.ok(
+    Matrix.some((Os) => /^ubuntu-[\d.]+$/.test(Os)),
+    'no x64 Linux build'
+  );
+  assert.ok(
+    Matrix.some((Os) => /^ubuntu-[\d.]+-arm$/.test(Os)),
+    'no ARM64 Linux build'
+  );
   assert.ok(Matrix.includes('macos-latest'));
   assert.ok(Matrix.includes('windows-latest'));
   assert.match(Make, /npm run make/);
+});
+
+test('the Linux packages are checked, on each Linux runner, before they are uploaded', () => {
+  const Steps = steps(RELEASE_JOBS.get('make'));
+  const Check = Steps.findIndex((S) => /run: bash scripts\/check-linux-packages\.sh\s*$/m.test(S));
+  const Upload = Steps.findIndex((S) => /uses: actions\/upload-artifact@/.test(S));
+  assert.ok(Check >= 0, 'no step runs scripts/check-linux-packages.sh');
+  assert.ok(exists('scripts', 'check-linux-packages.sh'), 'the check script is missing');
+  assert.match(Steps[Check], /if: runner\.os == 'Linux'/);
+  assert.ok(Check < Upload, 'the check must pass before anything is uploaded');
+  // readelf (binutils) for the check, zip for the zip maker
+  const Tools = Steps.find((S) => /name: Install Linux packaging tools/.test(S));
+  assert.match(Tools, /apt-get install -y [^\n]*\bzip\b/);
+  assert.match(Tools, /apt-get install -y [^\n]*\bbinutils\b/);
 });
 
 // --- build-and-draft-release.yml: pre-releases -------------------------------------
