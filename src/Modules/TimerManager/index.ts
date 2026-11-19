@@ -4,13 +4,15 @@
 // in memory only, as in 1.x. Every change is announced on the broadcast bus:
 //   'TimersUpdated'  the full list changed (configuration or run state)
 //   'TimerEvent'     a timer crossed its warning or completion point
-// While any timer is ticking, a watch loop evaluates thresholds every
-// TIMER_EVALUATE_INTERVAL_MS and re-sends the list every TIMER_RESYNC_INTERVAL_MS
-// so surfaces re-anchor the display they animate locally.
+// While any timer is ticking, a watch loop sleeps until the next threshold any
+// of them will cross (a warning point or an end), or until the list is due to
+// be re-sent (every TIMER_RESYNC_INTERVAL_MS, so surfaces re-anchor the display
+// they animate locally), whichever is sooner. It does not poll in between, so
+// a completion is noticed within a millisecond or so of when it is due.
 import { CreateLogger } from '../Logger';
 import { Manager as BroadcastManager } from '../Broadcast';
 import { Manager as AppDb, type Database } from '../DB';
-import { TIMER_EVALUATE_INTERVAL_MS, TIMER_RESYNC_INTERVAL_MS } from '../Config/constants';
+import { TIMER_RESYNC_INTERVAL_MS } from '../Config/constants';
 import {
   DEFAULT_DURATION_MS,
   IsTicking,
@@ -182,7 +184,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
   let Timers: Timer[] = [];
   let Loaded = false;
   let Loading: Promise<void> | null = null;
-  let WatchTimer: ReturnType<typeof setInterval> | null = null;
+  let WatchTimer: ReturnType<typeof setTimeout> | null = null;
   let LastResync = 0;
 
   const Sorted = () =>
@@ -217,6 +219,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
   }
 
   function Tick(): void {
+    WatchTimer = null;
     const At = Now();
     let Changed = false;
     for (const T of Timers) {
@@ -227,19 +230,35 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
       Emit(Events);
     }
     if (Changed || At - LastResync >= TIMER_RESYNC_INTERVAL_MS) Announce();
-    if (!AnyTicking()) StopWatching();
+    EnsureWatching();
   }
 
+  /** How long the watch loop may sleep from `At` before something is due. */
+  function NextWakeDelay(At: number): number {
+    let Delay = Math.max(0, TIMER_RESYNC_INTERVAL_MS - (At - LastResync));
+    for (const T of Timers) {
+      const Next = T.MsUntilNextThreshold(At);
+      if (Next !== null && Next < Delay) Delay = Next;
+    }
+    // A timer can fire a hair early against performance.now(); 1 ms of slack
+    // lands just past the threshold instead of waking twice for it.
+    return Math.min(TIMER_RESYNC_INTERVAL_MS, Math.ceil(Delay) + 1);
+  }
+
+  // (Re)arm the watch loop for whatever is due next. Called after anything that
+  // can move a deadline (a start, a jump, an edit), so the sleep always matches
+  // the timers as they are now.
   function EnsureWatching(): void {
-    if (!AutoWatch || WatchTimer || !AnyTicking()) return;
-    WatchTimer = setInterval(Tick, TIMER_EVALUATE_INTERVAL_MS);
+    StopWatching();
+    if (!AutoWatch || !AnyTicking()) return;
+    WatchTimer = setTimeout(Tick, NextWakeDelay(Now()));
     // Never hold the process open on its own (tests, shutdown).
     WatchTimer.unref?.();
   }
 
   function StopWatching(): void {
     if (!WatchTimer) return;
-    clearInterval(WatchTimer);
+    clearTimeout(WatchTimer);
     WatchTimer = null;
   }
 
@@ -591,6 +610,9 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
 
     /** Run one evaluation pass now (tests drive the loop with this). */
     Tick,
+
+    /** How long the watch loop would sleep now (tests check the schedule with this). */
+    NextWakeDelay: () => NextWakeDelay(Now()),
   };
 
   // Whether Start begins this timer afresh rather than restarting it.

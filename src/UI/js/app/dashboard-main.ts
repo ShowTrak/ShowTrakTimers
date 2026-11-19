@@ -1,7 +1,9 @@
 // Web Dashboard entry point (bundled into WebDashboard/dashboard.js): a
 // read-only grid of timers in their groups, drawn with the same tile model as
 // the desktop app and animated locally between pushes.
-import { Anchor, ElapsedAt, PaintInterval, type AnchoredTimer } from './lib/anchor';
+import { Anchor, ElapsedAt, NextPaintDelay, type AnchoredTimer } from './lib/anchor';
+import { PaintTileElement } from './lib/tile-dom';
+import { CreatePaintLoop } from './lib/paint-loop';
 import { BuildTileModel } from './lib/timer-tile';
 import {
   NormalizeDashboardTimer,
@@ -9,14 +11,12 @@ import {
   WriteCachedTimers,
   type DashboardTimerLike,
 } from './lib/dashboard-cache';
-import type { TimerView } from '../../../common/timers';
+import { IsTicking, type TimerView } from '../../../common/timers';
 import { GroupTintHex } from '../../../common/groups';
 import { BuildGroupSections, SectionsKey, type GroupLike } from './lib/group-layout';
 
 let Anchored: AnchoredTimer<DashboardTimerLike>[] = [];
 let Online = false;
-let LastPaint = 0;
-let FrameRequested = false;
 let Groups: GroupLike[] = [];
 let LastTimers: DashboardTimerLike[] = [];
 let RenderedKey = '';
@@ -49,50 +49,32 @@ function TileElement(Timer: DashboardTimerLike): HTMLElement {
   return El;
 }
 
-function Paint(): void {
+function Paint(OnlyTicking = false): void {
   const At = performance.now();
-  LastPaint = At;
   for (const Entry of Anchored) {
+    if (OnlyTicking && !IsTicking(Entry.Timer.Status)) continue;
     const El = document.getElementById(`TIMER_${Entry.Timer.ID}`);
     if (!El) continue;
     // The tile model needs a full view; the dashboard only ever reads these.
-    const Model = BuildTileModel(
-      Entry.Timer as TimerView,
-      Online ? ElapsedAt(Entry, At) : Entry.Timer.ElapsedMs
+    PaintTileElement(
+      El,
+      BuildTileModel(
+        Entry.Timer as TimerView,
+        Online ? ElapsedAt(Entry, At) : Entry.Timer.ElapsedMs
+      )
     );
-    const ClassName = ['SHOWTRAK_TIMER', ...Model.Classes].join(' ');
-    if (El.className !== ClassName) El.className = ClassName;
-    const Set = (Role: string, Text: string) => {
-      const Node = El.querySelector<HTMLElement>(`[data-role="${Role}"]`);
-      if (Node && Node.textContent !== Text) Node.textContent = Text;
-    };
-    Set('name', Model.Name);
-    Set('status', Model.StatusText);
-    Set('primary', Model.Primary);
-    Set('secondary', Model.Secondary ? `/ ${Model.Secondary}` : '');
-    const Progress = El.querySelector<HTMLElement>('[data-role="progress"]');
-    if (Progress) {
-      Progress.classList.toggle('invisible', Model.Progress === null);
-      const Bar = Progress.firstElementChild as HTMLElement | null;
-      if (Bar) Bar.style.transform = `scaleX(${(Model.Progress ?? 0) / 100})`;
-    }
   }
 }
 
-function Ticking(): boolean {
-  return (
-    Online && Anchored.some((A) => A.Timer.Status === 'RUNNING' || A.Timer.Status === 'OVERRUN')
-  );
-}
+// While timers run, repaint the ticking tiles whenever one would next change.
+const Loop = CreatePaintLoop({
+  Delay: () => NextPaintDelay(Anchored, performance.now()),
+  Paint: () => Paint(true),
+  Active: () => Online,
+});
 
-function RequestFrame(): void {
-  if (FrameRequested) return;
-  FrameRequested = true;
-  requestAnimationFrame(() => {
-    FrameRequested = false;
-    if (performance.now() - LastPaint >= PaintInterval(Anchored.map((A) => A.Timer))) Paint();
-    if (Ticking()) RequestFrame();
-  });
+function SchedulePaint(): void {
+  Loop.Schedule();
 }
 
 function Render(Timers: DashboardTimerLike[]): void {
@@ -141,7 +123,7 @@ function Render(Timers: DashboardTimerLike[]): void {
   }
   Empty?.classList.toggle('d-none', Timers.length > 0);
   Paint();
-  if (Ticking()) RequestFrame();
+  SchedulePaint();
 }
 
 function SetOnline(Value: boolean): void {
@@ -152,7 +134,7 @@ function SetOnline(Value: boolean): void {
     Status.className = `dashboard-connection ${Value ? 'is-online' : 'is-offline'}`;
   }
   Paint();
-  if (Ticking()) RequestFrame();
+  SchedulePaint();
 }
 
 Render(ReadCachedTimers(Storage));
@@ -345,6 +327,7 @@ if (typeof io === 'function') {
 window.addEventListener('offline', () => SetOnline(false));
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) Paint();
+  SchedulePaint();
 });
 
 if ('serviceWorker' in navigator) {

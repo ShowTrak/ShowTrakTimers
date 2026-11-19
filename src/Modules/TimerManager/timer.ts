@@ -68,6 +68,31 @@ export class Timer {
     return Remaining > 0 && Remaining <= Lead;
   }
 
+  /**
+   * How long until this timer next crosses a threshold (its warning point or
+   * its end), in ms from `At`; null when it is not ticking towards one. The
+   * watch loop sleeps until the nearest of these instead of polling.
+   */
+  MsUntilNextThreshold(At: number = this.Now()): number | null {
+    if (!IsTicking(this.Status)) return null;
+    const Target = this.TargetMs();
+    if (Target === null) return null;
+    const Elapsed = this.ElapsedMs(At);
+    let Next: number | null = null;
+    const Lead = this.Config.WarningMs;
+    if (Lead && !this.WarningFired && Elapsed < Target) {
+      Next = Math.max(0, Target - Lead - Elapsed);
+    }
+    if (!this.CompletionFired) {
+      const ToEnd = Math.max(0, Target - Elapsed);
+      if (Next === null || ToEnd < Next) Next = ToEnd;
+    } else if (this.Config.EndBehaviour !== 'OVERRUN') {
+      // Past its end and told since to end some other way: due now.
+      Next = 0;
+    }
+    return Next;
+  }
+
   private Bank(At: number): void {
     this.AccumulatedMs = this.ElapsedMs(At);
     this.SegmentStart = null;

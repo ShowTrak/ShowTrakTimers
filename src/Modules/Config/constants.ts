@@ -7,13 +7,9 @@ export const DEFAULT_OSC_PORT = 3333;
 // Default TCP port the Web Dashboard is served on (WEB_DASHBOARD_PORT setting).
 export const DEFAULT_WEB_DASHBOARD_PORT = 4300;
 
-// How often the main process re-evaluates running timers (completion, warning
-// thresholds). Timing itself is wall-clock based, so this only bounds how late a
-// completion can be noticed, not how accurate the timers are.
-export const TIMER_EVALUATE_INTERVAL_MS = 50;
-
 // While any timer runs, a full snapshot is re-sent this often so every surface
-// re-anchors its interpolation (the display itself animates locally).
+// re-anchors its interpolation (the display itself animates locally). The
+// main process otherwise sleeps until the next warning or completion is due.
 export const TIMER_RESYNC_INTERVAL_MS = 1000;
 
 // The splash only appears if the main window is not ready this long after the

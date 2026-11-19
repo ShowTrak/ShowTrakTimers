@@ -2819,20 +2819,35 @@ body.is-web .mode-group .st-segmented-toggle-btn:disabled {
 }
 
 /* Inside the warning window: an amber pulse round the tile, whatever its
-   colour, like Server's identify pulse but in the warning hue. */
+   colour, like Server's identify pulse but in the warning hue. The ring is a
+   pseudo-element whose opacity is animated, so the compositor runs the pulse:
+   animating border-color and box-shadow on the tile itself restyled and
+   repainted it every frame, which on a show with a few timers in their warning
+   window cost more CPU and GPU than everything else on the page together. */
 @keyframes timer-warning-pulse {
   0%,
   100% {
-    border-color: rgb(var(--warning-rgb) / 0.35);
-    box-shadow: 0 0 0 0 rgb(var(--warning-rgb) / 0.45);
+    opacity: 0;
   }
   50% {
-    border-color: rgb(var(--warning-rgb) / 0.95);
-    box-shadow: 0 0 0 6px rgb(var(--warning-rgb) / 0);
+    opacity: 1;
   }
 }
 
 .SHOWTRAK_TIMER.WARNING {
+  border-color: rgb(var(--warning-rgb) / 0.35);
+}
+
+.SHOWTRAK_TIMER.WARNING::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border: 2px solid rgb(var(--warning-rgb) / 0.95);
+  border-radius: var(--tile-r);
+  box-shadow: 0 0 0 3px rgb(var(--warning-rgb) / 0.25);
+  pointer-events: none;
+  opacity: 0;
+  will-change: opacity;
   animation: timer-warning-pulse 1.2s ease-in-out infinite;
 }
 
@@ -2929,8 +2944,11 @@ body.is-web .mode-group .st-segmented-toggle-btn:disabled {
 
 @media (prefers-reduced-motion: reduce) {
   .SHOWTRAK_TIMER.WARNING {
-    animation: none;
     border-color: rgb(var(--warning-rgb) / 0.9);
+  }
+
+  .SHOWTRAK_TIMER.WARNING::after {
+    display: none;
   }
 
   .timer-tile-progress .progress-bar {
@@ -3179,6 +3197,9 @@ body.web-dashboard {
 body.is-offline .SHOWTRAK_TIMER {
   opacity: 0.4;
   filter: grayscale(1);
+}
+
+body.is-offline .SHOWTRAK_TIMER::after {
   animation: none;
 }
 

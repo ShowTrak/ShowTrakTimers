@@ -43,6 +43,8 @@ export const INVOKE_CHANNELS = [
   'Show:ResolveUpgrade',
   'Show:HasUnsavedData',
   'Show:EnsureFileExists',
+  'Show:TakeOpenRequest',
+  'Show:OpenRequested',
   'App:OpenBackupsFolder',
   'Sounds:List',
   'Sounds:Import',
@@ -65,6 +67,7 @@ export const PUSH_CHANNELS = [
   'Timer:Event',
   'Groups:Updated',
   'ShowFile:Updated',
+  'ShowFile:OpenRequested',
   'Settings:Updated',
   'Mode:Updated',
   'Notify',
@@ -146,6 +149,13 @@ export interface ShowFileUpgradeView {
   FileName: string;
   FileVersion: string | null;
   CurrentVersion: string;
+}
+
+/** A show file opened from the operating system, waiting on the operator. */
+export interface ShowFileRequestView {
+  FilePath: string;
+  /** Launch: it started the app. Running: it arrived while a show was open. */
+  Source: 'Launch' | 'Running';
 }
 
 export type ShowOpenOutcome =
@@ -292,6 +302,12 @@ export interface TimersAPI {
   HasUnsavedShowData(): Promise<boolean>;
   EnsureShowFileExists(): Promise<ResultTuple<{ Missing: boolean; FilePath?: string }>>;
   OnShowFile(Callback: (State: ShowFileStateView) => void): Unsubscribe;
+  /** The show file the operating system asked to open, if one is waiting. */
+  TakeShowFileRequest(): Promise<ResultTuple<ShowFileRequestView | null>>;
+  /** Open the file TakeShowFileRequest returned, once the operator has agreed. */
+  OpenRequestedShow(): Promise<ResultTuple<ShowOpenOutcome>>;
+  /** A show file was opened from the operating system: take it. */
+  OnShowFileRequest(Callback: () => void): Unsubscribe;
   OpenBackupsFolder(): Promise<void>;
 
   ListSounds(): Promise<LibrarySoundView[]>;

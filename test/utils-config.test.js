@@ -93,11 +93,7 @@ test('the shared constants are sane', () => {
   assert.equal(Constants.DEFAULT_OSC_PORT, 3333);
   assert.equal(Constants.DEFAULT_WEB_DASHBOARD_PORT, 4300);
   assert.notEqual(Constants.DEFAULT_OSC_PORT, Constants.DEFAULT_WEB_DASHBOARD_PORT);
-  assert.ok(Constants.TIMER_EVALUATE_INTERVAL_MS > 0);
-  assert.ok(
-    Constants.TIMER_RESYNC_INTERVAL_MS > Constants.TIMER_EVALUATE_INTERVAL_MS,
-    'the resync is less frequent than the evaluation'
-  );
+  assert.ok(Constants.TIMER_RESYNC_INTERVAL_MS > 0);
   assert.ok(Constants.PRELOADER_MIN_DISPLAY_MS > 0);
   assert.ok(Constants.MAIN_WINDOW_READY_TIMEOUT_MS > Constants.PRELOADER_SHOW_DELAY_MS);
   for (const Url of [Constants.DISCORD_INVITE_URL, Constants.WEBSITE_URL, Constants.GITHUB_URL]) {

@@ -801,3 +801,59 @@ test('the Warning flag is off while paused, overrunning, complete or with no war
   None.Clock.Advance(9999);
   assert.equal(None.T.ToView().Warning, false);
 });
+
+// --- When the next threshold is due -------------------------------------------
+// The watch loop sleeps until the nearest of these, so they must never be late:
+// a threshold reported further off than it is would fire late.
+
+test('a timer that is not ticking towards an end has no threshold due', () => {
+  assert.equal(Make().T.MsUntilNextThreshold(), null, 'standby');
+  const Stopwatch = Make({ Type: 'STOPWATCH', Duration: null });
+  Stopwatch.T.Start();
+  assert.equal(Stopwatch.T.MsUntilNextThreshold(), null, 'a stopwatch never ends');
+  const Paused = Make();
+  Paused.T.Start();
+  Paused.Clock.Advance(1000);
+  Paused.T.Pause();
+  assert.equal(Paused.T.MsUntilNextThreshold(), null, 'paused');
+});
+
+test('a running timer is due at its warning, then at its end', () => {
+  const { T, Clock } = Make({ Duration: 10000, WarningMs: 3000 });
+  T.Start();
+  assert.equal(T.MsUntilNextThreshold(), 7000);
+  Clock.Advance(6999);
+  assert.equal(T.MsUntilNextThreshold(), 1);
+  Clock.Advance(1);
+  assert.deepEqual(Kinds(T.Evaluate()), ['warning']);
+  assert.equal(T.MsUntilNextThreshold(), 3000);
+  Clock.Advance(3000);
+  assert.deepEqual(Kinds(T.Evaluate()), ['complete']);
+  assert.equal(T.MsUntilNextThreshold(), null, 'held at its end');
+});
+
+test('a threshold already passed is due now, never in the past', () => {
+  const { T, Clock } = Make({ Duration: 10000 });
+  T.Start();
+  Clock.Advance(12000);
+  assert.equal(T.MsUntilNextThreshold(), 0);
+});
+
+test('an overrunning timer has nothing more due, until told to end another way', () => {
+  const { T, Clock } = Make({ Duration: 1000, EndBehaviour: 'OVERRUN' });
+  T.Start();
+  Clock.Advance(1500);
+  T.Evaluate();
+  assert.equal(T.Status, 'OVERRUN');
+  assert.equal(T.MsUntilNextThreshold(), null);
+  T.Config = { ...T.Config, EndBehaviour: 'HOLD' };
+  assert.equal(T.MsUntilNextThreshold(), 0);
+});
+
+test('a looping timer is due at the end of each loop', () => {
+  const { T, Clock } = Make({ Duration: 1000, EndBehaviour: 'LOOP' });
+  T.Start();
+  Clock.Advance(1250);
+  T.Evaluate();
+  assert.equal(T.MsUntilNextThreshold(), 750);
+});

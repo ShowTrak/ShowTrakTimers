@@ -10,6 +10,16 @@ const {
   powerSaveBlocker,
   autoUpdater: NativeAutoUpdater,
 } = require('electron') as typeof import('electron');
+import {
+  HandleSquirrelFileAssociations,
+  OnShowFileRequest,
+  RequestShowFileOpen,
+  ShowFileFromArgv,
+} from './main/file-associations';
+// Squirrel runs the app with --squirrel-install/-updated/-uninstall around an
+// install; register (or remove) the .showtraktimers file association before
+// electron-squirrel-startup makes the shortcuts and the app quits.
+HandleSquirrelFileAssociations();
 if (require('electron-squirrel-startup')) app.quit();
 
 import { Manager as AppDataManager } from './Modules/AppData';
@@ -19,11 +29,31 @@ const Logger = CreateLogger('Main');
 import { installProcessGuards } from './main/process-guards';
 installProcessGuards();
 
-const GotTheLock = app.requestSingleInstanceLock();
+// The arguments go across as additionalData too: Chromium adds its own switches
+// to the argv that 'second-instance' reports, and can reorder it.
+const GotTheLock = app.requestSingleInstanceLock({ argv: process.argv, cwd: process.cwd() });
 if (!GotTheLock) {
   Logger.error('Another instance of ShowTrak Timers is already running. Exiting this instance.');
   app.quit();
   process.exit(0);
+}
+
+// Show files opened from the operating system, held until the renderer takes
+// them (see ./main/file-associations). macOS sends 'open-file', before 'ready'
+// when the file launched the app, so it is registered here rather than in
+// whenReady. Windows and Linux pass the path as an argument: ours at launch, or
+// a second instance's (see 'second-instance' below).
+app.on('open-file', (Event, FilePath) => {
+  Event.preventDefault();
+  Logger.log('Show file opened from the system:', FilePath);
+  RequestShowFileOpen(FilePath);
+});
+{
+  const LaunchFile = ShowFileFromArgv(process.argv.slice(1));
+  if (LaunchFile) {
+    Logger.log('Launched with show file:', LaunchFile);
+    RequestShowFileOpen(LaunchFile);
+  }
 }
 
 import path from 'path';
@@ -247,13 +277,32 @@ app.whenReady().then(async () => {
   MainWindow.on('closed', () => setMainWindow(null));
 });
 
-// A second launch focuses the running window instead of doing nothing.
-app.on('second-instance', () => {
+// A second launch focuses the running window instead of doing nothing, and
+// opens the show file it was given, if any.
+function FocusMainWindow(): void {
   const Window = getMainWindow();
-  if (!Window || !hasMainWindow()) return;
+  if (!Window || !hasMainWindow() || !Window.isVisible()) return;
   if (Window.isMinimized()) Window.restore();
   Window.show();
   Window.focus();
+}
+app.on('second-instance', (_Event, Argv, WorkingDirectory, Data) => {
+  const Handed = (Data && typeof Data === 'object' ? Data : {}) as {
+    argv?: unknown;
+    cwd?: unknown;
+  };
+  const FromData = Array.isArray(Handed.argv) ? (Handed.argv as unknown[]).slice(1) : null;
+  const Cwd = typeof Handed.cwd === 'string' ? Handed.cwd : WorkingDirectory;
+  const FilePath = ShowFileFromArgv(FromData ?? Argv.slice(1), Cwd);
+  FocusMainWindow();
+  if (FilePath) {
+    Logger.log('Show file handed over by a second instance:', FilePath);
+    RequestShowFileOpen(FilePath);
+  }
+});
+OnShowFileRequest(() => {
+  FocusMainWindow();
+  PushToRenderers('ShowFile:OpenRequested');
 });
 
 // Quit when the window closes, on every platform (as ShowTrak Server does):

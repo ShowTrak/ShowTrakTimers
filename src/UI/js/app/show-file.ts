@@ -126,6 +126,65 @@ export async function NewShow(): Promise<void> {
   await CreateNewShowFile();
 }
 
+// A show file opened from the operating system (double-clicked, or Open With).
+// Unsaved changes are offered a save first, as for File > Open. One that
+// arrives while a show is already open asks before replacing it; one that
+// launched the app opens straight away, as it is the show the operator asked
+// for. Requests are handled one after another (the start-up check and a push
+// can overlap). Resolves to what happened: 'Upgrade' leaves the upgrade prompt
+// up (not awaited, so start-up does not wait on the operator).
+let RequestQueue: Promise<unknown> = Promise.resolve();
+export function OpenRequestedShow(): Promise<'None' | 'Cancelled' | 'Opened' | 'Upgrade'> {
+  const Run = RequestQueue.then(async () => {
+    const [TakeErr, Request] = await window.API.TakeShowFileRequest();
+    if (TakeErr) {
+      void Notify(TakeErr, 'error');
+      return 'None' as const;
+    }
+    if (!Request) return 'None' as const;
+    const Name = ShowFileDisplayName(Request.FilePath);
+    if (ShowFile.Unsaved && ShowFile.FilePath) {
+      if (!(await SaveChangesFirst(`opening ${Name}`))) return 'Cancelled' as const;
+    } else if (!ShowFile.FilePath && (await window.API.HasUnsavedShowData())) {
+      // Timers from before show files, not saved anywhere yet.
+      const Choice = await ConfirmationDialog(
+        `Your existing timers are not saved in a show file yet. Save them before opening ${Name}?`,
+        { ConfirmLabel: 'Save', AltLabel: "Don't Save" }
+      );
+      if (Choice !== 'alt') {
+        if (Choice !== true) return 'Cancelled' as const;
+        const [SaveErr] = await window.API.SaveShowAs();
+        if (SaveErr) {
+          if (!Cancelled(SaveErr)) void Notify(SaveErr, 'error');
+          return 'Cancelled' as const;
+        }
+      }
+    } else if (Request.Source === 'Running' && ShowFile.FilePath) {
+      const Confirmed = await ConfirmationDialog(
+        `Open ${Name}? This closes ${ShowFileDisplayName(ShowFile.FilePath)}, the show that is running now.`,
+        { ConfirmLabel: 'Open Show File' }
+      );
+      if (!Confirmed) return 'Cancelled' as const;
+    }
+    const [Err, Outcome] = await window.API.OpenRequestedShow();
+    if (Err) {
+      if (!Cancelled(Err)) void Notify(Err, 'error');
+      return 'Cancelled' as const;
+    }
+    if (Outcome && Outcome.Status === 'UpgradeRequired') {
+      void PromptShowFileUpgrade(Outcome.Upgrade);
+      return 'Upgrade' as const;
+    }
+    ClearSelection();
+    closeModal('SHOWTRAK_MODAL_NO_SHOW');
+    closeModal('SHOWTRAK_MODAL_MIGRATE');
+    void Notify(`Opened ${Name}.`, 'success', 2000);
+    return 'Opened' as const;
+  });
+  RequestQueue = Run.catch(() => null);
+  return Run;
+}
+
 const NO_SHOW_DEFAULT_MESSAGE = 'Open an existing show file or create a new one to get started.';
 
 export function OpenNoShowPrompt(Message: string = NO_SHOW_DEFAULT_MESSAGE): void {
@@ -177,6 +236,9 @@ export function PromptShowFileUpgrade(Upgrade: ShowFileUpgradeView): Promise<voi
 /** The boot checks, run once the initial state has arrived. */
 export async function RunShowFileChecks(): Promise<void> {
   try {
+    // A show file the app was launched with replaces the last session's show
+    // before that is checked. Its upgrade prompt, if any, is the only question.
+    if ((await OpenRequestedShow()) === 'Upgrade') return;
     const [, Missing] = (await window.API.EnsureShowFileExists()) || [];
     const MissingPath = Missing && Missing.Missing ? Missing.FilePath : null;
     const Current = await window.API.GetCurrentShowFile();
@@ -198,6 +260,7 @@ export async function RunShowFileChecks(): Promise<void> {
 
 export function InitShowFile(): void {
   window.API.OnShowFile((State) => RenderShowFile(State));
+  window.API.OnShowFileRequest(() => void OpenRequestedShow());
   $('#NO_SHOW_OPEN').on('click', async () => {
     await OpenShow();
     if (await window.API.GetCurrentShowFile()) closeModal('SHOWTRAK_MODAL_NO_SHOW');

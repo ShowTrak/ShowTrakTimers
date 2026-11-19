@@ -859,6 +859,47 @@ test('Tick announces the list on a change and otherwise once per resync interval
   assert.equal(LastList(Bus)[0].Status, 'COMPLETE');
 });
 
+test('the watch loop sleeps until the next threshold or the next resync', async (t) => {
+  const { Manager, Clock } = await Setup(t);
+  const [, A] = await Manager.Create({ Type: 'COUNTDOWN', Duration: 600, WarningMs: 200 });
+  const [, B] = await Manager.Create({ Type: 'COUNTDOWN', Duration: 60000 });
+  await Manager.Control(B.ID, 'Start');
+  // Nothing due for a minute: just the resync.
+  assert.equal(Manager.NextWakeDelay(), TIMER_RESYNC_INTERVAL_MS);
+  await Manager.Control(A.ID, 'Start');
+  // A's warning at 400 ms (plus a millisecond of slack, never early).
+  assert.equal(Manager.NextWakeDelay(), 401);
+  Clock.Advance(400);
+  Manager.Tick();
+  // The warning was a change, announced: now A's end.
+  assert.equal(Manager.NextWakeDelay(), 201);
+  // An edit moves the deadline.
+  await Manager.Update(A.ID, { Duration: 450 });
+  assert.equal(Manager.NextWakeDelay(), 51);
+});
+
+test('the real watch loop fires a completion on time without polling', async (t) => {
+  const Temp = TempDatabase();
+  t.after(() => Temp.cleanup());
+  const Bus = RecordingBus();
+  const Manager = CreateTimerManager({ Db: Temp.Db, Broadcast: Bus });
+  t.after(() => Manager.Dispose());
+  const [, A] = await Manager.Create({ Type: 'COUNTDOWN', Duration: 120 });
+  const Started = performance.now();
+  await Manager.Control(A.ID, 'Start');
+  // The loop's timer is unref'd (it never holds the process open), so hold it
+  // open here while waiting.
+  const KeepAlive = setTimeout(() => {}, 5000);
+  const Completed = await new Promise((resolve) => {
+    Bus.once('TimerEvent', () => resolve(performance.now()));
+  });
+  clearTimeout(KeepAlive);
+  const Late = Completed - Started - 120;
+  assert.ok(Late >= -1, `fired ${-Late} ms early`);
+  assert.ok(Late < 100, `fired ${Late} ms late`);
+  assert.equal((await Manager.Get(A.ID)).Status, 'COMPLETE');
+});
+
 test('Tick only evaluates ticking timers and changes nothing when none are', async (t) => {
   const { Manager, Bus, Clock } = await Setup(t);
   const [, A] = await Manager.Create({ Type: 'COUNTDOWN', Duration: 1000 });

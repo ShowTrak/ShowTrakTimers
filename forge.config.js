@@ -97,6 +97,29 @@ module.exports = {
     extendInfo: {
       NSLocalNetworkUsageDescription:
         'ShowTrak Timers needs local network access to receive OSC commands and to serve the Web Dashboard to devices on your network.',
+      // .showtraktimers show files open in ShowTrak Timers from Finder
+      // (double-click, Open With, dropping on the Dock icon). The type is
+      // exported here, as ShowTrak Timers owns the format; the app receives the
+      // file through 'open-file' (src/main/file-associations.ts). Windows
+      // registers the same association from the Squirrel install hooks there.
+      CFBundleDocumentTypes: [
+        {
+          CFBundleTypeName: 'ShowTrak Timers Show File',
+          CFBundleTypeRole: 'Editor',
+          LSHandlerRank: 'Owner',
+          LSItemContentTypes: ['uk.co.showtrak.timers.show'],
+        },
+      ],
+      UTExportedTypeDeclarations: [
+        {
+          UTTypeIdentifier: 'uk.co.showtrak.timers.show',
+          UTTypeDescription: 'ShowTrak Timers Show File',
+          UTTypeConformsTo: ['public.data'],
+          UTTypeTagSpecification: {
+            'public.filename-extension': ['showtraktimers'],
+          },
+        },
+      ],
     },
     ...(shouldSignMac
       ? {

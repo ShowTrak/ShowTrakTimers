@@ -73,33 +73,92 @@ test('only clock differences matter, so any clock origin works', () => {
   assert.equal(ElapsedAt(Anchored, Origin + 900), 1000);
 });
 
-// --- Repaint rate -----------------------------------------------------------------
+// --- Repaint schedule ---------------------------------------------------------------
+// Surfaces sleep until a ticking tile would next show something different,
+// rather than repainting every tile on a fixed beat: a seconds readout changes
+// once a second, so that is how often it is drawn.
 
 const {
-  PaintInterval,
+  NextPaintDelay,
   PAINT_INTERVAL_MS,
   PAINT_INTERVAL_HUNDREDTHS_MS,
+  PAINT_MAX_DELAY_MS,
 } = require('../dist-test/UI/js/app/lib/anchor.js');
 
-test('timers repaint about ten times a second, faster only for running hundredths', () => {
-  assert.equal(PAINT_INTERVAL_MS, 100);
-  // Fast enough to look alive, well short of redrawing every hundredth.
-  assert.ok(PAINT_INTERVAL_HUNDREDTHS_MS >= 30 && PAINT_INTERVAL_HUNDREDTHS_MS < 100);
-  assert.equal(PaintInterval([]), PAINT_INTERVAL_MS);
-  assert.equal(PaintInterval([{ Status: 'RUNNING', ShowHundredths: false }]), PAINT_INTERVAL_MS);
-  assert.equal(
-    PaintInterval([{ Status: 'PAUSED', ShowHundredths: true }]),
-    PAINT_INTERVAL_MS,
-    'a paused timer shows its exact value and needs no animation'
-  );
-  for (const Status of ['RUNNING', 'OVERRUN']) {
+const At = (Timer, Now = 0) => Anchor({ Type: 'TIMER', Duration: 3_600_000, ...Timer }, Now);
+
+test('nothing ticking needs no repaint', () => {
+  assert.equal(NextPaintDelay([], 0), null);
+  for (const Status of ['STANDBY', 'PAUSED', 'COMPLETE']) {
     assert.equal(
-      PaintInterval([
-        { Status: 'STANDBY', ShowHundredths: false },
-        { Status, ShowHundredths: true },
-      ]),
-      PAINT_INTERVAL_HUNDREDTHS_MS,
+      NextPaintDelay([At({ Status, ElapsedMs: 1500, ShowHundredths: true })], 0),
+      null,
       Status
     );
+  }
+});
+
+test('a seconds readout is repainted just after its next second rolls over', () => {
+  // 1.5 s in: 00:01 until 2 s.
+  assert.equal(NextPaintDelay([At({ Status: 'RUNNING', ElapsedMs: 1500 })], 0), 501);
+  // Measured on the local clock since the snapshot arrived.
+  assert.equal(NextPaintDelay([At({ Status: 'RUNNING', ElapsedMs: 1500 }, 100)], 400), 201);
+  assert.equal(
+    NextPaintDelay(
+      [At({ Status: 'RUNNING', ElapsedMs: 1500, Type: 'STOPWATCH', Duration: null })],
+      0
+    ),
+    501
+  );
+});
+
+test("a countdown rolls over on its own duration's fraction of a second", () => {
+  // 3600.5 s: 3600 s left (rounded up) shows until 1.5 s in.
+  const Timer = At({ Status: 'RUNNING', ElapsedMs: 1000, Type: 'COUNTDOWN', Duration: 3_600_500 });
+  assert.equal(NextPaintDelay([Timer], 0), 501);
+});
+
+test('an overrunning timer rolls over on its duration too', () => {
+  const Timer = At({ Status: 'OVERRUN', ElapsedMs: 3_601_250, Duration: 3_600_500 });
+  // 0.75 s over: +00:00 until 1 s over.
+  assert.equal(NextPaintDelay([Timer], 0), 251);
+});
+
+test('hundredths repaint at their own rate, and the soonest timer wins', () => {
+  assert.ok(PAINT_INTERVAL_HUNDREDTHS_MS >= 30 && PAINT_INTERVAL_HUNDREDTHS_MS < 100);
+  assert.equal(
+    NextPaintDelay(
+      [
+        At({ Status: 'RUNNING', ElapsedMs: 1500 }),
+        At({ Status: 'RUNNING', ElapsedMs: 1500, ShowHundredths: true }),
+      ],
+      0
+    ),
+    PAINT_INTERVAL_HUNDREDTHS_MS
+  );
+  assert.equal(
+    NextPaintDelay(
+      [At({ Status: 'RUNNING', ElapsedMs: 1500 }), At({ Status: 'RUNNING', ElapsedMs: 1900 })],
+      0
+    ),
+    101
+  );
+});
+
+test("a short timer's bar is not left still for a whole second", () => {
+  // A 10 s countdown's bar moves every 10 ms; no faster than the bar rate.
+  const Timer = At({ Status: 'RUNNING', ElapsedMs: 1500, Type: 'COUNTDOWN', Duration: 10_000 });
+  assert.equal(NextPaintDelay([Timer], 0), PAINT_INTERVAL_MS + 1);
+  // A 200 s one moves every 200 ms.
+  assert.equal(
+    NextPaintDelay([At({ Status: 'RUNNING', ElapsedMs: 1500, Duration: 200_000 })], 0),
+    201
+  );
+});
+
+test('the delay is always a usable timeout', () => {
+  for (let Elapsed = 0; Elapsed < 3000; Elapsed += 0.25) {
+    const Delay = NextPaintDelay([At({ Status: 'RUNNING', ElapsedMs: Elapsed })], 0);
+    assert.ok(Number.isInteger(Delay) && Delay >= 1 && Delay <= PAINT_MAX_DELAY_MS, `${Elapsed}`);
   }
 });

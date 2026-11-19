@@ -979,6 +979,39 @@ test('the show-file checks pass the manager’s answers through', async () => {
   assert.deepEqual(await invoke('Show:EnsureFileExists'), [null, { Missing: false }]);
 });
 
+// A show file opened from the operating system: main holds it, the renderer
+// takes it and asks the operator, then has it opened. Only the taken file can
+// be opened, and only once.
+test('Show:TakeOpenRequest and Show:OpenRequested open only the file the system asked for', async () => {
+  const FA = require('../dist/main/file-associations');
+  FA.ResetShowFileRequestsForTests();
+  assert.deepEqual(await invoke('Show:TakeOpenRequest'), [null, null]);
+  assert.deepEqual(await invoke('Show:OpenRequested'), ['No show file is waiting to open', null]);
+
+  FA.RequestShowFileOpen('/shows/Other.showtraktimers');
+  assert.deepEqual(await invoke('Show:TakeOpenRequest'), [
+    null,
+    { FilePath: '/shows/Other.showtraktimers', Source: 'Running' },
+  ]);
+  assert.deepEqual(await invoke('Show:OpenRequested'), [
+    null,
+    { Status: 'Opened', FilePath: '/shows/Other.showtraktimers' },
+  ]);
+  assert.deepEqual(lastCall(showFile, 'RequestOpen').args, ['/shows/Other.showtraktimers']);
+  assert.deepEqual(await invoke('Show:OpenRequested'), ['No show file is waiting to open', null]);
+});
+
+test('Show:TakeOpenRequest leaves the file that is already open alone', async () => {
+  const FA = require('../dist/main/file-associations');
+  FA.ResetShowFileRequestsForTests();
+  showState.currentFile = '/shows/Main.showtraktimers';
+  FA.RequestShowFileOpen('/shows/Main.showtraktimers');
+  assert.deepEqual(await invoke('Show:TakeOpenRequest'), [null, null]);
+  const Before = showFile.__callsTo('RequestOpen').length;
+  assert.deepEqual(await invoke('Show:OpenRequested'), ['No show file is waiting to open', null]);
+  assert.equal(showFile.__callsTo('RequestOpen').length, Before);
+});
+
 test('App:OpenBackupsFolder opens the backups folder', async () => {
   await invoke('App:OpenBackupsFolder');
   assert.equal(appData.__callsTo('GetBackupsDirectory').length, 1);

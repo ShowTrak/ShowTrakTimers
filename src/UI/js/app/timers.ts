@@ -3,14 +3,11 @@
 // controls, the local animation loop, selection by clicking, drag-to-reorder
 // (and between groups) in EDIT mode, and what happens on a timer's warning or
 // completion (sound, notification).
-import { Anchor, ElapsedAt, PaintInterval, type AnchoredTimer } from './lib/anchor';
-import {
-  BuildTileModel,
-  DescribeTimerEvent,
-  SummariseTimers,
-  type TileModel,
-} from './lib/timer-tile';
-import type { TimerView } from '../../../common/timers';
+import { Anchor, ElapsedAt, NextPaintDelay, type AnchoredTimer } from './lib/anchor';
+import { PaintTileElement } from './lib/tile-dom';
+import { CreatePaintLoop } from './lib/paint-loop';
+import { BuildTileModel, DescribeTimerEvent, SummariseTimers } from './lib/timer-tile';
+import { IsTicking, type TimerView } from '../../../common/timers';
 import {
   GetGroupSpan,
   GroupTintHex,
@@ -38,8 +35,6 @@ import type { ControlAction, TimerEventView } from '../../../common/api';
 
 let Anchored: AnchoredTimer<TimerView>[] = [];
 let RenderedKey = '';
-let FrameRequested = false;
-let LastPaint = 0;
 
 const Now = () => performance.now();
 
@@ -72,69 +67,28 @@ function TileHtml(Timer: TimerView): string {
   </div>`;
 }
 
-// Apply a model to a tile, touching only what changed.
-function PaintTile(El: HTMLElement, Model: TileModel): void {
-  // The selection ring and the drag state are the page's, not the model's.
-  const Extra: string[] = [];
-  if (IsSelected(Model.ID)) Extra.push('SELECTED');
-  if (Model.ID === DraggingID) Extra.push('dragging');
-  const ClassName = ['SHOWTRAK_TIMER', ...Model.Classes, ...Extra].join(' ');
-  if (El.className !== ClassName) El.className = ClassName;
-  const Set = (Role: string, Text: string) => {
-    const Node = El.querySelector<HTMLElement>(`[data-role="${Role}"]`);
-    if (Node && Node.textContent !== Text) Node.textContent = Text;
-  };
-  Set('name', Model.Name);
-  Set('status', Model.StatusText);
-  Set('primary', Model.Primary);
-  Set('secondary', Model.Secondary ? `/ ${Model.Secondary}` : '');
-  const Progress = El.querySelector<HTMLElement>('[data-role="progress"]');
-  if (Progress) {
-    Progress.classList.toggle('invisible', Model.Progress === null);
-    const Bar = Progress.firstElementChild as HTMLElement | null;
-    // Scaled rather than resized, as Server's tile bars are: no layout per frame.
-    const Scale = `scaleX(${(Model.Progress ?? 0) / 100})`;
-    if (Bar && Bar.style.transform !== Scale) Bar.style.transform = Scale;
-  }
-  for (const Button of El.querySelectorAll<HTMLElement>('[data-action]')) {
-    const Action = Button.getAttribute('data-action');
-    const Visible =
-      Action === 'Start'
-        ? Model.Controls.Start
-        : Action === 'Unpause'
-          ? Model.Controls.Resume
-          : Action === 'Pause'
-            ? Model.Controls.Pause
-            : Action === 'Stop'
-              ? Model.Controls.Stop
-              : true;
-    Button.classList.toggle('d-none', !Visible);
-  }
-}
-
-function Paint(): void {
+function Paint(OnlyTicking = false): void {
   const At = Now();
-  LastPaint = At;
   for (const Entry of Anchored) {
+    if (OnlyTicking && !IsTicking(Entry.Timer.Status)) continue;
     const El = document.getElementById(`TIMER_${Entry.Timer.ID}`);
-    if (El) PaintTile(El, BuildTileModel(Entry.Timer, ElapsedAt(Entry, At)));
+    if (!El) continue;
+    // The selection ring and the drag state are the page's, not the model's.
+    const Extra: string[] = [];
+    if (IsSelected(Entry.Timer.ID)) Extra.push('SELECTED');
+    if (Entry.Timer.ID === DraggingID) Extra.push('dragging');
+    PaintTileElement(El, BuildTileModel(Entry.Timer, ElapsedAt(Entry, At)), Extra);
   }
 }
 
-function AnyTicking(): boolean {
-  return Anchored.some((A) => A.Timer.Status === 'RUNNING' || A.Timer.Status === 'OVERRUN');
-}
+// While timers run, repaint the ticking tiles whenever one would next change.
+const Loop = CreatePaintLoop({
+  Delay: () => NextPaintDelay(Anchored, Now()),
+  Paint: () => Paint(true),
+});
 
-function Loop(): void {
-  FrameRequested = false;
-  if (Now() - LastPaint >= PaintInterval(CurrentTimers())) Paint();
-  if (AnyTicking()) RequestFrame();
-}
-
-function RequestFrame(): void {
-  if (FrameRequested) return;
-  FrameRequested = true;
-  requestAnimationFrame(Loop);
+function SchedulePaint(): void {
+  Loop.Schedule();
 }
 
 // The Default group's rail and drop zone are keyed 'default' rather than by ID.
@@ -218,9 +172,11 @@ function RenderStructure(): void {
         }
       }
     }
+    // Only new tiles need these; the once-a-second resync while timers run
+    // leaves the structure as it was and skips them.
+    ApplyEditMode();
+    ReconcileSelection();
   }
-  ApplyEditMode();
-  ReconcileSelection();
 }
 
 // The group colour strength preference, as Server applies it.
@@ -251,7 +207,7 @@ export function ApplyTimers(Timers: TimerView[]): void {
   RenderStructure();
   Paint();
   UpdateBottomBar();
-  if (AnyTicking()) RequestFrame();
+  SchedulePaint();
 }
 
 // --- Controls ---------------------------------------------------------------
@@ -481,10 +437,8 @@ export function InitTimers(): void {
   window.API.OnTimerEvent((Event) => HandleTimerEvent(Event));
   window.API.OnWebDashboardClientCount(() => UpdateBottomBar());
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) {
-      Paint();
-      if (AnyTicking()) RequestFrame();
-    }
+    if (!document.hidden) Paint();
+    SchedulePaint();
   });
 }
 

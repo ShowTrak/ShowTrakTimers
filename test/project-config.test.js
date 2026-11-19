@@ -106,6 +106,14 @@ test('macOS is told why the app wants the local network', () => {
   assert.match(Info.NSLocalNetworkUsageDescription, /Web Dashboard/);
 });
 
+test('macOS opens .showtraktimers files in ShowTrak Timers', () => {
+  const Info = loadForgeConfig('darwin').packagerConfig.extendInfo;
+  const [Type] = Info.UTExportedTypeDeclarations;
+  assert.deepEqual(Type.UTTypeTagSpecification['public.filename-extension'], ['showtraktimers']);
+  assert.deepEqual(Info.CFBundleDocumentTypes[0].LSItemContentTypes, [Type.UTTypeIdentifier]);
+  assert.equal(Info.CFBundleDocumentTypes[0].LSHandlerRank, 'Owner');
+});
+
 test('signing and notarisation switch on only with their credentials', () => {
   const Unsigned = loadForgeConfig('darwin').packagerConfig;
   assert.equal('osxSign' in Unsigned, false);
