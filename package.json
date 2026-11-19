@@ -2,7 +2,7 @@
   "name": "showtrak-timers",
   "productName": "ShowTrak Timers",
   "private": true,
-  "version": "2.0.0-beta.2",
+  "version": "2.0.0-beta.3",
   "description": "OSC controlled show timers, part of the ShowTrak ecosystem.",
   "main": "dist/boot.js",
   "scripts": {

@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.0.0-beta.3] - 2026-11-18
+
+### Added
+
+- Groups, as in ShowTrak Server: a name, a colour that tints the group's box, a
+  width on the group column grid, an OSC slug and a selection key (number row or
+  numpad). Timers not in a group are in the Default group. Manage them under
+  Groups (EDIT mode, `Ctrl/Cmd+G`); move timers by dragging between groups, from
+  the right-click menu or in the timer editor. New Preferences tab, Layout:
+  Group Columns, Group Colour Saturation, Clear Selection After Actions.
+- OSC group routes: `/ShowTrak/Group/<Slug>/Start`, `Stop`, `Pause`, `Unpause`
+  and `Resume` (`Default` for the Default group). The OSC Reference lists every
+  group's slug.
+- Selection: click a timer, or a group's rail or number key; `Ctrl/Cmd+A` selects
+  all, `Ctrl/Cmd+D` or `Escape` clears.
+- Right-click menu for the selection: start, pause, resume and stop, plus edit,
+  move to group and delete in EDIT mode, with their shortcuts shown.
+  `Ctrl/Cmd+Shift+M`, the Menu key or `Shift+F10` open it from the keyboard.
+- Shortcuts for the selection: `Ctrl/Cmd+Enter` start, `Ctrl/Cmd+P` pause,
+  `Ctrl/Cmd+R` resume, `Ctrl/Cmd+.` stop. Starting a selection never restarts a
+  timer that is already running or paused.
+- Show files (`.showtraktimers`), as in ShowTrak Server: New, Open, Save and Save
+  As (show file menu and the macOS File menu), the open file's name in the title
+  bar (with `*` while it has unsaved changes), Autosave, and a backup before a file
+  saved by an older version is upgraded. On first start you are asked where to
+  save your existing timers.
+- The Web Dashboard shows timers in their groups, tinted with the group colours.
+
+### Changed
+
+- Machine settings (Automatic Updates, Update Channel, Auto Maximise, Stop
+  Accidental Shutdowns, Autosave) are kept with the computer, not the show file.
+  Values set in earlier versions are kept.
+- `Ctrl/Cmd+N` is New Show File, as in ShowTrak Server. New Timer is now
+  `Ctrl/Cmd+Shift+N`.
+- On macOS the View menu no longer reloads the window on `Cmd+R` (now Resume).
+- Open Logs Folder moved to the show file menu, beside Open Backups Folder.
+
 ## [2.0.0-beta.2] - 2026-11-18
 
 ### Changed
@@ -143,6 +181,7 @@ test, lint and release tooling, the same update system, and the same look.
 - Data storage:
   - SQLite-backed persistence layer and DB module foundation.
 
+[2.0.0-beta.3]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.2...v2.0.0-beta.3
 [2.0.0-beta.2]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.1...v2.0.0-beta.2
 [2.0.0-beta.1]: https://github.com/ShowTrak/ShowTrakTimers/compare/v1.2.0...v2.0.0-beta.1
 [1.1.1]: https://github.com/ShowTrak/ShowTrakTimers/compare/v1.1.0...v1.1.1
