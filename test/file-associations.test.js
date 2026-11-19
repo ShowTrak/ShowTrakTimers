@@ -76,7 +76,7 @@ test('Squirrel install and update register the association against the stub exe'
     assert.equal(Action, 'register');
     const Command = Calls.find((A) => A[1].endsWith('\\shell\\open\\command'));
     assert.ok(Command, 'writes the open command');
-    assert.match(Command[4], /showtrak_timers\/ShowTrak Timers\.exe" "%1"$/);
+    assert.match(Command[4], /showtrak_timers[\\/]ShowTrak Timers\.exe" "%1"$/);
     assert.doesNotMatch(Command[4], /app-2\.0\.0/, 'not the versioned folder Squirrel deletes');
     assert.ok(
       Calls.some(
