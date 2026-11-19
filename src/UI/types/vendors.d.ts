@@ -14,6 +14,8 @@ interface HowlOptions {
   loop?: boolean;
   preload?: boolean;
   html5?: boolean;
+  onloaderror?: () => void;
+  onplayerror?: () => void;
 }
 
 interface Howl {

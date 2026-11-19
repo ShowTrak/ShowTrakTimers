@@ -115,7 +115,11 @@ test('SoundLabel names no sound "None"', () => {
   assert.equal(SoundLabel(null, []), 'None');
   assert.equal(SoundLabel('', []), 'None');
   assert.equal(SoundLabel('not-a-ref', []), 'None');
-  assert.equal(SoundLabel('builtin:unknown', []), 'None');
+  assert.equal(SoundLabel('builtin:Not A Name', []), 'None');
+});
+
+test('SoundLabel names a built-in this version does not have after the default it plays', () => {
+  assert.equal(SoundLabel('builtin:unknown', []), 'Chime');
 });
 
 test('SoundLabel names a built-in sound by its label', () => {

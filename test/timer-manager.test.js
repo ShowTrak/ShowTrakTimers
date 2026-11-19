@@ -114,7 +114,7 @@ test('Create normalises every field it is given', async (t) => {
     CompletionSound: ' builtin:alert_2 ',
     CompletionToast: 0,
     WarningMs: '30000',
-    WarningSound: 'builtin:nope',
+    WarningSound: 'builtin:Nope!',
     WarningToast: 1,
   });
   assert.equal(Err, null);
@@ -654,7 +654,8 @@ test('stored rows with odd values load normalised', async (t) => {
   assert.equal(Odd.Duration, null);
   assert.equal(Odd.ShowOnWeb, false);
   assert.equal(Odd.EndBehaviour, 'HOLD');
-  assert.equal(Odd.CompletionSound, null);
+  // A built-in this version does not have still asked for a sound: the default.
+  assert.equal(Odd.CompletionSound, 'builtin:alert_1');
   assert.equal(Odd.CompletionToast, true);
   assert.equal(Odd.WarningMs, null);
   assert.equal(Odd.WarningSound, null);

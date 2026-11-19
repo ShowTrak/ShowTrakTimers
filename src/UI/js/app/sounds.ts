@@ -1,12 +1,13 @@
 // Alert sounds: playing a timer's warning/completion sound, previewing one, and
 // the Sound Library modal (laid out like ShowTrak Server's Audio Assets).
-import { ParseSoundRef } from '../../../common/sounds';
+import { DEFAULT_SOUND, ParseSoundRef } from '../../../common/sounds';
 import { Sounds, setSounds } from './state';
 import { GetAlertVolume, HandleNonFatalError, Safe } from './utils';
 import { Notify, ConfirmationDialog } from './lib/toasts';
 import { openModal } from './lib/modal';
 import { CloseAllModals } from './modals';
 import { BuildSoundOptions, FormatSoundSize } from './lib/sound-options';
+import { AlertSound } from './lib/alert-sound';
 import type { LibrarySoundView } from '../../../common/api';
 
 // The built-in sounds: AAC first (small), WAV as the fallback for a browser that
@@ -16,11 +17,11 @@ const BUILTIN_SOURCES: Record<string, string[]> = {
   alert_2: ['audio/alert_2.m4a', 'audio/alert_2.wav'],
   alert_3: ['audio/alert_3.m4a', 'audio/alert_3.wav'],
 };
-const FALLBACK_SOUND = 'alert_1';
+const FALLBACK_SOUND = DEFAULT_SOUND.Name;
 
 const BuiltinHowls: Record<string, Howl> = {};
-// Imported sounds, by ID, with the volume they were loaded at.
-const AssetHowls = new Map<string, { Howl: Howl; Volume: number }>();
+// Imported sounds, by ID, each with the volume it was loaded at.
+const AssetHowls = new Map<string, AlertSound>();
 let PreviewHowl: Howl | null = null;
 
 function Builtin(Name: string): Howl | null {
@@ -37,54 +38,63 @@ function DropAssetHowl(ID: string): void {
   const Entry = AssetHowls.get(ID);
   if (!Entry) return;
   AssetHowls.delete(ID);
-  if (Entry.Howl.playing()) Entry.Howl.once('end', () => Entry.Howl.unload());
-  else Entry.Howl.unload();
+  const Player = Entry.Player as Howl;
+  if (Player.playing()) Player.once('end', () => Player.unload());
+  else Player.unload();
 }
 
 function DropAllAssetHowls(): void {
   for (const ID of [...AssetHowls.keys()]) DropAssetHowl(ID);
 }
 
-async function Asset(ID: string): Promise<{ Howl: Howl; Volume: number } | null> {
+async function Asset(ID: string): Promise<AlertSound | null> {
   if (typeof Howl === 'undefined') return null;
   const Cached = AssetHowls.get(ID);
   if (Cached) return Cached;
   const [Err, Data] = await window.API.GetSoundData(ID);
   if (Err || !Data) return null;
-  const Entry = { Howl: new Howl({ src: [Data.DataURL] }), Volume: Data.Volume / 100 };
+  // A file that will not decode or play is replaced by the built-in chime and
+  // forgotten, so the next alert tries it afresh (it may have been re-imported).
+  const Entry: AlertSound = new AlertSound(
+    (Events) => new Howl({ src: [Data.DataURL], ...Events }),
+    Data.Volume / 100,
+    () => PlayBuiltin(FALLBACK_SOUND),
+    () => {
+      if (AssetHowls.get(ID) === Entry) AssetHowls.delete(ID);
+      Entry.Player.unload();
+    }
+  );
   AssetHowls.set(ID, Entry);
   return Entry;
 }
 
-// Resolve a sound reference to something playable. An imported sound that has
-// gone (deleted, file missing) falls back to the built-in chime: an alert the
-// operator asked for is never silently dropped.
-async function Resolve(Ref: string | null): Promise<{ Howl: Howl; Volume: number } | null> {
-  const Parsed = ParseSoundRef(Ref);
-  if (!Parsed) return null;
-  if (Parsed.Kind === 'asset') {
-    const Found = await Asset(Parsed.ID);
-    if (Found) return Found;
-    const Fallback = Builtin(FALLBACK_SOUND);
-    return Fallback ? { Howl: Fallback, Volume: 1 } : null;
-  }
-  const Sound = Builtin(Parsed.Sound.Name);
-  return Sound ? { Howl: Sound, Volume: 1 } : null;
-}
-
-function Play(Entry: { Howl: Howl; Volume: number }): Howl {
-  const { Howl: Sound, Volume } = Entry;
+function PlayBuiltin(Name: string): Howl | null {
+  const Sound = Builtin(Name);
+  if (!Sound) return null;
   if (Sound.state() === 'unloaded') Sound.load();
-  Sound.volume(Math.min(1, GetAlertVolume() * Volume));
+  Sound.volume(Math.min(1, GetAlertVolume()));
   Sound.play();
   return Sound;
+}
+
+// Play a sound reference. An imported sound that has gone (deleted, file
+// missing) or will not play, and a built-in name this version does not have,
+// play the built-in chime instead: an alert the operator asked for is never
+// silently dropped. Returns the player, so a preview can be stopped.
+async function PlayRef(Ref: string | null): Promise<Howl | null> {
+  const Parsed = ParseSoundRef(Ref);
+  if (!Parsed) return null;
+  if (Parsed.Kind === 'builtin') return PlayBuiltin(Parsed.Sound.Name);
+  const Found = await Asset(Parsed.ID);
+  if (!Found) return PlayBuiltin(FALLBACK_SOUND);
+  Found.Play(GetAlertVolume());
+  return Found.Broken ? null : (Found.Player as Howl);
 }
 
 /** Play a timer's sound (warning or completion). */
 export async function PlaySoundRef(Ref: string | null): Promise<void> {
   try {
-    const Entry = await Resolve(Ref);
-    if (Entry) Play(Entry);
+    await PlayRef(Ref);
   } catch (Err) {
     HandleNonFatalError('Sounds:Play', Err);
   }
@@ -95,8 +105,7 @@ export async function PreviewSoundRef(Ref: string | null): Promise<void> {
   try {
     PreviewHowl?.stop();
     PreviewHowl = null;
-    const Entry = await Resolve(Ref);
-    if (Entry) PreviewHowl = Play(Entry);
+    PreviewHowl = await PlayRef(Ref);
   } catch (Err) {
     HandleNonFatalError('Sounds:Preview', Err);
   }

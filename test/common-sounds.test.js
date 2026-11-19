@@ -11,6 +11,7 @@ const path = require('node:path');
 
 const {
   BUILTIN_SOUNDS,
+  DEFAULT_SOUND,
   ParseSoundRef,
   NormalizeSoundRef,
   BuiltinSoundRef,
@@ -36,10 +37,18 @@ test('ParseSoundRef resolves every built-in sound by name', () => {
   }
 });
 
-test('ParseSoundRef rejects a built-in name that does not exist', () => {
-  assert.equal(ParseSoundRef('builtin:nope'), null);
+test('ParseSoundRef plays the default sound for a built-in name this version does not have', () => {
+  // A sound since removed, or one from a later version: it still asked for a sound.
+  assert.equal(DEFAULT_SOUND.Name, 'alert_1');
+  assert.deepEqual(ParseSoundRef('builtin:nope'), { Kind: 'builtin', Sound: DEFAULT_SOUND });
+  assert.deepEqual(ParseSoundRef('builtin:alert_9'), { Kind: 'builtin', Sound: DEFAULT_SOUND });
+});
+
+test('ParseSoundRef rejects a built-in reference that is not a sound name at all', () => {
   assert.equal(ParseSoundRef('builtin:'), null);
   assert.equal(ParseSoundRef('builtin:ALERT_1'), null);
+  assert.equal(ParseSoundRef('builtin:../alert_1'), null);
+  assert.equal(ParseSoundRef(`builtin:${'a'.repeat(33)}`), null);
 });
 
 test('ParseSoundRef accepts lowercase asset ids, including the UUIDs the Sound Library makes', () => {
@@ -92,7 +101,8 @@ test('ParseSoundRef ignores surrounding whitespace', () => {
 test('NormalizeSoundRef returns the canonical reference, or null for no sound', () => {
   assert.equal(NormalizeSoundRef(' builtin:alert_1 '), 'builtin:alert_1');
   assert.equal(NormalizeSoundRef('asset:abc-123'), 'asset:abc-123');
-  assert.equal(NormalizeSoundRef('builtin:nope'), null);
+  assert.equal(NormalizeSoundRef('builtin:nope'), 'builtin:alert_1');
+  assert.equal(NormalizeSoundRef('builtin:Nope!'), null);
   assert.equal(NormalizeSoundRef('asset:BAD'), null);
   assert.equal(NormalizeSoundRef(null), null);
   assert.equal(NormalizeSoundRef(''), null);

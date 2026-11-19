@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [Unreleased]
+
+### Fixed
+
+- A timer whose alert sound cannot be played now plays the built-in Chime
+  instead of staying silent. Before, this covered only a Sound Library sound
+  that had been deleted or whose file was missing, as when a show opens on
+  another computer. It now also covers a sound file that is there but will not
+  decode or play, and a built-in sound name this version does not have.
+
 ## [2.0.0] - 2026-11-19
 
 The first stable release of ShowTrak Timers 2. It brings everything from
@@ -326,6 +336,7 @@ test, lint and release tooling, the same update system, and the same look.
 - Data storage:
   - SQLite-backed persistence layer and DB module foundation.
 
+[Unreleased]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0...HEAD
 [2.0.0]: https://github.com/ShowTrak/ShowTrakTimers/compare/v1.2.0...v2.0.0
 [2.0.0-beta.7]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.6...v2.0.0-beta.7
 [2.0.0-beta.6]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.5...v2.0.0-beta.6
