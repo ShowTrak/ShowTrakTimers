@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.0.0-beta.5] - 2026-11-19
+
+### Added
+
+- Keyboard shortcuts for Start All Timers (`Ctrl/Cmd+Shift+Enter`) and Stop All
+  Timers (`Ctrl/Cmd+Shift+.`). As from the menus, both ask first.
+- The + button (EDIT mode) opens a menu: New Timer, New Group and Manage Groups.
+  New Group is also in the macOS Timers menu.
+
+### Changed
+
+- In a small window (narrower than 992px) every group is full width, whatever
+  its width setting, so no group is squeezed narrower than a timer.
+- The right-click menu no longer offers Move to Group, Delete or Manage Groups.
+  Move timers by dragging them or in the timer editor; delete a timer from its
+  editor; manage groups from the + menu or `Ctrl/Cmd+G`.
+
+### Fixed
+
+- The background behind an open window (Preferences, editors) no longer shows
+  visible bands; the dimmed gradient is smooth.
+
 ## [2.0.0-beta.4] - 2026-11-19
 
 ### Added
@@ -196,6 +218,7 @@ test, lint and release tooling, the same update system, and the same look.
 - Data storage:
   - SQLite-backed persistence layer and DB module foundation.
 
+[2.0.0-beta.5]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.4...v2.0.0-beta.5
 [2.0.0-beta.4]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.3...v2.0.0-beta.4
 [2.0.0-beta.3]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.2...v2.0.0-beta.3
 [2.0.0-beta.2]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.1...v2.0.0-beta.2
