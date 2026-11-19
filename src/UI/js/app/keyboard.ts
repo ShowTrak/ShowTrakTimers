@@ -55,6 +55,8 @@ const PAGE_ONLY: ReadonlySet<ShortcutCommand> = new Set<ShortcutCommand>([
 // Menu-bar commands (and the modal-opening ones) by the action they share
 // with the bottom-bar menu.
 const MENU_ACTIONS: Partial<Record<ShortcutCommand, string>> = {
+  START_ALL: 'MENU_START_ALL',
+  STOP_ALL: 'MENU_STOP_ALL',
   PAUSE_ALL: 'MENU_PAUSE_ALL',
   RESUME_ALL: 'MENU_RESUME_ALL',
   NEW_SHOW: 'SHOWTRAK_MENU_NEW_SHOW',

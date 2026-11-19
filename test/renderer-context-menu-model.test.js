@@ -12,7 +12,6 @@ const {
   SelectionActionApplies,
 } = require('../dist-test/UI/js/app/lib/context-menu-model.js');
 const { SHORTCUT_KEYS } = require('../dist-test/UI/js/app/lib/shortcuts.js');
-const { GROUP_COLOURS } = require('../dist-test/common/groups.js');
 
 const STATUSES = ['STANDBY', 'RUNNING', 'PAUSED', 'COMPLETE', 'OVERRUN'];
 const GROUPS = [
@@ -171,70 +170,18 @@ test('in EDIT mode one timer can be edited, several cannot', () => {
   );
 });
 
-test('Move to Group lists every group, then Default, coloured as their groups', () => {
-  const Rows = rows({ Selected: [timer({ GroupID: 1 }), timer({ GroupID: null })], Mode: 'EDIT' });
-  const Header = Rows.findIndex((R) => R.Type === 'Header' && R.Title === 'Move to Group');
-  assert.ok(Header > 0);
-  const Moves = byAction(Rows, 'SELECTION_MOVE');
-  assert.deepEqual(
-    Moves.map((R) => [R.GroupID, R.Title]),
-    [
-      [1, 'Stage'],
-      [2, 'FOH'],
-      [null, 'Default'],
-    ]
-  );
-  assert.equal(Moves[0].IconColour, GROUP_COLOURS[4].hex);
-  assert.equal(Moves[1].IconColour, undefined);
-  assert.equal(Moves[2].IconColour, undefined);
-  // A selection spread over two groups can move to any of them.
-  assert.deepEqual(
-    Moves.map((R) => R.Disabled),
-    [false, false, false]
-  );
-  for (const Move of Moves) assert.equal(Move.ActsOnSelection, true);
-});
-
-test('the group every selected timer is already in is disabled', () => {
-  const InStage = byAction(
-    rows({ Selected: [timer({ GroupID: 1 }), timer({ GroupID: 1 })], Mode: 'EDIT' }),
-    'SELECTION_MOVE'
-  );
-  assert.deepEqual(
-    InStage.map((R) => R.Disabled),
-    [true, false, false]
-  );
-  // A timer whose group is gone is in the Default group.
-  const Orphan = byAction(
-    rows({ Selected: [timer({ GroupID: 99 })], Mode: 'EDIT' }),
-    'SELECTION_MOVE'
-  );
-  assert.deepEqual(
-    Orphan.map((R) => R.Disabled),
-    [false, false, true]
-  );
-});
-
-test('Delete is labelled for one timer or the number selected', () => {
-  const Single = one(rows({ Selected: [timer()], Mode: 'EDIT' }), 'SELECTION_DELETE');
-  assert.equal(Single.Title, 'Delete Timer');
-  assert.equal(Single.Class, 'text-danger');
-  assert.equal(Single.ActsOnSelection, true);
-  assert.equal(
-    one(rows({ Selected: [timer(), timer(), timer()], Mode: 'EDIT' }), 'SELECTION_DELETE').Title,
-    'Delete 3 Timers'
-  );
+test('the menu does not move, delete or manage: Edit Timer and the Groups menu do that', () => {
+  for (const Selected of [[], [timer()], [timer(), timer()]]) {
+    for (const RailGroupID of [undefined, null, 1]) {
+      const Rows = rows({ Selected, Mode: 'EDIT', RailGroupID });
+      assert.ok(!Rows.some((R) => /Move to Group|Delete|Manage Groups/.test(R.Title ?? '')));
+    }
+  }
 });
 
 test('rows that do not act on the selection never clear it', () => {
   const Rows = rows({ Selected: [timer()], Mode: 'EDIT', RailGroupID: 1 });
-  for (const Action of [
-    'SELECTION_EDIT',
-    'SELECT_ALL',
-    'CLEAR_SELECTION',
-    'EDIT_GROUP',
-    'MANAGE_GROUPS',
-  ]) {
+  for (const Action of ['SELECTION_EDIT', 'SELECT_ALL', 'CLEAR_SELECTION', 'EDIT_GROUP']) {
     assert.ok(!one(Rows, Action).ActsOnSelection, Action);
   }
 });
@@ -255,6 +202,8 @@ test('with nothing selected the menu offers the all-timers actions', () => {
     assert.equal(one(Rows, Action).Disabled, false, Action);
     assert.ok(!one(Rows, Action).ActsOnSelection, Action);
   }
+  assert.equal(one(Rows, 'ALL_START').Shortcut, SHORTCUT_KEYS.StartAll);
+  assert.equal(one(Rows, 'ALL_STOP').Shortcut, SHORTCUT_KEYS.StopAll);
   assert.equal(one(Rows, 'ALL_PAUSE').Shortcut, SHORTCUT_KEYS.PauseAll);
   assert.equal(one(Rows, 'ALL_RESUME').Shortcut, SHORTCUT_KEYS.ResumeAll);
 });
@@ -274,7 +223,6 @@ test('New Timer and New Group are EDIT mode only', () => {
   const Edit = rows({ Mode: 'EDIT' });
   assert.equal(one(Edit, 'NEW_TIMER').Shortcut, SHORTCUT_KEYS.NewTimer);
   one(Edit, 'NEW_GROUP');
-  assert.equal(one(Edit, 'MANAGE_GROUPS').Shortcut, SHORTCUT_KEYS.Groups);
 });
 
 // --- A group's rail --------------------------------------------------------------------

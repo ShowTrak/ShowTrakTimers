@@ -93,7 +93,18 @@ test('the run controls act on the selection with Ctrl or Cmd', () => {
   }
 });
 
-test('Shift turns pause and resume into their "all timers" forms', () => {
+test('Shift turns start, stop, pause and resume into their "all timers" forms', () => {
+  assert.equal(ResolveShortcut(press('Enter', { Ctrl: true, Shift: true })), 'START_ALL');
+  assert.equal(
+    ResolveShortcut(press('Enter', { Meta: true, Shift: true, Code: 'NumpadEnter' })),
+    'START_ALL'
+  );
+  // Shift+. types '>' on most layouts; the physical key still counts.
+  assert.equal(
+    ResolveShortcut(press('>', { Ctrl: true, Shift: true, Code: 'Period' })),
+    'STOP_ALL'
+  );
+  assert.equal(ResolveShortcut(press('.', { Meta: true, Shift: true })), 'STOP_ALL');
   assert.equal(ResolveShortcut(press('P', { Ctrl: true, Shift: true })), 'PAUSE_ALL');
   assert.equal(ResolveShortcut(press('R', { Meta: true, Shift: true })), 'RESUME_ALL');
 });
@@ -183,9 +194,12 @@ test('every shortcut hint printed in the page fires what the control it sits on 
     SHOWTRAK_MENU_GROUPS: 'GROUPS',
     SHOWTRAK_MENU_SHORTCUTS: 'SHORTCUTS',
     SHOWTRAK_MENU_PREFERENCES: 'PREFERENCES',
+    MENU_START_ALL: 'START_ALL',
+    MENU_STOP_ALL: 'STOP_ALL',
     MENU_PAUSE_ALL: 'PAUSE_ALL',
     MENU_RESUME_ALL: 'RESUME_ALL',
-    ADD_TIMER_BUTTON: 'NEW_TIMER',
+    MENU_NEW_TIMER: 'NEW_TIMER',
+    MENU_MANAGE_GROUPS: 'GROUPS',
   };
   const Seen = new Set();
   for (const M of Html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)) {
@@ -210,6 +224,8 @@ test('the shortcut labels the right-click menu shows are bound to what they say'
     Stop: 'STOP',
     Pause: 'PAUSE',
     Resume: 'RESUME',
+    StartAll: 'START_ALL',
+    StopAll: 'STOP_ALL',
     PauseAll: 'PAUSE_ALL',
     ResumeAll: 'RESUME_ALL',
     SelectAll: 'SELECT_ALL',

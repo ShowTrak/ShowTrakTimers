@@ -52,14 +52,13 @@ columns set in Preferences, Layout), an OSC slug, and an optional number key
 (number row or numpad) that selects it. Timers not in a group are in the
 **Default** group, which is always last and cannot be edited. Groups are
 managed from the menu, **Groups** (EDIT mode, `Ctrl/Cmd+G`); timers are moved
-by dragging them between groups, from the right-click menu, or in the timer
-editor. The Web Dashboard shows the same groups.
+by dragging them between groups, or in the timer editor. The Web Dashboard shows the same groups.
 
 ### Selection, the Right-Click Menu and Shortcuts
 
 Click a timer to select it, or a group's side rail (or its number key) to
 select the whole group. Right-click for the actions on the selection: start,
-pause, resume and stop, and in EDIT mode edit, move to a group or delete.
+pause, resume and stop, and in EDIT mode edit (one timer).
 
 | Keys                              | Action                                 |
 | --------------------------------- | -------------------------------------- |
@@ -71,7 +70,9 @@ pause, resume and stop, and in EDIT mode edit, move to a group or delete.
 | `Ctrl/Cmd+D` or `Escape`          | Clear the selection                    |
 | A group's number key              | Select or deselect that group          |
 | `Ctrl/Cmd+Shift+M` or `Shift+F10` | Open the right-click menu              |
+| `Ctrl/Cmd+Shift+Enter`            | Start all timers (asks first)          |
 | `Ctrl/Cmd+Shift+P` / `R`          | Pause / resume all timers (asks first) |
+| `Ctrl/Cmd+Shift+.`                | Stop all timers (asks first)           |
 | `Ctrl/Cmd+N` / `O` / `S`          | New / open / save the show file        |
 | `Ctrl/Cmd+Shift+S`                | Save the show file as                  |
 | `Ctrl/Cmd+Shift+N`                | New timer (EDIT mode)                  |

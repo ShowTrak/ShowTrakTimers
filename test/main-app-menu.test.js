@@ -120,6 +120,7 @@ test('the Timers menu lists its items in order', () => {
     Timers.map((Item) => (Item.type === 'separator' ? '---' : Item.label)),
     [
       'New Timer',
+      'New Group',
       'Groups',
       '---',
       'Show Mode',
@@ -210,6 +211,7 @@ test('every other item sends its action ID to the renderer', () => {
     'SHOWTRAK_MENU_LOGS_FOLDER',
     'SHOWTRAK_MENU_BACKUPS_FOLDER',
     'MENU_NEW_TIMER',
+    'MENU_NEW_GROUP',
     'SHOWTRAK_MENU_GROUPS',
     'MENU_START_SELECTED',
     'MENU_PAUSE_SELECTED',

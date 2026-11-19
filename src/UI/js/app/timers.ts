@@ -134,7 +134,7 @@ function SectionHtml(Section: GroupSection<TimerView>, Columns: number): string 
 
 const EMPTY_GROUP_HTML = `<div class="timer-group-empty">
   <span class="text-muted">Empty Group</span>
-  <span class="text-muted text-sm edit-only">Drag timers here, or use Move to Group in the right-click menu.</span>
+  <span class="text-muted text-sm edit-only">Drag timers here, or choose this group in a timer's editor.</span>
 </div>`;
 
 function RenderStructure(): void {
@@ -425,7 +425,7 @@ export function InitTimers(): void {
     if (Mode !== 'EDIT') return;
     void OpenTimerEditor(Number(this.getAttribute('data-timer-id')));
   });
-  $('#ADD_TIMER_BUTTON, #EMPTY_CREATE_BUTTON').on('click', () => void CreateTimerAndEdit());
+  $('#EMPTY_CREATE_BUTTON').on('click', () => void CreateTimerAndEdit());
   window.API.OnGroups((List) => {
     setGroups(List);
     RefreshGroupLayout();

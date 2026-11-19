@@ -39,6 +39,7 @@ export function buildMacAppMenuTemplate(Deps: AppMenuDeps): MenuItemConstructorO
   ];
   const TimersSubmenu: MenuItemConstructorOptions[] = [
     { label: 'New Timer', accelerator: 'CmdOrCtrl+Shift+N', click: Action('MENU_NEW_TIMER') },
+    { label: 'New Group', click: Action('MENU_NEW_GROUP') },
     { label: 'Groups', accelerator: 'CmdOrCtrl+G', click: Action('SHOWTRAK_MENU_GROUPS') },
     { type: 'separator' },
     { label: 'Show Mode', accelerator: 'CmdOrCtrl+1', click: () => setMode('SHOW') },

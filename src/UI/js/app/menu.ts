@@ -9,7 +9,7 @@ import { OpenSoundLibrary } from './sounds';
 import { ShowShortcutsModal } from './keyboard';
 import { ControlAll, ControlTimers, CreateTimerAndEdit } from './timers';
 import { NewShow, OpenShow, SaveShow, SaveShowAs } from './show-file';
-import { OpenGroupManager } from './group-manager';
+import { CreateGroupAndEdit, OpenGroupManager } from './group-manager';
 import { ClearSelection, SelectAll, SelectedIDs } from './selection';
 import { Mode, SettingValue } from './state';
 import { HandleNonFatalError } from './utils';
@@ -62,6 +62,7 @@ const ACTIONS: Record<string, () => unknown> = {
   MENU_SELECT_ALL: () => SelectAll(),
   MENU_CLEAR_SELECTION: () => ClearSelection(),
   MENU_NEW_TIMER: () => CreateTimerAndEdit(),
+  MENU_NEW_GROUP: () => CreateGroupAndEdit(),
   SHOWTRAK_MENU_GROUPS: () => OpenGroupManager(),
   SHOWTRAK_MENU_NEW_SHOW: () => NewShow(),
   SHOWTRAK_MENU_OPEN_SHOW: () => OpenShow(),
@@ -94,7 +95,7 @@ export async function RunMenuAction(ID: string): Promise<void> {
     }
     return;
   }
-  // Anything else is a button in the page (e.g. ADD_TIMER_BUTTON).
+  // Anything else is a button in the page (e.g. EMPTY_CREATE_BUTTON).
   document.getElementById(ID)?.click();
 }
 
@@ -103,6 +104,8 @@ export function InitMenu(): void {
     $('#' + ID).on('click', () => void RunMenuAction(ID));
   }
   $('#EMPTY_SETTINGS_BUTTON').on('click', () => void OpenPreferences());
+  // The + menu's Manage Groups is the Groups entry under another id.
+  $('#MENU_MANAGE_GROUPS').on('click', () => void RunMenuAction('SHOWTRAK_MENU_GROUPS'));
   window.API.OnAppMenuAction((ID) => void RunMenuAction(ID));
   window.API.OnShutdownRequested(() => void RequestShutdown());
 }

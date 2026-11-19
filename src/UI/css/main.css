@@ -3051,8 +3051,9 @@ body.mode-edit .SHOWTRAK_TIMER[draggable='true'] {
 }
 
 /* --- Bottom bar -------------------------------------------------------- */
-/* The New Timer button, matching Server's cog button beside it. */
-#ADD_TIMER_BUTTON.settings-btn {
+/* The + button (New Timer, New Group, Manage Groups), matching Server's cog
+   and show file buttons beside it, and its menu matching theirs. */
+#ADD_MENU_BUTTON.settings-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3066,18 +3067,64 @@ body.mode-edit .SHOWTRAK_TIMER[draggable='true'] {
   transition: color 120ms ease;
 }
 
-#ADD_TIMER_BUTTON.settings-btn:hover {
+#ADD_MENU_BUTTON.settings-btn:hover {
   color: #fff;
 }
 
-#ADD_TIMER_BUTTON.settings-btn .bi {
+#ADD_MENU_BUTTON.settings-btn .bi {
   font-size: 18px;
   line-height: 1;
 }
 
-/* Timers are added in EDIT mode only (the empty state has its own button for
-   the first one). */
-body:not(.mode-edit) #ADD_TIMER_BUTTON.settings-btn {
+#ADD_MENU_DROPDOWN .dropdown-toggle::after {
+  display: none;
+}
+
+#ADD_MENU.dropdown-menu {
+  --ctl-r: var(--menu-item-r);
+  min-width: 240px;
+  border: 0;
+  border-radius: var(--menu-r);
+  background: rgb(var(--surface-2-rgb) / 0.98);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  padding: var(--menu-pad);
+  max-height: calc(100vh - var(--bottom-bar-height) - 24px);
+  overflow-y: auto;
+}
+
+#ADD_MENU .dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  color: var(--text-strong);
+  border-radius: var(--menu-item-r);
+  font-size: var(--fs-md);
+  padding: 0.45rem 0.6rem;
+}
+
+#ADD_MENU .dropdown-item .menu-shortcut {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+#ADD_MENU .dropdown-item:hover,
+#ADD_MENU .dropdown-item:focus {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+#ADD_MENU .dropdown-divider {
+  border-top-color: var(--border-default);
+  margin: 0.3rem 0.2rem;
+}
+
+/* Timers and groups are added in EDIT mode only (the empty state has its own
+   button for the first timer). */
+body:not(.mode-edit) #ADD_MENU_DROPDOWN {
   display: none;
 }
 
@@ -3217,6 +3264,18 @@ body.web-dashboard .SHOWTRAK_TIMER:hover {
   }
 }
 
+/* --- Modal backdrop ---------------------------------------------------------
+   Server's backdrop dims the page to 40%, which squeezes the background
+   gradient's few dark grey levels into fewer still, drawn as wide visible
+   bands. A faint black grain in the backdrop's own transparency dithers them
+   away: it nudges each pixel by a fraction of a grey level at the final blend
+   (grain under the backdrop would be smoothed out by its blur). The grain
+   darkens a little on average, so the base dimming is eased to match. */
+.modal-backdrop {
+  background-color: rgb(var(--surface-0-rgb) / 0.57);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='1' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 4 0 0 0 -1.5'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='table' tableValues='0 0.1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
 /* --- Groups ---------------------------------------------------------------
    The groups are ShowTrak Server's: the column grid, the clickable rail and
    the tinted box (03-layout.css, 05-monitoring.css). Inside a box the timer
@@ -3243,6 +3302,15 @@ body.web-dashboard .SHOWTRAK_TIMER:hover {
   /* Lets a tile tell how wide its group is (the narrow layout below), and
      keeps a narrow group from being stretched by its tiles' content. */
   container-type: inline-size;
+}
+
+/* A small window: every group goes full width, whatever its width setting, so
+   no group is squeezed narrower than a timer tile. The span is set inline per
+   group (timers.ts), so this has to be important to win. */
+@media (max-width: 991px) {
+  #TIMER_GRID .group-column-item {
+    grid-column: 1 / -1 !important;
+  }
 }
 
 /* A narrow group (a one-column group in a small window): the controls go

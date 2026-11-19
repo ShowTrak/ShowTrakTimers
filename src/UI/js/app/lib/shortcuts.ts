@@ -4,7 +4,8 @@
 // apps allow: Ctrl/Cmd+1/2 for the modes, N/O/S/Shift+S for show files, A and D
 // (and Escape) to select all and clear, Shift+M (or the Menu key, Shift+F10) for
 // the right-click menu, and a group's number key to toggle its selection.
-// Timers adds the run controls for the selection.
+// Timers adds the run controls for the selection, and Shift with the same key
+// for all timers.
 
 export interface Shortcut {
   Keys: string;
@@ -17,6 +18,8 @@ export const SHORTCUT_KEYS = {
   Stop: 'Ctrl/Cmd+.',
   Pause: 'Ctrl/Cmd+P',
   Resume: 'Ctrl/Cmd+R',
+  StartAll: 'Ctrl/Cmd+Shift+Enter',
+  StopAll: 'Ctrl/Cmd+Shift+.',
   PauseAll: 'Ctrl/Cmd+Shift+P',
   ResumeAll: 'Ctrl/Cmd+Shift+R',
   SelectAll: 'Ctrl/Cmd+A',
@@ -43,8 +46,10 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { Keys: `${SHORTCUT_KEYS.ClearSelection} / Escape`, Action: 'Clear the selection' },
   { Keys: "A group's number key", Action: 'Select or deselect that group (set in its editor)' },
   { Keys: `${SHORTCUT_KEYS.ContextMenu} / Shift+F10`, Action: 'Open the right-click menu' },
+  { Keys: SHORTCUT_KEYS.StartAll, Action: 'Start all timers (asks first)' },
   { Keys: SHORTCUT_KEYS.PauseAll, Action: 'Pause all running timers (asks first)' },
   { Keys: SHORTCUT_KEYS.ResumeAll, Action: 'Resume all paused timers (asks first)' },
+  { Keys: SHORTCUT_KEYS.StopAll, Action: 'Stop and reset all timers (asks first)' },
   { Keys: SHORTCUT_KEYS.NewShow, Action: 'New show file' },
   { Keys: SHORTCUT_KEYS.OpenShow, Action: 'Open a show file' },
   { Keys: SHORTCUT_KEYS.SaveShow, Action: 'Save the show file' },
@@ -64,6 +69,8 @@ export type ShortcutCommand =
   | 'STOP'
   | 'PAUSE'
   | 'RESUME'
+  | 'START_ALL'
+  | 'STOP_ALL'
   | 'PAUSE_ALL'
   | 'RESUME_ALL'
   | 'SELECT_ALL'
@@ -96,6 +103,8 @@ const MODIFIED: ReadonlyArray<{ Key: string; Shift: boolean; Command: ShortcutCo
   { Key: '.', Shift: false, Command: 'STOP' },
   { Key: 'p', Shift: false, Command: 'PAUSE' },
   { Key: 'r', Shift: false, Command: 'RESUME' },
+  { Key: 'enter', Shift: true, Command: 'START_ALL' },
+  { Key: '.', Shift: true, Command: 'STOP_ALL' },
   { Key: 'p', Shift: true, Command: 'PAUSE_ALL' },
   { Key: 'r', Shift: true, Command: 'RESUME_ALL' },
   { Key: 'a', Shift: false, Command: 'SELECT_ALL' },

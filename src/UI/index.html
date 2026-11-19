@@ -102,15 +102,39 @@
           <span id="BOTTOM_BAR_STATUS" aria-live="polite"></span>
         </div>
         <div class="bar-section right">
-          <button
-            type="button"
-            id="ADD_TIMER_BUTTON"
-            class="settings-btn no-drag"
-            title="New Timer (Ctrl/Cmd+Shift+N)"
-            aria-label="New Timer"
-          >
-            <i class="bi bi-plus-lg"></i>
-          </button>
+          <div class="dropdown no-drag" id="ADD_MENU_DROPDOWN">
+            <button
+              type="button"
+              id="ADD_MENU_BUTTON"
+              class="settings-btn dropdown-toggle no-drag"
+              title="New Timer or Group"
+              aria-label="New Timer or Group"
+              data-bs-toggle="dropdown"
+              data-bs-offset="0,6"
+              data-bs-auto-close="true"
+              aria-expanded="false"
+            >
+              <i class="bi bi-plus-lg"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" id="ADD_MENU">
+              <li>
+                <button type="button" class="dropdown-item" id="MENU_NEW_TIMER">
+                  <span>New Timer</span>
+                  <span class="menu-shortcut">Ctrl/Cmd+Shift+N</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="dropdown-item" id="MENU_NEW_GROUP">New Group</button>
+              </li>
+              <li><hr class="dropdown-divider" /></li>
+              <li>
+                <button type="button" class="dropdown-item" id="MENU_MANAGE_GROUPS">
+                  <span>Manage Groups</span>
+                  <span class="menu-shortcut">Ctrl/Cmd+G</span>
+                </button>
+              </li>
+            </ul>
+          </div>
           <div class="dropdown no-drag" id="FILE_MENU_DROPDOWN">
             <button
               type="button"
@@ -183,7 +207,8 @@
               <li><h6 class="dropdown-header">Timers</h6></li>
               <li>
                 <button type="button" class="dropdown-item" id="MENU_START_ALL">
-                  Start All Timers
+                  <span>Start All Timers</span>
+                  <span class="menu-shortcut">Ctrl/Cmd+Shift+Enter</span>
                 </button>
               </li>
               <li>
@@ -200,7 +225,8 @@
               </li>
               <li>
                 <button type="button" class="dropdown-item" id="MENU_STOP_ALL">
-                  Stop All Timers
+                  <span>Stop All Timers</span>
+                  <span class="menu-shortcut">Ctrl/Cmd+Shift+.</span>
                 </button>
               </li>
               <li><hr class="dropdown-divider" /></li>

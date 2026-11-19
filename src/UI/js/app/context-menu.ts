@@ -6,7 +6,7 @@
 // decided in lib/context-menu-model.ts; this draws it and runs the actions.
 import { Groups, Mode, SettingValue } from './state';
 import { HandleNonFatalError, Safe } from './utils';
-import { ConfirmationDialog, Notify } from './lib/toasts';
+import { Notify } from './lib/toasts';
 import {
   BuildContextMenuRows,
   type ContextMenuActionID,
@@ -27,7 +27,7 @@ import { TimerIDsInGroup } from './lib/group-layout';
 import { ControlTimers, CreateTimerAndEdit, CurrentTimers, GroupOfElement } from './timers';
 import { OpenTimerEditor } from './timer-editor';
 import { ConfirmedAll } from './menu';
-import { CreateGroupAndEdit, OpenGroupEditor, OpenGroupManager } from './group-manager';
+import { CreateGroupAndEdit, OpenGroupEditor } from './group-manager';
 
 const MENU_ID = 'SHOWTRAK_CONTEXT_MENU';
 
@@ -41,44 +41,6 @@ export function HideContextMenu(): void {
 
 export function IsContextMenuOpen(): boolean {
   return Menu().is(':visible');
-}
-
-/** Delete the selected timers, after asking. Resolves false when cancelled. */
-export async function DeleteSelectedTimers(): Promise<boolean> {
-  const IDs = SelectedIDs();
-  if (!IDs.length) return false;
-  const Label =
-    IDs.length === 1
-      ? `"${SelectedTimers()[0]?.Name ?? 'this timer'}"`
-      : `these ${IDs.length} timers`;
-  const Confirmed = await ConfirmationDialog(`Delete ${Label}? This cannot be undone.`, {
-    ConfirmLabel: IDs.length === 1 ? 'Delete Timer' : 'Delete Timers',
-  });
-  if (!Confirmed) return false;
-  const [Err, Count] = await window.API.DeleteTimers(IDs);
-  if (Err) {
-    void Notify(Err, 'error');
-    return false;
-  }
-  ClearSelection();
-  void Notify(`Deleted ${Count} timer${Count === 1 ? '' : 's'}.`, 'success', 2000);
-  return true;
-}
-
-async function MoveSelectedTo(GroupID: number | null): Promise<boolean> {
-  const IDs = SelectedIDs();
-  if (!IDs.length) return false;
-  const [Err, Count] = await window.API.MoveTimersToGroup(IDs, GroupID);
-  if (Err) {
-    void Notify(Err, 'error');
-    return false;
-  }
-  const Title =
-    GroupID === null
-      ? 'the Default group'
-      : (Groups.find((G) => G.GroupID === GroupID)?.Title ?? 'the group');
-  void Notify(`Moved ${Count} timer${Count === 1 ? '' : 's'} to ${Title}.`, 'success', 2000);
-  return true;
 }
 
 // What each row does. Resolves false when nothing happened (cancelled, or
@@ -99,10 +61,6 @@ async function RunAction(Row: ContextMenuRow): Promise<boolean | void> {
       if (ID !== undefined) await OpenTimerEditor(ID);
       return;
     }
-    case 'SELECTION_DELETE':
-      return DeleteSelectedTimers();
-    case 'SELECTION_MOVE':
-      return MoveSelectedTo(Row.GroupID ?? null);
     case 'SELECT_ALL':
       SelectAll();
       return;
@@ -125,9 +83,6 @@ async function RunAction(Row: ContextMenuRow): Promise<boolean | void> {
       return;
     case 'EDIT_GROUP':
       if (typeof Row.GroupID === 'number') await OpenGroupEditor(Row.GroupID);
-      return;
-    case 'MANAGE_GROUPS':
-      await OpenGroupManager();
       return;
   }
 }

@@ -3,12 +3,7 @@
 // (test/renderer-context-menu-model.test.js). context-menu.ts draws the rows
 // and runs the actions. The row shapes are ShowTrak Server's.
 import type { TimerView } from '../../../../common/timers';
-import {
-  DEFAULT_GROUP_TITLE,
-  EffectiveGroupID,
-  GroupTintHex,
-  type GroupView,
-} from '../../../../common/groups';
+import { DEFAULT_GROUP_TITLE, type GroupView } from '../../../../common/groups';
 import type { AppMode } from '../../../../common/api';
 import { SHORTCUT_KEYS } from './shortcuts';
 
@@ -18,8 +13,6 @@ export type ContextMenuActionID =
   | 'SELECTION_RESUME'
   | 'SELECTION_STOP'
   | 'SELECTION_EDIT'
-  | 'SELECTION_DELETE'
-  | 'SELECTION_MOVE'
   | 'SELECT_ALL'
   | 'CLEAR_SELECTION'
   | 'ALL_START'
@@ -28,8 +21,7 @@ export type ContextMenuActionID =
   | 'ALL_STOP'
   | 'NEW_TIMER'
   | 'NEW_GROUP'
-  | 'EDIT_GROUP'
-  | 'MANAGE_GROUPS';
+  | 'EDIT_GROUP';
 
 export interface ContextMenuRow {
   Type: 'Action' | 'Header' | 'Info' | 'Divider';
@@ -39,7 +31,7 @@ export interface ContextMenuRow {
   IconColour?: string;
   Class?: string;
   Action?: ContextMenuActionID;
-  /** For SELECTION_MOVE: the group to move to (null: the Default group). For EDIT_GROUP: the group. */
+  /** For NEW_TIMER: the group it goes in (null: the Default group). For EDIT_GROUP: the group. */
   GroupID?: number | null;
   /** Shown, but nothing to do (no selected timer it applies to). */
   Disabled?: boolean;
@@ -111,44 +103,13 @@ export function BuildContextMenuRows(Input: ContextMenuInput): ContextMenuRow[] 
       });
     }
 
-    if (Editing) {
-      Divider();
-      if (Selected.length === 1) {
-        Rows.push({
-          Type: 'Action',
-          Action: 'SELECTION_EDIT',
-          Title: 'Edit Timer',
-          Icon: 'bi-gear-fill',
-        });
-      }
-      Rows.push({ Type: 'Header', Title: 'Move to Group' });
-      const Known = new Set(Groups.map((G) => G.GroupID));
-      const Current = new Set(Selected.map((T) => EffectiveGroupID(T.GroupID, Known)));
-      const Targets: Array<{ GroupID: number | null; Title: string; Colour: number | null }> = [
-        ...Groups.map((G) => ({ GroupID: G.GroupID, Title: G.Title, Colour: G.Colour })),
-        { GroupID: null, Title: DEFAULT_GROUP_TITLE, Colour: null },
-      ];
-      for (const Target of Targets) {
-        Rows.push({
-          Type: 'Action',
-          Action: 'SELECTION_MOVE',
-          GroupID: Target.GroupID,
-          Title: Target.Title,
-          Icon: 'bi-folder-fill',
-          IconColour: GroupTintHex(Target) ?? undefined,
-          // Already all there: nothing to move.
-          Disabled: Current.size === 1 && Current.has(Target.GroupID),
-          ActsOnSelection: true,
-        });
-      }
+    if (Editing && Selected.length === 1) {
       Divider();
       Rows.push({
         Type: 'Action',
-        Action: 'SELECTION_DELETE',
-        Title: Selected.length === 1 ? 'Delete Timer' : `Delete ${Selected.length} Timers`,
-        Icon: 'bi-trash-fill',
-        Class: 'text-danger',
-        ActsOnSelection: true,
+        Action: 'SELECTION_EDIT',
+        Title: 'Edit Timer',
+        Icon: 'bi-gear-fill',
       });
     }
   } else {
@@ -161,6 +122,7 @@ export function BuildContextMenuRows(Input: ContextMenuInput): ContextMenuRow[] 
       Action: 'ALL_START',
       Title: 'Start All Timers',
       Icon: 'bi-play-fill',
+      Shortcut: SHORTCUT_KEYS.StartAll,
       Disabled: None,
     });
     Rows.push({
@@ -184,6 +146,7 @@ export function BuildContextMenuRows(Input: ContextMenuInput): ContextMenuRow[] 
       Action: 'ALL_STOP',
       Title: 'Stop All Timers',
       Icon: 'bi-stop-fill',
+      Shortcut: SHORTCUT_KEYS.StopAll,
       Disabled: None,
     });
     if (Editing) {
@@ -233,17 +196,6 @@ export function BuildContextMenuRows(Input: ContextMenuInput): ContextMenuRow[] 
       });
     }
   }
-  if (Editing) {
-    Divider();
-    Rows.push({
-      Type: 'Action',
-      Action: 'MANAGE_GROUPS',
-      Title: 'Manage Groups',
-      Icon: 'bi-folder-fill',
-      Shortcut: SHORTCUT_KEYS.Groups,
-    });
-  }
-
   Divider();
   if (Input.TimerCount > 0) {
     Rows.push({
