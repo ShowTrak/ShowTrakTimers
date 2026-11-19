@@ -4,6 +4,82 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.0.0-beta.7] - 2026-11-19
+
+### Changed
+
+- The network settings are machine settings: the OSC and Web Dashboard ports,
+  bind addresses and enable switches, and the Web Dashboard passcode, stay with
+  the computer like the update settings. Opening someone else's show no longer
+  switches the passcode off, or stops OSC by binding it to an address this
+  computer does not have, and the passcode is no longer saved in show files.
+  The values in use are kept.
+- A browser that signs in to the Web Dashboard keeps a sign-in token instead of
+  the passcode itself. Changing the passcode (or setting an old one again)
+  signs every browser out.
+- Upgraded 1.x installs keep automatic updates on, as 1.x had them, so they get
+  the 2.0 fixes. New installs still start with them off.
+- A loop timer shorter than a second holds at its end instead of firing its
+  sound and notification many times a second.
+- `JumpToTime` and `SetDuration` stop at the longest duration (99:59:59), and
+  the OSC reply says what was set.
+
+### Fixed
+
+- A confirmation (Delete Timer, Delete Group, Delete Sound) could be answered
+  by pressing Space or Enter anywhere, including while typing in a field
+  behind it. Only its own buttons answer it now; Escape cancels it without
+  closing the window behind. A confirmation still open when its window closes,
+  another show opens, or another confirmation appears is cancelled, and a
+  delete applies to the timer or group it asked about.
+- Two edits to one timer arriving together (an OSC `SetLabel` and
+  `SetDuration` sent back to back) could lose one, and an edit arriving while a
+  show was opening could be written into the newly opened show. Every change
+  to the show now runs one at a time.
+- A show file saved by a newer version of ShowTrak Timers is refused with a
+  prompt to update, rather than opened and saved back without what it does
+  not know about.
+- Saves are flushed to disk before they replace the previous file, so a power
+  cut just after a save cannot leave a damaged show file.
+- New Show into a folder that cannot be written to left an empty show with no
+  file; the open show now stays as it was.
+- On Windows, Install Update in SHOW mode asked whether to close the app, and
+  waited forever if told no.
+- A Windows background update brought the window to the front.
+- Quitting could hang (a phone that stopped mid-download from the Web
+  Dashboard, a save to a network share that went away), leaving the app
+  impossible to relaunch. Quitting now gives up on what is stuck after 10
+  seconds.
+- Restarting or shutting down Windows now saves the open show first, when
+  autosave is on.
+- Running timers keep time through a sleep (a laptop lid closed mid-show).
+- A crash of the window reloads it, with the timers still running.
+- Editing a timer just after its warning point could skip the warning sound.
+- The Groups window redrew itself every second while timers ran, losing clicks
+  and making drag-to-reorder fail. A cancelled drag (Escape, or a drop outside)
+  now puts timers and groups back where they were.
+- Reopening the timer editor quickly could drop the next edit.
+- The timer editor shows a change made elsewhere (an OSC rename) while open.
+- After an update finished downloading, Check for Updates said "up to date" and
+  hid the Install button (Windows). On macOS, Install shows its progress and
+  ignores a second click. On Linux, Check for Updates says straight away that
+  Linux packages are updated from GitHub, instead of timing out.
+- Update checks and release notes go through the system proxy.
+- Release notes with two links on a line, or underscores in a link, were shown
+  mangled.
+- Web Dashboard: a misbehaving browser could exhaust memory or stall the app
+  (Socket.IO and the web server's router updated; incoming messages are capped), repeated
+  sign-ins re-sent everything to everyone, and a stalled connection kept the
+  dashboard from restarting. Wrong passcodes are also limited across all
+  addresses, with a notification. Running timers no longer jump back when the
+  groups or layout change or the connection drops, a browser that signs in
+  starts from the current time, and the page falls back to HTTP polling where
+  WebSockets are blocked. Groups whose timers are all hidden are not shown.
+- The 1.x database is copied to the Backups folder before it is upgraded.
+- Screen readers name every control in the timer editor, Preferences and the
+  Sound Library, and the secondary readout on running and paused timers is
+  easier to read.
+
 ## [2.0.0-beta.6] - 2026-11-19
 
 ### Added
@@ -111,7 +187,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - On macOS, Check for Updates on the Stable channel showed a raw "HttpError: 404"
   instead of "You're up to date" when the latest stable release had no macOS build.
 
-## [2.0.0-beta.1] - 2026-11-19
+## [2.0.0-beta.1] - 2026-11-18
 
 The app is rebuilt on ShowTrak Server's foundations: TypeScript, the same build,
 test, lint and release tooling, the same update system, and the same look.
@@ -152,8 +228,8 @@ test, lint and release tooling, the same update system, and the same look.
   first timer can still be created from the welcome screen.
 - Tile controls are always visible (they were hover-only, unusable on a touchscreen).
 - Timers animate smoothly between updates instead of ticking at uneven intervals.
-- Automatic Updates default to off for new installs, as in ShowTrak Server (a
-  value saved in 1.x is kept).
+- Automatic Updates default to off for new installs, as in ShowTrak Server. An
+  upgraded 1.x install keeps what it had: on, unless it was turned off.
 - Display sleep is always prevented (the Prevent Display Sleep setting is gone).
 - "Stop Accidental Shutdowns" and "Automatic Updates" apply immediately; no restart.
 - Network settings (ports, bind addresses) are saved with a Save button and
@@ -239,6 +315,7 @@ test, lint and release tooling, the same update system, and the same look.
 - Data storage:
   - SQLite-backed persistence layer and DB module foundation.
 
+[2.0.0-beta.7]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.6...v2.0.0-beta.7
 [2.0.0-beta.6]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.5...v2.0.0-beta.6
 [2.0.0-beta.5]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.4...v2.0.0-beta.5
 [2.0.0-beta.4]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.3...v2.0.0-beta.4
