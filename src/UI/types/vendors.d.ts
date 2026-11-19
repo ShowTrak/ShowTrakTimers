@@ -22,6 +22,9 @@ interface Howl {
   pause(): this;
   load(): this;
   state(): 'unloaded' | 'loading' | 'loaded';
+  playing(): boolean;
+  unload(): void;
+  once(event: 'end' | 'stop' | 'loaderror' | 'playerror', callback: () => void): this;
   volume(value?: number): number | this;
   fade(from: number, to: number, duration: number): this;
 }

@@ -5,6 +5,7 @@
 import path from 'path';
 import fs from 'fs';
 import { Manager as AppDataManager } from '../AppData';
+import { WriteAndSyncFileSync } from '../Utils';
 
 export interface InstallSettingsStore {
   /** Every stored value. An unreadable or corrupt file reads as empty. */
@@ -39,7 +40,7 @@ export function CreateInstallSettingsStore(
         const All = { ...ReadAll(), ...Values };
         fs.mkdirSync(path.dirname(FilePath), { recursive: true });
         const TempPath = `${FilePath}.tmp`;
-        fs.writeFileSync(TempPath, JSON.stringify(All, null, 2), 'utf8');
+        WriteAndSyncFileSync(TempPath, JSON.stringify(All, null, 2));
         fs.renameSync(TempPath, FilePath);
         return null;
       } catch (Err) {

@@ -238,10 +238,8 @@ function renderStatus(payload: AppUpdateStatus) {
 
 export function wireAppUpdates() {
   try {
-    // Menu entry: "Check for Updates"
-    $('#SHOWTRAK_MENU_CHECK_UPDATES')
-      .off('click')
-      .on('click', () => OpenAppUpdateModal());
+    // The menu's "Check for Updates" is wired with the rest of the menu
+    // (menu.ts), which also holds it back while a show-file prompt is open.
 
     // About modal button: "Check for Updates"
     $('#SHOWTRAK_ABOUT_CHECK_UPDATES')

@@ -29,10 +29,21 @@ export async function SaveIfAutosaving(Reason: string): Promise<boolean> {
   }
 }
 
+// Bumped by every schedule and stop, so a schedule that was still reading its
+// settings when a newer one (or a stop) came along never starts its interval:
+// two quick changes to the autosave settings would otherwise leave an interval
+// running that nothing can clear.
+let ScheduleGeneration = 0;
+let Enabled = false;
+
 export async function ScheduleAutosave(): Promise<void> {
   StopAutosave();
-  if (!(await SettingsManager.GetValue('SYSTEM_AUTOSAVE_ENABLED'))) return;
+  const Generation = ScheduleGeneration;
+  const On = !!(await SettingsManager.GetValue('SYSTEM_AUTOSAVE_ENABLED'));
   let Minutes = Number(await SettingsManager.GetValue('SYSTEM_AUTOSAVE_INTERVAL_MINUTES'));
+  if (Generation !== ScheduleGeneration) return;
+  Enabled = On;
+  if (!On) return;
   if (!Number.isFinite(Minutes) || Minutes < 1) Minutes = 1;
   AutosaveTimer = setInterval(() => void SaveIfAutosaving('interval'), Minutes * 60 * 1000);
   AutosaveTimer.unref?.();
@@ -40,6 +51,12 @@ export async function ScheduleAutosave(): Promise<void> {
 }
 
 export function StopAutosave(): void {
+  ScheduleGeneration++;
   if (AutosaveTimer) clearInterval(AutosaveTimer);
   AutosaveTimer = null;
+}
+
+/** Whether autosave was on when it was last scheduled (synchronous, for the OS's end-of-session check). */
+export function IsAutosaveEnabled(): boolean {
+  return Enabled;
 }

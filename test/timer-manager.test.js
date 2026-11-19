@@ -417,6 +417,41 @@ test('Update that moves a running timer inside its warning window does not fire 
   assert.deepEqual(Bus.Of('TimerEvent'), []);
 });
 
+test('an edit that lands just after the warning point, before the loop woke for it, still warns', async (t) => {
+  const { Manager, Bus, Clock } = await Setup(t);
+  const [, Created] = await Manager.Create({
+    Type: 'COUNTDOWN',
+    Duration: 60000,
+    WarningMs: 10000,
+    WarningToast: true,
+  });
+  await Manager.Control(Created.ID, 'Start');
+  // 5 ms past the warning point; the watch loop (off here) has not run.
+  Clock.Advance(50005);
+  await Manager.Update(Created.ID, { Name: 'Renamed' });
+  assert.deepEqual(EventKinds(Bus), [`${Created.ID}:warning`]);
+});
+
+test('JumpTo stops at the longest duration a timer can have', async (t) => {
+  const { Manager } = await Setup(t);
+  const [, Created] = await Manager.Create({ Type: 'STOPWATCH' });
+  const [Err, View] = await Manager.JumpTo(Created.ID, 1e300);
+  assert.equal(Err, null);
+  assert.equal(View.ElapsedMs, (99 * 3600 + 59 * 60 + 59) * 1000);
+});
+
+test('Resync re-checks every timer at once and sends the list again (after a sleep)', async (t) => {
+  const { Manager, Bus, Clock } = await Setup(t);
+  const [, Created] = await Manager.Create({ Type: 'COUNTDOWN', Duration: 60000 });
+  await Manager.Control(Created.ID, 'Start');
+  const Before = Bus.Of('TimersUpdated').length;
+  Clock.Advance(120000);
+  Manager.Resync();
+  assert.equal(Bus.Of('TimersUpdated').length, Before + 1);
+  assert.equal(LastList(Bus)[0].Status, 'COMPLETE');
+  assert.deepEqual(EventKinds(Bus), [`${Created.ID}:complete`]);
+});
+
 test('ApplyPatch returns a new configuration and never changes the one it is given', () => {
   const Current = Object.freeze({
     ID: 1,

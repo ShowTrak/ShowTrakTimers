@@ -2938,6 +2938,14 @@ body.is-web .mode-group .st-segmented-toggle-btn:disabled {
   display: none;
 }
 
+/* On the Running green and Paused orange washes the muted grey falls below
+   4.5:1 contrast at this size; the softer white stays readable and still reads
+   as secondary to the readout. */
+.SHOWTRAK_TIMER.RUNNING .timer-tile-secondary,
+.SHOWTRAK_TIMER.PAUSED .timer-tile-secondary {
+  color: var(--text-soft);
+}
+
 /* The bar: Server's tile bar (white on a faint track), scaled rather than
    resized so a repaint never lays the page out. */
 .timer-tile-progress.progress {

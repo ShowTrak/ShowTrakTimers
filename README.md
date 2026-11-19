@@ -93,8 +93,14 @@ older version is backed up to the `Backups` folder before it is upgraded. The
 first time 2.0 starts after an earlier version, it asks where to save your
 existing timers.
 
-Machine settings (updates, Auto Maximise, Stop Accidental Shutdowns, Autosave)
-stay with the computer, so opening someone else's show never changes them.
+Machine settings stay with the computer, so opening someone else's show never
+changes them: updates, Auto Maximise, Stop Accidental Shutdowns, Autosave, and
+the network settings (the OSC and Web Dashboard ports and bind addresses, and
+the Web Dashboard's passcode, which is never saved into a show file).
+
+A show file saved by a newer version of ShowTrak Timers is refused, with a
+prompt to update, rather than opened and saved back without what it does not
+know about.
 
 ### Per-Timer Endings and Warnings
 
@@ -116,9 +122,13 @@ dropped.
 A read-only page for any browser on the network (phones, a backstage screen),
 served on port 4300 by default. Timers are shown or hidden per timer. As with
 ShowTrak Server's Web UI it can be protected by a 4-digit passcode (Preferences,
-Web Dashboard), entered on a keypad and remembered by the browser. It keeps
-the last known timers when the connection drops and reconnects on its own, and
-can be installed as a PWA. The Web Dashboard modal in the app lists its
+Web Dashboard), entered on a keypad. A browser that has entered it stays signed
+in (it keeps a sign-in token, never the passcode) until the passcode is
+changed. It keeps the last known timers when the connection drops and
+reconnects on its own. Opened on the host itself (`localhost`) or over HTTPS it
+can also be installed as a PWA with an offline shell; browsers only allow that
+on a secure origin, so a phone on `http://<host-ip>:4300` gets the page and its
+cached timers but no install. The Web Dashboard modal in the app lists its
 addresses with a QR code.
 
 ### OSC Control
@@ -156,7 +166,9 @@ Reference**.
 As in ShowTrak Server: **Check for Updates** in the menu, a **Stable** or
 **Beta** update channel (Beta also offers pre-releases), and optional
 **Automatic Updates** that download in the background and install the next
-time the app restarts. Updates never restart the app mid-show.
+time the app restarts. Updates never restart the app mid-show. Linux packages
+(zip, deb, rpm) are updated by downloading the new version from GitHub
+Releases.
 
 ## Tech Stack
 
@@ -176,7 +188,9 @@ Howler and electron-updater.
 1. Download the latest package from GitHub Releases.
 2. Install and launch ShowTrak Timers.
 
-1.x installs on Windows update in place: settings and timers are kept.
+1.x installs on Windows update in place: settings and timers are kept (the 1.x
+database is also copied to the `Backups` folder first), and automatic updates
+stay on as they were in 1.x.
 
 ## Local Development
 

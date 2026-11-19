@@ -20,8 +20,6 @@ export const INVOKE_CHANNELS = [
   'Timer:Create',
   'Timer:Update',
   'Timer:Delete',
-  'Timer:Move',
-  'Timers:Reorder',
   'Timer:Control',
   'Timer:JumpTo',
   'Timers:ControlAll',
@@ -274,8 +272,6 @@ export interface TimersAPI {
   CreateTimer(Patch: TimerPatchView): Promise<ResultTuple<TimerView>>;
   UpdateTimer(ID: number, Patch: TimerPatchView): Promise<ResultTuple<TimerView>>;
   DeleteTimer(ID: number): Promise<ResultTuple<true>>;
-  MoveTimer(ID: number, Direction: 'UP' | 'DOWN'): Promise<ResultTuple<boolean>>;
-  ReorderTimers(IDs: number[]): Promise<ResultTuple<true>>;
   ControlTimer(ID: number, Action: ControlAction): Promise<ResultTuple<TimerView>>;
   JumpTimer(ID: number, Ms: number): Promise<ResultTuple<TimerView>>;
   ControlAllTimers(Action: ControlAction): Promise<ResultTuple<number>>;

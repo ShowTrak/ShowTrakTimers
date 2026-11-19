@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -7,6 +7,47 @@
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'"
     />
     <title>ShowTrak Timers</title>
+    <style>
+      body {
+        background: radial-gradient(circle at 50% 80%, #1e1e20 0%, #0e0e0f 100%) !important;
+        user-select: none;
+        -webkit-user-select: none;
+        -ms-user-select: none;
+      }
+
+      #FOOTER {
+        position: absolute;
+        bottom: 1.5rem;
+        left: 50%;
+        transform: translateX(-50%);
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 1rem;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        text-align: center;
+        width: 100%;
+        font-weight: 700;
+      }
+
+      #DRAGBAR {
+        app-region: drag;
+        -webkit-app-region: drag;
+        display: grid;
+        place-items: center;
+      }
+
+      #PRELOADER_LOGO {
+        pointer-events: none;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 200px;
+        height: 200px;
+        user-select: none;
+        -webkit-user-select: none;
+        -ms-user-select: none;
+      }
+    </style>
   </head>
   <body>
     <div id="DRAGBAR">
@@ -15,45 +56,4 @@
     <h1 id="FOOTER"></h1>
     <script src="./preloader.js"></script>
   </body>
-  <style>
-    body {
-      background: radial-gradient(circle at 50% 80%, #1e1e20 0%, #0e0e0f 100%) !important;
-      user-select: none;
-      -webkit-user-select: none;
-      -ms-user-select: none;
-    }
-
-    #FOOTER {
-      position: absolute;
-      bottom: 1.5rem;
-      left: 50%;
-      transform: translateX(-50%);
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 1rem;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      text-align: center;
-      width: 100%;
-      font-weight: 700;
-    }
-
-    #DRAGBAR {
-      app-region: drag;
-      -webkit-app-region: drag;
-      display: grid;
-      place-items: center;
-    }
-
-    #PRELOADER_LOGO {
-      pointer-events: none;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 200px;
-      height: 200px;
-      user-select: none;
-      -webkit-user-select: none;
-      -ms-user-select: none;
-    }
-  </style>
 </html>

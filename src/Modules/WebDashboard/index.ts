@@ -9,11 +9,14 @@
 // and adds ElapsedMs/Warning/EndBehaviour for the 2.0 page.
 import http from 'http';
 import path from 'path';
+import fs from 'fs';
 import crypto from 'crypto';
 import express from 'express';
 import { Server as SocketServer, type Socket } from 'socket.io';
 import { CreateLogger } from '../Logger';
 import { Manager as BroadcastManager } from '../Broadcast';
+import { Manager as AppDataManager } from '../AppData';
+import { WriteAndSyncFileSync } from '../Utils';
 import { Manager as AppSettings, type SettingsManagerShape } from '../SettingsManager';
 import { Manager as AppTimers, type TimerManager } from '../TimerManager';
 import { Manager as AppGroups, type GroupManager } from '../GroupManager';
@@ -30,6 +33,7 @@ import {
   ComputeTimerDisplay,
   FormatElapsed,
   FormatRemaining,
+  IsTicking,
   type TimerView,
 } from '../../common/timers';
 
@@ -100,8 +104,17 @@ export interface DashboardGroup {
   ColumnSpan: number;
 }
 
-export function ToDashboardGroups(Groups: GroupView[]): DashboardGroup[] {
-  return SortGroups(Groups).map((G) => ({
+/**
+ * The groups as sent to dashboard browsers. Given the timers on show, only the
+ * groups holding at least one of them: a group whose timers are all hidden from
+ * the dashboard is not named there either.
+ */
+export function ToDashboardGroups(
+  Groups: GroupView[],
+  Visible?: readonly DashboardTimer[]
+): DashboardGroup[] {
+  const Shown = Visible ? new Set(Visible.map((T) => T.GroupID)) : null;
+  return SortGroups(Groups.filter((G) => !Shown || Shown.has(G.GroupID))).map((G) => ({
     GroupID: G.GroupID,
     Title: G.Title,
     Weight: G.Weight,
@@ -147,14 +160,28 @@ export interface WebDashboardOptions {
   StaticRoot?: string;
   /** Wall clock for the login lockout (tests). */
   Now?: () => number;
+  /**
+   * Where the sign-in key is kept, so signed-in browsers stay signed in across
+   * restarts (default: Storage/web-dashboard-session.json). null keeps it in
+   * memory only (tests).
+   */
+  SessionKeyFile?: (() => string) | null;
 }
 
 // --- Passcode ------------------------------------------------------------------
 // As ShowTrak Server's Web UI: protection plus a 4-digit passcode
 // (WEB_DASHBOARD_PASSWORD_PROTECTION_ENABLED / WEB_DASHBOARD_PASSWORD). Timer data
 // only ever goes to sockets in the AUTHED_ROOM; an unauthenticated socket gets
-// 'hello' and nothing else until it logs in. The browser remembers an accepted
-// passcode and logs in again by itself after a reconnect.
+// 'hello' and nothing else until it logs in.
+//
+// A browser that enters the passcode is given a sign-in token in return and
+// keeps that, never the passcode itself (as Server's Web UI keeps a session
+// token): anyone holding the phone cannot read the passcode back out of it, and
+// a token sent to some other host answering at the same address is no use
+// there. The token is one random key, kept with the install so browsers stay
+// signed in across restarts, and replaced whenever the passcode or protection
+// changes, which signs every browser out (an old passcode set again does not
+// bring old browsers back).
 export const AUTHED_ROOM = 'authed';
 
 // A 4-digit passcode is only 10,000 guesses, so failed attempts are limited per
@@ -162,6 +189,15 @@ export const AUTHED_ROOM = 'authed';
 export const LOGIN_MAX_FAILURES = 10;
 export const LOGIN_WINDOW_MS = 60 * 1000;
 export const LOGIN_LOCKOUT_MS = 5 * 60 * 1000;
+// Across every address: many devices guessing at once (or one device with many
+// addresses) would get through the per-address limit in minutes. Past this
+// many failures in the window, passcode sign-ins are paused for everyone
+// (browsers already holding a token still get in) and the operator is told.
+export const LOGIN_GLOBAL_MAX_FAILURES = 50;
+export const LOGIN_GLOBAL_WINDOW_MS = 10 * 60 * 1000;
+export const LOGIN_GLOBAL_LOCKOUT_MS = 10 * 60 * 1000;
+// Old attempt records are dropped this often, so the map stays small.
+const LOGIN_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 
 interface LoginAttempts {
   Failures: number;
@@ -178,7 +214,16 @@ export interface DashboardHello {
 }
 
 export type LoginResult =
-  { ok: true } | { error: 'invalid_password' } | { error: 'rate_limited'; retryAfterMs: number };
+  | { ok: true; token?: string }
+  | { error: 'invalid_password' }
+  | { error: 'rate_limited'; retryAfterMs: number };
+
+// The browser's address for rate limiting. An IPv4 client reaching a dual-stack
+// socket shows up as ::ffff:a.b.c.d; it is the same client as a.b.c.d.
+export function ClientAddress(Raw: string | undefined | null): string {
+  const Address = String(Raw || 'unknown');
+  return Address.startsWith('::ffff:') ? Address.slice(7) : Address;
+}
 
 // Constant-time comparison (both sides hashed to a fixed width first).
 export function PasscodeMatches(Input: string, Expected: string): boolean {
@@ -204,6 +249,24 @@ export const DASHBOARD_CSP = [
 // Coalesce bursts (an "all timers" OSC command, a quick run of edits) into one
 // push per browser.
 const PUSH_COALESCE_MS = 50;
+// The only thing a browser sends is a sign-in (a few bytes); anything bigger is
+// refused before Socket.IO buffers it.
+const MAX_INBOUND_BYTES = 4096;
+// A request that has not sent its headers or finished within these is dropped,
+// so a stalled client cannot hold a connection (and a restart or quit) open.
+const HEADERS_TIMEOUT_MS = 10_000;
+const REQUEST_TIMEOUT_MS = 30_000;
+// A port still held by the copy of the app that is closing (an update restart)
+// is retried a few times before the dashboard gives up on it.
+const LISTEN_RETRY_DELAYS_MS = [500, 1000, 2000];
+
+// Running timers in a list taken AgeMs ago, moved on to now: a browser that
+// signs in, or a push sent a moment after the list was taken, starts from where
+// the timers are, not from where they were.
+export function AgedTimers(Timers: readonly TimerView[], AgeMs: number): TimerView[] {
+  if (!(AgeMs > 0)) return [...Timers];
+  return Timers.map((T) => (IsTicking(T.Status) ? { ...T, ElapsedMs: T.ElapsedMs + AgeMs } : T));
+}
 
 export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
   const Settings = Options.Settings ?? AppSettings;
@@ -212,37 +275,107 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
   const Broadcast = Options.Broadcast ?? BroadcastManager;
   const StaticRoot = Options.StaticRoot ?? DIST_ROOT;
 
+  const SessionKeyFile =
+    Options.SessionKeyFile === undefined
+      ? () => path.join(AppDataManager.GetStorageDirectory(), 'web-dashboard-session.json')
+      : Options.SessionKeyFile;
+
   let HttpServer: http.Server | null = null;
   let IO: SocketServer | null = null;
   let Bound: { Host: string; Port: number } | null = null;
   let PushTimer: ReturnType<typeof setTimeout> | null = null;
-  let Latest: DashboardTimer[] = [];
+  let SweepTimer: ReturnType<typeof setInterval> | null = null;
+  // The newest timer list (as the managers sent it) and when it was taken.
+  let LatestViews: TimerView[] = [];
+  let LatestAt = performance.now();
+  let AllGroups: GroupView[] = [];
   let LatestGroups: DashboardGroup[] = [];
   let LatestLayout: DashboardLayout = { GroupColumns: 2, GroupColourSaturation: 100 };
+  let AnnouncedCount = -1;
   const Attempts = new Map<string, LoginAttempts>();
+  const GlobalFailures: number[] = [];
+  let GlobalLockedUntil = 0;
   const Now = Options.Now ?? (() => Date.now());
+  let SessionKey: string | null = null;
+
+  // --- Sign-in key ----------------------------------------------------------
+
+  function ReadSessionKey(): string | null {
+    if (!SessionKeyFile) return null;
+    try {
+      const Saved = JSON.parse(fs.readFileSync(SessionKeyFile(), 'utf8'));
+      return typeof Saved?.Key === 'string' && /^[0-9a-f]{48}$/.test(Saved.Key) ? Saved.Key : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function WriteSessionKey(Key: string): void {
+    if (!SessionKeyFile) return;
+    try {
+      const FilePath = SessionKeyFile();
+      fs.mkdirSync(path.dirname(FilePath), { recursive: true });
+      const Temp = `${FilePath}.tmp`;
+      WriteAndSyncFileSync(Temp, JSON.stringify({ Key }));
+      fs.renameSync(Temp, FilePath);
+    } catch (Err) {
+      // Browsers then sign in again after the next restart; nothing worse.
+      Logger.warn('Web Dashboard: could not keep the sign-in key', Err);
+    }
+  }
+
+  function CurrentSessionKey(): string {
+    if (!SessionKey) SessionKey = ReadSessionKey();
+    if (!SessionKey) RotateSessionKey();
+    return SessionKey!;
+  }
+
+  function RotateSessionKey(): void {
+    SessionKey = crypto.randomBytes(24).toString('hex');
+    WriteSessionKey(SessionKey);
+  }
 
   // Viewers are the browsers that can see the timers.
   const ClientCount = () => (IO ? (IO.of('/').adapter.rooms.get(AUTHED_ROOM)?.size ?? 0) : 0);
 
+  // Sent when the number of viewers changes (not on every sign-in).
   function AnnounceClientCount(): void {
     const Count = ClientCount();
+    if (Count === AnnouncedCount) return;
+    AnnouncedCount = Count;
     IO?.to(AUTHED_ROOM).emit('clients:count', { count: Count });
     Broadcast.emit('WebDashboard:ClientCount', Count);
   }
 
+  // The timers as a browser should get them now, moved on from when the list was taken.
+  function CurrentTimers(): DashboardTimer[] {
+    return ToDashboardTimers(AgedTimers(LatestViews, performance.now() - LatestAt));
+  }
+
+  // Re-derive the groups on show; tell browsers only when the list changed.
+  function RefreshGroups(Timers: readonly DashboardTimer[]): boolean {
+    const Next = ToDashboardGroups(AllGroups, Timers);
+    if (JSON.stringify(Next) === JSON.stringify(LatestGroups)) return false;
+    LatestGroups = Next;
+    return true;
+  }
+
   const OnTimersUpdated = (Views: TimerView[]) => {
-    Latest = ToDashboardTimers(Array.isArray(Views) ? Views : []);
+    LatestViews = Array.isArray(Views) ? Views : [];
+    LatestAt = performance.now();
     if (PushTimer) return;
     PushTimer = setTimeout(() => {
       PushTimer = null;
-      IO?.to(AUTHED_ROOM).emit('timers:update', Latest);
+      const Timers = CurrentTimers();
+      // A timer shown or hidden can bring a group onto the page or take it off.
+      if (RefreshGroups(Timers)) IO?.to(AUTHED_ROOM).emit('groups:update', LatestGroups);
+      IO?.to(AUTHED_ROOM).emit('timers:update', Timers);
     }, PUSH_COALESCE_MS);
   };
 
   const OnGroupsUpdated = (Views: GroupView[]) => {
-    LatestGroups = ToDashboardGroups(Array.isArray(Views) ? Views : []);
-    IO?.to(AUTHED_ROOM).emit('groups:update', LatestGroups);
+    AllGroups = Array.isArray(Views) ? Views : [];
+    if (RefreshGroups(CurrentTimers())) IO?.to(AUTHED_ROOM).emit('groups:update', LatestGroups);
   };
 
   // Settings changed: push the layout only when it actually moved.
@@ -273,7 +406,7 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
     // Layout and groups first, so the first timers push is drawn in its groups.
     Client.emit('layout:update', LatestLayout);
     Client.emit('groups:update', LatestGroups);
-    Client.emit('timers:update', Latest);
+    Client.emit('timers:update', CurrentTimers());
     AnnounceClientCount();
   }
 
@@ -292,8 +425,11 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
   }
 
   function RetryAfter(Address: string): number {
+    const At = Now();
     const Record = Attempts.get(Address);
-    return Record && Record.LockedUntil > Now() ? Record.LockedUntil - Now() : 0;
+    const Own = Record && Record.LockedUntil > At ? Record.LockedUntil - At : 0;
+    const Global = GlobalLockedUntil > At ? GlobalLockedUntil - At : 0;
+    return Math.max(Own, Global);
   }
 
   function RecordFailure(Address: string): void {
@@ -307,20 +443,65 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
       Record = { Failures: 0, WindowStart: At, LockedUntil: At + LOGIN_LOCKOUT_MS };
     }
     Attempts.set(Address, Record);
+
+    while (GlobalFailures.length && At - GlobalFailures[0]! > LOGIN_GLOBAL_WINDOW_MS) {
+      GlobalFailures.shift();
+    }
+    GlobalFailures.push(At);
+    if (GlobalFailures.length >= LOGIN_GLOBAL_MAX_FAILURES && GlobalLockedUntil <= At) {
+      GlobalFailures.length = 0;
+      GlobalLockedUntil = At + LOGIN_GLOBAL_LOCKOUT_MS;
+      const Minutes = Math.round(LOGIN_GLOBAL_LOCKOUT_MS / 60000);
+      Logger.warn('Web Dashboard: too many wrong passcodes; passcode sign-ins paused');
+      Broadcast.emit(
+        'Notify',
+        `The Web Dashboard has had many wrong passcodes. New sign-ins are paused for ${Minutes} minutes; browsers already signed in are not affected.`,
+        'warning',
+        15000
+      );
+    }
+  }
+
+  function SweepAttempts(): void {
+    const At = Now();
+    for (const [Address, Record] of Attempts) {
+      if (Record.LockedUntil <= At && At - Record.WindowStart > LOGIN_WINDOW_MS) {
+        Attempts.delete(Address);
+      }
+    }
+  }
+
+  function TokenMatches(Token: unknown): boolean {
+    if (typeof Token !== 'string' || !Token) return false;
+    return PasscodeMatches(Token, CurrentSessionKey());
   }
 
   async function Login(Client: Socket, Payload: unknown): Promise<LoginResult> {
     const Required = await RequiredPasscode();
+    const Signed = (): LoginResult =>
+      Required === null ? { ok: true } : { ok: true, token: CurrentSessionKey() };
+    // Already signed in (a browser repeating itself): nothing to do, and no
+    // second greeting or viewer count for every repeat.
+    if (Client.rooms.has(AUTHED_ROOM)) return Signed();
     if (Required === null) {
       Admit(Client);
-      return { ok: true };
+      return Signed();
     }
-    const Address = Client.handshake.address || 'unknown';
+    const Body = Payload && typeof Payload === 'object' ? (Payload as Record<string, unknown>) : {};
+    // A token from an earlier sign-in. A wrong one is not a passcode guess
+    // (the key is far too long to guess), so it is not counted as one.
+    if (Body.token !== undefined) {
+      if (TokenMatches(Body.token)) {
+        Admit(Client);
+        return Signed();
+      }
+      return { error: 'invalid_password' };
+    }
+    const Address = ClientAddress(Client.handshake.address);
     const Wait = RetryAfter(Address);
     if (Wait > 0) return { error: 'rate_limited', retryAfterMs: Wait };
     // A string only: anything else (a number, an array) is not a passcode.
-    const Raw =
-      Payload && typeof Payload === 'object' ? (Payload as { password?: unknown }).password : null;
+    const Raw = Body.password;
     const Given = typeof Raw === 'string' ? Raw.trim() : '';
     if (!PasscodeMatches(Given, Required)) {
       RecordFailure(Address);
@@ -329,12 +510,13 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
     }
     Attempts.delete(Address);
     Admit(Client);
-    return { ok: true };
+    return Signed();
   }
 
-  // The passcode or protection changed: everyone is signed out and greeted
-  // again (browsers holding the new passcode log straight back in).
+  // The passcode or protection changed: a new sign-in key, so every browser is
+  // signed out and greeted again (and asked for the new passcode).
   const OnAuthChanged = () => {
+    RotateSessionKey();
     if (!IO) return;
     const Sockets = [...IO.of('/').sockets.values()];
     for (const Client of Sockets) Client.leave(AUTHED_ROOM);
@@ -369,92 +551,148 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
     return App;
   }
 
+  // Start and Stop run one at a time: a restart (a port change) arriving while
+  // the boot start is still reading settings must not leave two servers, or
+  // report the dashboard's own port as in use.
+  let Serial: Promise<unknown> = Promise.resolve();
+  function OneAtATime<T>(Fn: () => Promise<T>): Promise<T> {
+    const Run = Serial.then(Fn, Fn);
+    Serial = Run.catch(() => undefined);
+    return Run;
+  }
+
+  function Listen(Server: http.Server, Port: number, Host: string): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const OnError = (Err: Error) => reject(Err);
+      Server.once('error', OnError);
+      Server.listen(Port, Host, () => {
+        Server.off('error', OnError);
+        resolve();
+      });
+    });
+  }
+
+  async function StartNow(): Promise<[string | null, boolean | null]> {
+    await StopNow();
+    if (!(await Settings.GetValue('WEB_ENABLE_DASHBOARD'))) {
+      Logger.log('Web Dashboard disabled in settings');
+      return [null, false];
+    }
+    const Port =
+      Number(await Settings.GetValue('WEB_DASHBOARD_PORT')) || DEFAULT_WEB_DASHBOARD_PORT;
+    const Host = String((await Settings.GetValue('WEB_DASHBOARD_BIND')) || '0.0.0.0');
+
+    // The list a browser gets on connecting: ready before anyone can connect.
+    LatestViews = await Timers.GetAll();
+    LatestAt = performance.now();
+    AllGroups = await Groups.GetAll();
+    LatestGroups = ToDashboardGroups(AllGroups, CurrentTimers());
+    LatestLayout = await ReadDashboardLayout(Settings);
+    AnnouncedCount = -1;
+    const Server = http.createServer(BuildApp());
+    Server.headersTimeout = HEADERS_TIMEOUT_MS;
+    Server.requestTimeout = REQUEST_TIMEOUT_MS;
+    const Sockets = new SocketServer(Server, {
+      // Open to other origins as 1.x was, so pages built against its socket
+      // (a graphics overlay, a custom display) keep working. With a passcode
+      // set they need it too.
+      cors: { origin: true, methods: ['GET'], credentials: false },
+      maxHttpBufferSize: MAX_INBOUND_BYTES,
+    });
+    Sockets.on('connection', (Client) => {
+      // Listeners before the first await, so a login sent straight back on
+      // 'hello' is never dropped.
+      Client.on('auth:login', (Payload: unknown, Ack: unknown) => {
+        Login(Client, Payload)
+          .then((Result) => {
+            if (typeof Ack === 'function') Ack(Result);
+          })
+          .catch((Err) => Logger.error('Web Dashboard: login failed', Err));
+      });
+      Client.on('disconnect', () => setImmediate(AnnounceClientCount));
+      Greet(Client).catch((Err) => Logger.error('Web Dashboard: greeting failed', Err));
+    });
+
+    try {
+      for (let Attempt = 0; ; Attempt++) {
+        try {
+          await Listen(Server, Port, Host);
+          break;
+        } catch (Err) {
+          const Delay = LISTEN_RETRY_DELAYS_MS[Attempt];
+          if ((Err as NodeJS.ErrnoException).code !== 'EADDRINUSE' || Delay === undefined) {
+            throw Err;
+          }
+          Logger.warn(`Web Dashboard port ${Port} is busy; trying again in ${Delay} ms`);
+          await new Promise((resolve) => setTimeout(resolve, Delay));
+        }
+      }
+    } catch (Err) {
+      Sockets.close();
+      const Code = (Err as NodeJS.ErrnoException).code;
+      const Message =
+        Code === 'EADDRINUSE'
+          ? `Web Dashboard port ${Port} is already in use.`
+          : Code === 'EADDRNOTAVAIL'
+            ? `Web Dashboard bind address ${Host} is not available.`
+            : `The Web Dashboard could not start on ${Host}:${Port}.`;
+      Logger.error(Message, Err);
+      Broadcast.emit('Notify', Message, 'error');
+      return [Message, null];
+    }
+
+    HttpServer = Server;
+    IO = Sockets;
+    Bound = { Host, Port: (Server.address() as { port: number }).port };
+    Broadcast.on('TimersUpdated', OnTimersUpdated);
+    Broadcast.on('GroupsUpdated', OnGroupsUpdated);
+    Broadcast.on('SettingsUpdated', OnSettingsUpdated);
+    Broadcast.on('WebDashboard:AuthChanged', OnAuthChanged);
+    SweepTimer = setInterval(SweepAttempts, LOGIN_SWEEP_INTERVAL_MS);
+    SweepTimer.unref?.();
+    Logger.success(`Web Dashboard listening on http://${Host}:${Bound.Port}`);
+    AnnounceClientCount();
+    return [null, true];
+  }
+
+  async function StopNow(): Promise<[string | null, boolean | null]> {
+    Broadcast.off('TimersUpdated', OnTimersUpdated);
+    Broadcast.off('GroupsUpdated', OnGroupsUpdated);
+    Broadcast.off('SettingsUpdated', OnSettingsUpdated);
+    Broadcast.off('WebDashboard:AuthChanged', OnAuthChanged);
+    if (PushTimer) {
+      clearTimeout(PushTimer);
+      PushTimer = null;
+    }
+    if (SweepTimer) {
+      clearInterval(SweepTimer);
+      SweepTimer = null;
+    }
+    if (!HttpServer || !IO) return [null, true];
+    const Closing = IO;
+    const ClosingHttp = HttpServer;
+    HttpServer = null;
+    IO = null;
+    Bound = null;
+    // Closing Socket.IO closes the HTTP server too, after dropping the sockets.
+    // http.Server.close waits for every open connection to go away, so the
+    // rest (keep-alive connections, a request a client stopped reading) are
+    // cut: otherwise one stalled phone holds up a restart, or the quit.
+    const Closed = new Promise<void>((resolve) => Closing.close(() => resolve()));
+    ClosingHttp.closeAllConnections();
+    await Closed;
+    AnnouncedCount = -1;
+    Broadcast.emit('WebDashboard:ClientCount', 0);
+    return [null, true];
+  }
+
   const Dashboard = {
-    async Start(): Promise<[string | null, boolean | null]> {
-      await Dashboard.Stop();
-      if (!(await Settings.GetValue('WEB_ENABLE_DASHBOARD'))) {
-        Logger.log('Web Dashboard disabled in settings');
-        return [null, false];
-      }
-      const Port =
-        Number(await Settings.GetValue('WEB_DASHBOARD_PORT')) || DEFAULT_WEB_DASHBOARD_PORT;
-      const Host = String((await Settings.GetValue('WEB_DASHBOARD_BIND')) || '0.0.0.0');
-
-      // The list a browser gets on connecting: ready before anyone can connect.
-      Latest = ToDashboardTimers(await Timers.GetAll());
-      LatestGroups = ToDashboardGroups(await Groups.GetAll());
-      LatestLayout = await ReadDashboardLayout(Settings);
-      const Server = http.createServer(BuildApp());
-      const Sockets = new SocketServer(Server, {
-        cors: { origin: true, methods: ['GET'], credentials: false },
-      });
-      Sockets.on('connection', (Client) => {
-        // Listeners before the first await, so a login sent straight back on
-        // 'hello' is never dropped.
-        Client.on('auth:login', (Payload: unknown, Ack: unknown) => {
-          Login(Client, Payload)
-            .then((Result) => {
-              if (typeof Ack === 'function') Ack(Result);
-            })
-            .catch((Err) => Logger.error('Web Dashboard: login failed', Err));
-        });
-        Client.on('disconnect', () => setImmediate(AnnounceClientCount));
-        Greet(Client).catch((Err) => Logger.error('Web Dashboard: greeting failed', Err));
-      });
-
-      try {
-        await new Promise<void>((resolve, reject) => {
-          Server.once('error', reject);
-          Server.listen(Port, Host, () => {
-            Server.off('error', reject);
-            resolve();
-          });
-        });
-      } catch (Err) {
-        Sockets.close();
-        const Code = (Err as NodeJS.ErrnoException).code;
-        const Message =
-          Code === 'EADDRINUSE'
-            ? `Web Dashboard port ${Port} is already in use.`
-            : Code === 'EADDRNOTAVAIL'
-              ? `Web Dashboard bind address ${Host} is not available.`
-              : `The Web Dashboard could not start on ${Host}:${Port}.`;
-        Logger.error(Message, Err);
-        Broadcast.emit('Notify', Message, 'error');
-        return [Message, null];
-      }
-
-      HttpServer = Server;
-      IO = Sockets;
-      Bound = { Host, Port: (Server.address() as { port: number }).port };
-      Broadcast.on('TimersUpdated', OnTimersUpdated);
-      Broadcast.on('GroupsUpdated', OnGroupsUpdated);
-      Broadcast.on('SettingsUpdated', OnSettingsUpdated);
-      Broadcast.on('WebDashboard:AuthChanged', OnAuthChanged);
-      Logger.success(`Web Dashboard listening on http://${Host}:${Bound.Port}`);
-      AnnounceClientCount();
-      return [null, true];
+    Start(): Promise<[string | null, boolean | null]> {
+      return OneAtATime(StartNow);
     },
 
-    async Stop(): Promise<[string | null, boolean | null]> {
-      Broadcast.off('TimersUpdated', OnTimersUpdated);
-      Broadcast.off('GroupsUpdated', OnGroupsUpdated);
-      Broadcast.off('SettingsUpdated', OnSettingsUpdated);
-      Broadcast.off('WebDashboard:AuthChanged', OnAuthChanged);
-      if (PushTimer) {
-        clearTimeout(PushTimer);
-        PushTimer = null;
-      }
-      if (!HttpServer || !IO) return [null, true];
-      const Closing = IO;
-      HttpServer = null;
-      IO = null;
-      Bound = null;
-      // Closing Socket.IO closes the HTTP server too, after dropping the sockets
-      // (http.Server.close alone waits for every open connection to go away).
-      await new Promise<void>((resolve) => Closing.close(() => resolve()));
-      Broadcast.emit('WebDashboard:ClientCount', 0);
-      return [null, true];
+    Stop(): Promise<[string | null, boolean | null]> {
+      return OneAtATime(StopNow);
     },
 
     IsRunning(): boolean {

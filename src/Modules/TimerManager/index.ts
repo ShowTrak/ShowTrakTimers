@@ -16,6 +16,7 @@ import { TIMER_RESYNC_INTERVAL_MS } from '../Config/constants';
 import {
   DEFAULT_DURATION_MS,
   IsTicking,
+  MAX_DURATION_MS,
   NormalizeDuration,
   NormalizeEndBehaviour,
   NormalizeGroupID,
@@ -26,7 +27,9 @@ import {
   type TimerView,
 } from '../../common/timers';
 import { Timer, type Clock, type TimerEvent } from './timer';
+import { AppClock } from './clock';
 import { NormalizeSoundRef } from '../../common/sounds';
+import { Manager as AppShowLock, LockMethods, type ShowLock } from '../ShowLock';
 
 export { Timer } from './timer';
 export type { Clock, TimerEvent } from './timer';
@@ -89,6 +92,8 @@ export interface TimerManagerOptions {
   Now?: Clock;
   /** Whether to run the watch loop (off in tests that drive Evaluate by hand). */
   AutoWatch?: boolean;
+  /** The lock every write to the show takes (see Modules/ShowLock). */
+  Lock?: ShowLock;
 }
 
 function CleanText(Value: unknown, Max: number): string {
@@ -180,6 +185,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
   const Broadcast = Options.Broadcast ?? BroadcastManager;
   const Now: Clock = Options.Now ?? (() => performance.now());
   const AutoWatch = Options.AutoWatch ?? true;
+  const Lock = Options.Lock ?? AppShowLock;
 
   let Timers: Timer[] = [];
   let Loaded = false;
@@ -283,7 +289,10 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
       const Row = Rows[Index]!;
       const Desired = Index + 1;
       if (Row.Weight === Desired) continue;
-      const [Err] = await Db.Run('UPDATE Timers SET Weight = ? WHERE ID = ?', [Desired, Row.ID]);
+      // Not a change anyone made: a show just opened must not read as unsaved.
+      const [Err] = await Db.Run('UPDATE Timers SET Weight = ? WHERE ID = ?', [Desired, Row.ID], {
+        MarkDirty: false,
+      });
       if (Err) Logger.warn('Failed to normalise a timer weight', Err);
       else Row.Weight = Desired;
     }
@@ -408,6 +417,10 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
       const Next = ApplyPatch(T.Config, Patch || {});
       const Err = await Persist(Next);
       if (Err) return [Err, null];
+      // Anything already due under the old settings fires first: an edit that
+      // lands just after the warning point, before the watch loop has woken for
+      // it, must not swallow the warning.
+      Emit(T.Evaluate());
       T.Config = Next;
       T.Resettle();
       Emit(T.Evaluate());
@@ -478,7 +491,8 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
       if (!T) return ['Timer not found', null];
       const Value = Number(Ms);
       if (!Number.isFinite(Value) || Value < 0) return ['Invalid time', null];
-      Emit(T.JumpTo(Value));
+      // No further than the longest duration a timer can have (99:59:59).
+      Emit(T.JumpTo(Math.min(Value, MAX_DURATION_MS)));
       Announce();
       EnsureWatching();
       return [null, T.ToView()];
@@ -603,6 +617,16 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
       Announce();
     },
 
+    /**
+     * Check every timer against the clock now and send the list again (the
+     * computer woke from sleep, and the clock moved on by the time asleep).
+     */
+    Resync(): void {
+      StopWatching();
+      LastResync = -Infinity;
+      Tick();
+    },
+
     /** Stop the watch loop (shutdown). */
     Dispose(): void {
       StopWatching();
@@ -614,6 +638,15 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
     /** How long the watch loop would sleep now (tests check the schedule with this). */
     NextWakeDelay: () => NextWakeDelay(Now()),
   };
+
+  // Every change written to the show runs under the show lock, one at a time
+  // and never across a show being opened. Run control (start, stop, jumps) is
+  // in memory only and stays unlocked, so it is never held up by a save.
+  LockMethods(
+    Manager,
+    ['Create', 'Update', 'Delete', 'Move', 'Reorder', 'Arrange', 'MoveToGroup', 'ClearGroup'],
+    Lock
+  );
 
   // Whether Start begins this timer afresh rather than restarting it.
   function CanStartFresh(T: Timer): boolean {
@@ -647,7 +680,8 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
 
 export type TimerManager = ReturnType<typeof CreateTimerManager>;
 
-export const Manager: TimerManager = CreateTimerManager();
+// Measured against the app clock, which counts time the computer spent asleep.
+export const Manager: TimerManager = CreateTimerManager({ Now: () => AppClock.Now() });
 
 // The timer types, for callers that only need the vocabulary.
 export type { TimerType };

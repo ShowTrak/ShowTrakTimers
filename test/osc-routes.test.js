@@ -451,13 +451,28 @@ test('JumpToTime moves the timer to that point in its run', async () => {
   assert.deepEqual(Context.__callsTo('JumpTo')[0].args, [3, 30000]);
 });
 
-test('JumpToTime passes a fractional time through and reports it rounded down', async () => {
+test('JumpToTime rounds a fractional time down, and reports what it jumped to', async () => {
   const Context = fakeContext();
   assert.deepEqual(
     await dispatch('/ShowTrak/Timer/3/JumpToTime', [1500.5], Context),
     Ok('Timer 3 moved to 1500 ms')
   );
-  assert.deepEqual(Context.__callsTo('JumpTo')[0].args, [3, 1500.5]);
+  assert.deepEqual(Context.__callsTo('JumpTo')[0].args, [3, 1500]);
+});
+
+test('JumpToTime and SetDuration stop at the longest duration, and say so', async () => {
+  const Context = fakeContext();
+  const Max = (99 * 3600 + 59 * 60 + 59) * 1000;
+  assert.deepEqual(
+    await dispatch('/ShowTrak/Timer/3/JumpToTime', [1e300], Context),
+    Ok(`Timer 3 moved to ${Max} ms`)
+  );
+  assert.deepEqual(Context.__callsTo('JumpTo')[0].args, [3, Max]);
+  assert.deepEqual(
+    await dispatch('/ShowTrak/Timer/3/SetDuration', [Max * 2], Context),
+    Ok(`Timer 3 duration set to ${Max} ms`)
+  );
+  assert.deepEqual(Context.__callsTo('SetDuration')[0].args, [3, Max]);
 });
 
 test('JumpToTime rejects a negative or non-numeric time', async () => {

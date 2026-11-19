@@ -1,26 +1,17 @@
-// Electron main process entry point and composition root, laid out like ShowTrak
-// Server's: single-instance lock, back-end boot, the splash and main windows,
-// the IPC registrars and the broadcast -> renderer bridge, and the quit
-// lifecycle. Process set-up that must precede every module (the compile cache)
-// is done by ./boot.ts, which loads this file as part of the main bundle.
+// Electron main process composition root, laid out like ShowTrak Server's:
+// single-instance lock, back-end boot, the splash and main windows, the IPC
+// registrars and the broadcast -> renderer bridge, and the quit lifecycle.
+// Process set-up that must precede every module (the compile cache) is done by
+// ./boot.ts, and Squirrel's install runs stop in ./entry.ts before this loads.
 import type { BrowserWindow as ElectronBrowserWindow } from 'electron';
 const { app, BrowserWindow, dialog } = require('electron/main') as typeof import('electron/main');
 const {
   powerMonitor,
   powerSaveBlocker,
+  session,
   autoUpdater: NativeAutoUpdater,
 } = require('electron') as typeof import('electron');
-import {
-  HandleSquirrelFileAssociations,
-  OnShowFileRequest,
-  RequestShowFileOpen,
-  ShowFileFromArgv,
-} from './main/file-associations';
-// Squirrel runs the app with --squirrel-install/-updated/-uninstall around an
-// install; register (or remove) the .showtraktimers file association before
-// electron-squirrel-startup makes the shortcuts and the app quits.
-HandleSquirrelFileAssociations();
-if (require('electron-squirrel-startup')) app.quit();
+import { OnShowFileRequest, RequestShowFileOpen, ShowFileFromArgv } from './main/file-associations';
 
 import { Manager as AppDataManager } from './Modules/AppData';
 AppDataManager.Initialize();
@@ -63,6 +54,7 @@ import {
   PRELOADER_SHOW_DELAY_MS,
 } from './Modules/Config/constants';
 import { Manager as TimerManager } from './Modules/TimerManager';
+import { AppClock } from './Modules/TimerManager/clock';
 import { Manager as GroupManager } from './Modules/GroupManager';
 import { Manager as SettingsManager } from './Modules/SettingsManager';
 import { Manager as DB } from './Modules/DB';
@@ -87,9 +79,15 @@ import {
   RegisterBroadcastBridge,
 } from './main/broadcast-bridge';
 import { PushShowFile, RegisterShowLifecycle } from './main/show-lifecycle';
-import { SaveIfAutosaving, ScheduleAutosave, StopAutosave } from './main/autosave';
+import {
+  IsAutosaveEnabled,
+  SaveIfAutosaving,
+  ScheduleAutosave,
+  StopAutosave,
+} from './main/autosave';
 import { GetServicesStatus, StartServices, StopServices } from './main/services';
 import { initLiveSettings } from './main/live-settings';
+import { Manager as AppUpdater } from './main/app-updater';
 
 // The desktop window is the one renderer sink.
 RegisterRendererSink((Channel: string, ...Args: unknown[]) => {
@@ -147,12 +145,16 @@ const Shutdown = CreateShutdownCoordinator({
     return response === 0;
   },
   async Cleanup() {
-    TimerManager.Dispose();
     StopAutosave();
+    // OSC and the Web Dashboard first, so no command can restart a timer or
+    // write to the show while it is saved and closed. Not awaited before the
+    // save: a browser slow to let go must not hold the save up.
+    const Stopping = StopServices();
+    TimerManager.Dispose();
     // With autosave on, the show is saved on the way out (as ShowTrak Server).
     // With it off, unsaved changes stay in the working copy for next time.
     await SaveIfAutosaving('closing');
-    await StopServices();
+    await Stopping;
     await DB.Close();
   },
   RequestRendererConfirmation() {
@@ -163,16 +165,27 @@ const Shutdown = CreateShutdownCoordinator({
 });
 
 // Everything the renderer needs to draw, pushed once it calls 'Loaded' (and
-// again after a reload).
+// again after a reload). Each push on its own: one that fails (a settings read
+// from a damaged working copy) must not keep the timers, or the show-file
+// prompt that follows, from the window.
 async function DeliverInitialState(): Promise<void> {
+  const Pushes: [string, () => unknown][] = [
+    ['settings', () => PushSettings()],
+    ['mode', () => PushMode()],
+    ['sounds', () => PushSounds()],
+    ['show file', () => PushShowFile()],
+    ['services', async () => PushToRenderers('Services:Status', await GetServicesStatus())],
+    ['groups', () => PushGroups()],
+    ['timers', () => PushTimers()],
+  ];
   try {
-    await PushSettings();
-    PushMode();
-    PushSounds();
-    PushShowFile();
-    PushToRenderers('Services:Status', await GetServicesStatus());
-    await PushGroups();
-    await PushTimers();
+    for (const [Name, Push] of Pushes) {
+      try {
+        await Push();
+      } catch (Err) {
+        Logger.error(`Failed to send the window its ${Name}:`, Err);
+      }
+    }
   } finally {
     markInitialStateDelivered();
   }
@@ -192,8 +205,39 @@ RegisterAllHandlers({
 
 let PreloaderWindow: ElectronBrowserWindow | null = null;
 
-app.whenReady().then(async () => {
-  if (require('electron-squirrel-startup')) return app.quit();
+// Whether quitting now has a show to save first (autosave on, with changes).
+function NeedsSaveOnQuit(): boolean {
+  return IsAutosaveEnabled() && DB.HasUnsavedChanges();
+}
+
+// A renderer that crashes mid-show is reloaded: main holds every timer and
+// setting, and a reload rebuilds the page from them (through 'Loaded'). A page
+// that keeps crashing is left alone rather than reloaded in a loop.
+const RENDERER_CRASH_WINDOW_MS = 60_000;
+const RENDERER_CRASH_LIMIT = 3;
+const RendererCrashes: number[] = [];
+function RecoverFromRendererCrash(Window: ElectronBrowserWindow, Reason: string): void {
+  const Now = Date.now();
+  while (RendererCrashes.length && Now - RendererCrashes[0]! > RENDERER_CRASH_WINDOW_MS) {
+    RendererCrashes.shift();
+  }
+  RendererCrashes.push(Now);
+  if (RendererCrashes.length > RENDERER_CRASH_LIMIT) {
+    Logger.error(`The window crashed again (${Reason}); not reloading it`);
+    return;
+  }
+  Logger.error(`The window crashed (${Reason}); reloading it`);
+  setTimeout(() => {
+    if (!Window.isDestroyed()) Window.webContents.reload();
+  }, 250);
+}
+
+async function OnReady(): Promise<void> {
+  // Nothing in the app asks for a browser permission (camera, notifications,
+  // clipboard reads...): refuse every request rather than grant by default.
+  session.defaultSession.setPermissionRequestHandler((_Contents, _Permission, Callback) =>
+    Callback(false)
+  );
 
   configureApplicationMenu({
     sendAppMenuAction: SendAppMenuAction,
@@ -258,37 +302,72 @@ app.whenReady().then(async () => {
   setMainWindow(MainWindow);
   StartDevReload();
 
-  MainWindow.loadFile(path.join(__dirname, 'UI', 'index.html')).then(async () => {
-    Logger.log('Main window finished loading');
-    SendMainWindowFullscreenChanged(MainWindow.isFullScreen());
-    await whenInitialStateDelivered(MAIN_WINDOW_READY_TIMEOUT_MS);
-    if (PreloaderShownAt !== null) {
-      await Wait(Math.max(0, PRELOADER_MIN_DISPLAY_MS - (Date.now() - PreloaderShownAt)));
-    }
-    MainWindowRevealed = true;
-    if (PreloaderShowTimer) clearTimeout(PreloaderShowTimer);
-    if (PreloaderWindow && !PreloaderWindow.isDestroyed()) PreloaderWindow.close();
-    // As ShowTrak Server: maximised before it is first shown, so it never
-    // appears at its default size and then jumps.
-    try {
-      if (await SettingsManager.GetValue('SYSTEM_AUTO_MAXIMIZE_ON_BOOT')) MainWindow.maximize();
-    } catch (Err) {
-      Logger.warn('Could not read Auto Maximise Window on Boot:', Err);
-    }
-    MainWindow.show();
-    try {
-      require('node:module').flushCompileCache?.();
-    } catch {
-      /* best-effort, like enabling it */
-    }
-  });
+  MainWindow.loadFile(path.join(__dirname, 'UI', 'index.html'))
+    .catch((Err) => {
+      // Shown anyway (below), so a failed load is a visible window, not a hidden
+      // process holding the single-instance lock.
+      Logger.error('The main window failed to load:', Err);
+    })
+    .then(async () => {
+      Logger.log('Main window finished loading');
+      SendMainWindowFullscreenChanged(MainWindow.isFullScreen());
+      await whenInitialStateDelivered(MAIN_WINDOW_READY_TIMEOUT_MS);
+      if (PreloaderShownAt !== null) {
+        await Wait(Math.max(0, PRELOADER_MIN_DISPLAY_MS - (Date.now() - PreloaderShownAt)));
+      }
+      MainWindowRevealed = true;
+      if (PreloaderShowTimer) clearTimeout(PreloaderShowTimer);
+      if (PreloaderWindow && !PreloaderWindow.isDestroyed()) PreloaderWindow.close();
+      // As ShowTrak Server: maximised before it is first shown, so it never
+      // appears at its default size and then jumps.
+      try {
+        if (await SettingsManager.GetValue('SYSTEM_AUTO_MAXIMIZE_ON_BOOT')) MainWindow.maximize();
+      } catch (Err) {
+        Logger.warn('Could not read Auto Maximise Window on Boot:', Err);
+      }
+      MainWindow.show();
+      try {
+        require('node:module').flushCompileCache?.();
+      } catch {
+        /* best-effort, like enabling it */
+      }
+    })
+    .catch((Err) => {
+      Logger.error('Failed to show the main window:', Err);
+      if (!MainWindow.isDestroyed()) MainWindow.show();
+    });
   applyWindowSecurityGuards(MainWindow);
   applyWindowZoomShortcuts(MainWindow);
   MainWindow.on('close', (Event) => void Shutdown.HandleWindowClose(MainWindow, Event));
+  MainWindow.webContents.on('render-process-gone', (_Event, Details) => {
+    if (Details.reason === 'clean-exit') return;
+    RecoverFromRendererCrash(MainWindow, Details.reason);
+  });
+  MainWindow.on('unresponsive', () => Logger.warn('The main window is not responding'));
+  MainWindow.on('responsive', () => Logger.log('The main window is responding again'));
+  // Windows: a shutdown, restart or log-off. powerMonitor's 'shutdown' (below)
+  // is macOS and Linux only. Held while the show is saved, when there is
+  // anything to save; Windows carries on as soon as the app has quit.
+  MainWindow.on('query-session-end', (Event) => {
+    Logger.log('Windows is ending the session');
+    Shutdown.HandleSystemShutdown(NeedsSaveOnQuit() ? Event : undefined);
+  });
   MainWindow.on('closed', () => setMainWindow(null));
   MainWindow.on('enter-full-screen', () => SendMainWindowFullscreenChanged(true));
   MainWindow.on('leave-full-screen', () => SendMainWindowFullscreenChanged(false));
-});
+}
+
+app
+  .whenReady()
+  .then(OnReady)
+  .catch((Err) => {
+    Logger.error('Startup failed:', Err);
+    dialog.showErrorBox(
+      'ShowTrak Timers could not start',
+      `${Err instanceof Error ? Err.message : String(Err)}\n\nThe log folder has the details.`
+    );
+    app.exit(1);
+  });
 
 // A second launch focuses the running window instead of doing nothing, and
 // opens the show file it was given, if any.
@@ -323,5 +402,22 @@ OnShowFileRequest(() => {
 // behind on macOS.
 app.on('window-all-closed', () => app.quit());
 app.on('will-quit', (Event) => Shutdown.HandleWillQuit(Event));
-powerMonitor.on('shutdown', () => Shutdown.HandleSystemShutdown());
+// Running timers keep time through a sleep (a laptop lid closed mid-show): see
+// Modules/TimerManager/clock.ts.
+powerMonitor.on('suspend', () => {
+  Logger.log('The computer is going to sleep');
+  AppClock.Suspend();
+});
+powerMonitor.on('resume', () => {
+  const SleptMs = AppClock.Resume();
+  Logger.log(`The computer woke${SleptMs ? ` after ${Math.round(SleptMs / 1000)} s asleep` : ''}`);
+  if (SleptMs) TimerManager.Resync();
+});
+// macOS and Linux. The event can be held (preventDefault) until cleanup is done;
+// Electron's types leave the event argument out.
+powerMonitor.on('shutdown', ((Event: { preventDefault(): void }) =>
+  Shutdown.HandleSystemShutdown(Event)) as () => void);
+// macOS's updater emits this; Windows' (Squirrel) does not, so the updater
+// also calls the hook itself just before a Squirrel install quits.
 NativeAutoUpdater.on('before-quit-for-update', () => Shutdown.HandleBeforeQuitForUpdate());
+AppUpdater.SetBeforeQuitForUpdate(() => Shutdown.HandleBeforeQuitForUpdate());

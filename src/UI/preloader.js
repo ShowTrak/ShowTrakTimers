@@ -1,5 +1,5 @@
 async function Init() {
-  const Config = await window.API.GetConfig();
+  const Config = await window.API.GetConfig().catch(() => null);
   if (Config && Config.Application && Config.Application.Version && Config.Application.Name) {
     document.getElementById('FOOTER').innerText =
       `${Config.Application.Name} v${Config.Application.Version}`;

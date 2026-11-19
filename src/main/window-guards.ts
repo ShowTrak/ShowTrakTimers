@@ -12,7 +12,8 @@ function applyWindowSecurityGuards(windowInstance: ElectronBrowserWindow): void 
   windowInstance.webContents.setWindowOpenHandler(({ url }: { url: string }) => {
     try {
       if (/^https?:\/\//i.test(url)) {
-        shell.openExternal(url);
+        // openExternal rejects (rather than throws) when the OS cannot open it.
+        Promise.resolve(shell.openExternal(url)).catch(() => undefined);
       }
     } catch (_error) {
       return { action: 'deny' };

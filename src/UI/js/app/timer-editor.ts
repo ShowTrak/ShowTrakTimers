@@ -55,13 +55,16 @@ function ApplyVisibility(): void {
 }
 
 async function Save(Patch: TimerPatchView): Promise<boolean> {
-  if (EditingID === null) return false;
+  const ID = EditingID;
+  if (ID === null) return false;
   try {
-    const [Err, Saved] = await window.API.UpdateTimer(EditingID, Patch);
+    const [Err, Saved] = await window.API.UpdateTimer(ID, Patch);
     if (Err || !Saved) {
       void Notify(Err || 'Failed to save the timer.', 'error');
       return false;
     }
+    // The editor may have moved on to another timer while this saved.
+    if (EditingID !== ID) return true;
     Current = Saved;
     SetTitle?.(Saved.Name);
     ApplyVisibility();
@@ -142,6 +145,48 @@ function Populate(Timer: TimerView): void {
   FillSoundSelect($('#TIMER_EDITOR_WARNING_SOUND'), Timer.WarningSound);
   $('#TIMER_EDITOR_WARNING_TOAST').prop('checked', Timer.WarningToast);
   ApplyVisibility();
+}
+
+// The editable fields a push can bring in from elsewhere (OSC, another editor).
+const SYNCED_FIELDS = [
+  'Name',
+  'Type',
+  'GroupID',
+  'Duration',
+  'ShowOnWeb',
+  'ShowHundredths',
+  'EndBehaviour',
+  'CompletionSound',
+  'CompletionToast',
+  'WarningMs',
+  'WarningSound',
+  'WarningToast',
+] as const;
+
+/**
+ * The open timer changed elsewhere (an OSC SetLabel, a drag to another group):
+ * show the new values, except in a field being typed in or still waiting to
+ * save, so nothing the operator is typing is overwritten.
+ */
+function SyncFromPush(Timers: readonly TimerView[]): void {
+  if (!Current || EditingID === null || !$(`#${MODAL_ID}`).hasClass('show')) return;
+  const Pushed = Timers.find((T) => T.ID === EditingID);
+  if (!Pushed || SYNCED_FIELDS.every((Key) => Pushed[Key] === Current![Key])) return;
+  const Busy = new Set<string>();
+  const Focused = document.activeElement;
+  if (Pending.has('name') || Focused?.id === 'TIMER_EDITOR_NAME') Busy.add('TIMER_EDITOR_NAME');
+  if (Pending.has('duration') || Focused?.id === 'TIMER_EDITOR_DURATION') {
+    Busy.add('TIMER_EDITOR_DURATION');
+  }
+  if (Pending.has('warning') || Focused?.id === 'TIMER_EDITOR_WARNING') {
+    Busy.add('TIMER_EDITOR_WARNING');
+  }
+  const Kept = new Map<string, unknown>();
+  for (const ID of Busy) Kept.set(ID, $(`#${ID}`).val());
+  Current = Pushed;
+  SetTitle?.(Pushed.Name);
+  Populate(Pushed);
+  for (const [ID, Value] of Kept) $(`#${ID}`).val(Value as string);
 }
 
 /**
@@ -252,15 +297,19 @@ export function InitTimerEditor(): void {
     void PreviewSoundRef(Ref);
   });
 
+  window.API.OnTimers((Timers) => SyncFromPush(Timers));
+
   $('#TIMER_EDITOR_DELETE').on('click', async () => {
-    if (EditingID === null || !Current) return;
+    // The timer asked about, whatever the editor shows by the time it is answered.
+    const ID = EditingID;
+    if (ID === null || !Current) return;
     const Confirmed = await ConfirmationDialog(`Delete "${Current.Name}"? This cannot be undone.`, {
       ConfirmLabel: 'Delete Timer',
     });
-    if (!Confirmed || EditingID === null) return;
+    if (Confirmed !== true || EditingID !== ID) return;
     Pending.forEach((Timer) => clearTimeout(Timer));
     Pending.clear();
-    const [Err] = await window.API.DeleteTimer(EditingID);
+    const [Err] = await window.API.DeleteTimer(ID);
     if (Err) {
       void Notify(Err, 'error');
       return;

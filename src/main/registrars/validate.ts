@@ -24,23 +24,12 @@ export function Action(Value: unknown): ControlAction {
   return Match;
 }
 
-export function Direction(Value: unknown): 'UP' | 'DOWN' {
-  const Upper = String(Value).toUpperCase();
-  if (Upper !== 'UP' && Upper !== 'DOWN') throw new ValidationError('Invalid direction');
-  return Upper;
-}
-
 export function PlainObject(Value: unknown, Label = 'payload'): Record<string, unknown> {
   if (Value === undefined || Value === null) return {};
   if (typeof Value !== 'object' || Array.isArray(Value)) {
     throw new ValidationError(`Invalid ${Label}`);
   }
   return Value as Record<string, unknown>;
-}
-
-export function IDList(Value: unknown): number[] {
-  if (!Array.isArray(Value) || Value.length > 10000) throw new ValidationError('Invalid order');
-  return Value.map(TimerID);
 }
 
 /** A timer list (a selection): at least one, each a valid ID. */

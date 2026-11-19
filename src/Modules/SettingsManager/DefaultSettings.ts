@@ -4,7 +4,10 @@
 //
 // Machine settings (Scope: 'INSTALL') are stored with this installation, not in
 // the show file, so opening someone else's show never changes how this machine
-// updates, starts or closes. Everything else travels with the show file.
+// updates, starts or closes, or how it is reached on the network: the OSC and
+// Web Dashboard ports and bind addresses belong to this machine's network, and
+// the Web Dashboard passcode must not be switched off (or carried to another
+// computer) by a show file. Everything else travels with the show file.
 //
 // Keys kept from 1.x keep their stored values. Two changed in 2.0 (see the DB
 // migration "Settings renamed in 2.0"): SYSTEM_AUTO_UPDATE is now
@@ -185,6 +188,7 @@ export const DefaultSettings: SettingDefinition[] = [
     Type: 'BOOLEAN',
     DefaultValue: true,
     OnUpdateEvent: 'WebDashboard:Restart',
+    Scope: 'INSTALL',
   },
   {
     Group: 'Web',
@@ -199,6 +203,7 @@ export const DefaultSettings: SettingDefinition[] = [
     ShowWhen: ['WEB_ENABLE_DASHBOARD'],
     RequiresSave: true,
     Validate: (Value, Current) => ValidatePort('tcp', Value, Current),
+    Scope: 'INSTALL',
   },
   {
     Group: 'Web',
@@ -211,6 +216,7 @@ export const DefaultSettings: SettingDefinition[] = [
     ShowWhen: ['WEB_ENABLE_DASHBOARD'],
     RequiresSave: true,
     Validate: (Value) => ValidateBindAddress('tcp', Value),
+    Scope: 'INSTALL',
   },
   {
     Group: 'Web',
@@ -223,6 +229,7 @@ export const DefaultSettings: SettingDefinition[] = [
     ShowWhen: ['WEB_ENABLE_DASHBOARD'],
     // Connected browsers are asked again (or let straight in) at once.
     OnUpdateEvent: 'WebDashboard:AuthChanged',
+    Scope: 'INSTALL',
   },
   {
     Group: 'Web',
@@ -236,6 +243,7 @@ export const DefaultSettings: SettingDefinition[] = [
     Validate: (Value) => ValidatePasscode(Value),
     // A new passcode signs every browser out.
     OnUpdateEvent: 'WebDashboard:AuthChanged',
+    Scope: 'INSTALL',
   },
   {
     Group: 'OSC',
@@ -245,6 +253,7 @@ export const DefaultSettings: SettingDefinition[] = [
     Type: 'BOOLEAN',
     DefaultValue: true,
     OnUpdateEvent: 'OSC:Restart',
+    Scope: 'INSTALL',
   },
   {
     Group: 'OSC',
@@ -259,6 +268,7 @@ export const DefaultSettings: SettingDefinition[] = [
     ShowWhen: ['OSC_ENABLE'],
     RequiresSave: true,
     Validate: (Value, Current) => ValidatePort('udp', Value, Current),
+    Scope: 'INSTALL',
   },
   {
     Group: 'OSC',
@@ -271,6 +281,7 @@ export const DefaultSettings: SettingDefinition[] = [
     ShowWhen: ['OSC_ENABLE'],
     RequiresSave: true,
     Validate: (Value) => ValidateBindAddress('udp', Value),
+    Scope: 'INSTALL',
   },
 ];
 

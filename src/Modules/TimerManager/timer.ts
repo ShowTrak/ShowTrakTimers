@@ -16,6 +16,9 @@ import {
 
 export type Clock = () => number;
 
+/** The shortest duration a LOOP timer loops at; shorter ones hold at the end. */
+export const MIN_LOOP_MS = 1000;
+
 /** Something that happened as a timer ran past a threshold. */
 export interface TimerEvent {
   Kind: 'warning' | 'complete';
@@ -230,9 +233,11 @@ export class Timer {
         break;
       case 'LOOP': {
         // Carry the time already run past the end into the next loop, so a loop
-        // noticed late does not lose that time. A zero-length loop would spin;
-        // treat it as HOLD.
-        if (Target <= 0) {
+        // noticed late does not lose that time. A loop shorter than a second
+        // would fire its completion (a sound, a notification, a push to every
+        // screen) many times a second, and a zero-length one would spin: both
+        // hold at the end instead.
+        if (Target < MIN_LOOP_MS) {
           this.HoldAt(Target);
           break;
         }

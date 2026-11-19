@@ -18,6 +18,7 @@ const {
   TIMERS_APPLICATION_ID,
   SERVER_APPLICATION_ID,
 } = require('../dist/Modules/DB');
+const { LATEST_SCHEMA_VERSION } = require('../dist/Modules/DB/schema');
 
 function Setup(t) {
   const Temp = TempDir('st-timers-working-');
@@ -160,7 +161,7 @@ test('a 1.x database (no application id) is accepted by its tables', async (t) =
   assert.deepEqual(await ValidateShowFile(Legacy), [null, true]);
   assert.deepEqual(await ReadShowFileInfo(Legacy), [
     null,
-    { CreatedWithVersion: null, SavedWithVersion: null },
+    { CreatedWithVersion: null, SavedWithVersion: null, SchemaVersion: 0 },
   ]);
 });
 
@@ -174,7 +175,11 @@ test('ReadShowFileInfo reads the stamped versions without changing the file', as
   const Before = fs.readFileSync(Target);
   assert.deepEqual(await ReadShowFileInfo(Target), [
     null,
-    { CreatedWithVersion: '2.0.0-beta.3', SavedWithVersion: '2.0.0' },
+    {
+      CreatedWithVersion: '2.0.0-beta.3',
+      SavedWithVersion: '2.0.0',
+      SchemaVersion: LATEST_SCHEMA_VERSION,
+    },
   ]);
   assert.ok(fs.readFileSync(Target).equals(Before));
 });

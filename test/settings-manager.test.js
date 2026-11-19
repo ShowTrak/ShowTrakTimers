@@ -651,3 +651,75 @@ test('Reload re-reads show settings, keeps install ones, and fires what changed'
   );
   assert.deepEqual(Events(Bus), ['SettingsUpdated', 'FlagChanged']);
 });
+
+test('machine settings found in a show are dropped from it once adopted, without marking it unsaved', async (t) => {
+  const Install = MemoryInstallStore();
+  const Temp = TempDatabase();
+  t.after(() => Temp.cleanup());
+  await Temp.Db.Ready();
+  await Temp.Db.Run('INSERT INTO Settings (Key, Value) VALUES (?, ?), (?, ?)', [
+    'MACHINE_CHANNEL',
+    'Beta',
+    'FLAG',
+    0,
+  ]);
+  const Runs = [];
+  const Watched = {
+    ...Temp.Db,
+    Run: (Sql, Params, Options) => {
+      Runs.push({ Sql, Options });
+      return Temp.Db.Run(Sql, Params, Options);
+    },
+  };
+  const Manager = CreateSettingsManager(
+    Watched,
+    InstallDefinitions(),
+    [{ Name: 'G', Title: 'Group' }],
+    RecordingBus(),
+    Install
+  );
+  assert.equal(await Manager.GetValue('MACHINE_CHANNEL'), 'Beta');
+  // Show settings stay; the machine one is gone from the show.
+  assert.deepEqual(await RawAll(Temp.FilePath, 'SELECT Key FROM Settings ORDER BY Key'), [
+    { Key: 'FLAG' },
+  ]);
+  const Purge = Runs.find((R) => /^DELETE FROM Settings/.test(R.Sql));
+  assert.ok(Purge, 'the machine setting was deleted');
+  assert.deepEqual(Purge.Options, { MarkDirty: false });
+});
+
+test('machine settings are kept in the show when they could not be adopted', async (t) => {
+  const Install = MemoryInstallStore();
+  Install.Fail = 'disk full';
+  const Temp = TempDatabase();
+  t.after(() => Temp.cleanup());
+  await Temp.Db.Ready();
+  await Temp.Db.Run('INSERT INTO Settings (Key, Value) VALUES (?, ?)', ['MACHINE_CHANNEL', 'Beta']);
+  const Manager = CreateSettingsManager(
+    Temp.Db,
+    InstallDefinitions(),
+    [{ Name: 'G', Title: 'Group' }],
+    RecordingBus(),
+    Install
+  );
+  assert.equal(await Manager.GetValue('MACHINE_CHANNEL'), 'Beta');
+  assert.deepEqual(await RawAll(Temp.FilePath, 'SELECT Key FROM Settings'), [
+    { Key: 'MACHINE_CHANNEL' },
+  ]);
+});
+
+test('the network settings (ports, binds, the passcode) are machine settings', () => {
+  const { DefaultSettings: All } = require('../dist/Modules/SettingsManager/DefaultSettings');
+  for (const Key of [
+    'WEB_ENABLE_DASHBOARD',
+    'WEB_DASHBOARD_PORT',
+    'WEB_DASHBOARD_BIND',
+    'WEB_DASHBOARD_PASSWORD_PROTECTION_ENABLED',
+    'WEB_DASHBOARD_PASSWORD',
+    'OSC_ENABLE',
+    'OSC_PORT',
+    'OSC_BIND',
+  ]) {
+    assert.equal(All.find((S) => S.Key === Key).Scope, 'INSTALL', Key);
+  }
+});

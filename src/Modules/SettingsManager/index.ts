@@ -11,6 +11,7 @@ import type { SettingDefinition, SettingGroup, SettingValue } from './DefaultSet
 import { Manager as BroadcastManager } from '../Broadcast';
 import { Manager as AppDb, type Database } from '../DB';
 import { CreateInstallSettingsStore, type InstallSettingsStore } from './install-settings';
+import { Manager as AppShowLock, LockMethods, type ShowLock } from '../ShowLock';
 
 const Logger = CreateLogger('Settings');
 
@@ -96,7 +97,8 @@ export function CreateSettingsManager(
   Definitions: SettingDefinition[] = DefaultSettings,
   SettingGroups: SettingGroup[] = Groups,
   Broadcast: { emit(Event: string, ...Args: unknown[]): unknown } = BroadcastManager,
-  Install: InstallSettingsStore = CreateInstallSettingsStore()
+  Install: InstallSettingsStore = CreateInstallSettingsStore(),
+  Lock: ShowLock = AppShowLock
 ): SettingsManagerShape {
   const Settings = new Map<string, Setting>();
   const DefinitionsByKey = new Map(Definitions.map((Def) => [Def.Key, Def]));
@@ -162,14 +164,29 @@ export function CreateSettingsManager(
             Scope: IsInstall ? 'INSTALL' : null,
           });
         }
+        let Adopted = true;
         if (Object.keys(Seeds).length) {
           const SeedErr = Install.Write(Seeds);
           if (SeedErr) {
+            Adopted = false;
             Logger.error(
               `Failed to move ${Object.keys(Seeds).join(', ')} to install settings:`,
               SeedErr
             );
           }
+        }
+        // Machine settings left in the show (by a 2.0 beta, or 1.x) are this
+        // machine's now: drop them from the show, so they are not saved into
+        // the file (where the Web Dashboard passcode would travel with it).
+        // Not a change to the show, so it is not marked unsaved.
+        const Stale = Definitions.filter((Def) => Def.Scope === 'INSTALL' && Saved.has(Def.Key));
+        if (Adopted && Stale.length) {
+          const [PurgeErr] = await Db.Run(
+            `DELETE FROM Settings WHERE Key IN (${Stale.map(() => '?').join(', ')})`,
+            Stale.map((Def) => Def.Key),
+            { MarkDirty: false }
+          );
+          if (PurgeErr) Logger.warn('Failed to drop machine settings from the show:', PurgeErr);
         }
         Manager.Initialized = true;
       })();
@@ -255,6 +272,9 @@ export function CreateSettingsManager(
       for (const Event of Events) Broadcast.emit(Event);
     },
   };
+
+  // Writes to the show run under the show lock (see Modules/ShowLock).
+  LockMethods(Manager, ['Set'], Lock);
 
   return Manager;
 }

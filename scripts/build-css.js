@@ -1,11 +1,11 @@
-// Concatenates the per-surface CSS parts (src/UI/css/parts/*.css, in filename
-// order) into src/UI/css/main.css, which copy-assets.js ships verbatim to
-// dist/UI/css/main.css and build-webui.js copies to the Web UI surface.
+// Concatenates the CSS parts (src/UI/css/parts/*.css, in filename order) into
+// src/UI/css/main.css, which copy-assets.js ships verbatim to
+// dist/UI/css/main.css for the desktop window and the Web Dashboard.
 //
-// main.css was split for Phase 7 of REFACTOR_PLAN.md. Concatenation is strictly
-// order-preserving (Buffer.concat), so the generated main.css is byte-identical
-// to the pre-split file and the cascade is unchanged. Edit the parts under
-// src/UI/css/parts/, NOT main.css (it is regenerated on every build).
+// The 0* parts are ShowTrak Server's (copied in by scripts/sync-server-css.js);
+// 10-timers.css is this app's. Concatenation is strictly order-preserving
+// (Buffer.concat), so the cascade is exactly the parts' order. Edit the parts
+// under src/UI/css/parts/, NOT main.css (it is regenerated on every build).
 const fs = require('node:fs');
 const path = require('node:path');
 

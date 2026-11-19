@@ -12,13 +12,16 @@
 // Backups folder before anything writes to it. Declining leaves it untouched.
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { CreateLogger } from '../Logger';
 import { Manager as AppDb, type WorkingDatabase, ReadShowFileInfo } from '../DB';
 import { Manager as AppDataManager } from '../AppData';
 import { Manager as BroadcastManager } from '../Broadcast';
 import { Config } from '../Config';
-import { CompareVersions } from '../Utils';
+import { CompareVersions, WriteAndSyncFileSync } from '../Utils';
 import { DefaultSettings } from '../SettingsManager/DefaultSettings';
+import { LATEST_SCHEMA_VERSION } from '../DB/schema';
+import { Manager as AppShowLock, type ShowLock } from '../ShowLock';
 
 // Machine settings 2.0 betas stored in the database: not show data, so they
 // alone never call for a Save As.
@@ -49,15 +52,9 @@ export interface ShowFileManagerOptions {
   StateFilePath?: () => string;
   BackupsDirectory?: () => string;
   ReadInfo?: typeof ReadShowFileInfo;
+  /** The lock shared with every manager that writes to the show (Modules/ShowLock). */
+  Lock?: ShowLock;
 }
-
-// Show settings a new show keeps from the one it replaces: starting a new show
-// mid-session must not turn the Web Dashboard's passcode off or move the OSC and
-// dashboard ports out from under the devices using them.
-const CARRIED_SETTING_GROUPS = new Set(['Web', 'OSC']);
-const CARRIED_SETTING_KEYS = DefaultSettings.filter(
-  (S) => S.Scope !== 'INSTALL' && CARRIED_SETTING_GROUPS.has(S.Group)
-).map((S) => S.Key);
 
 function ErrorText(Err: unknown): string {
   if (Err instanceof Error && Err.message) return Err.message;
@@ -70,6 +67,25 @@ function BackupTimestamp(At: Date): string {
     `${At.getFullYear()}-${Pad(At.getMonth() + 1)}-${Pad(At.getDate())} ` +
     `${Pad(At.getHours())}-${Pad(At.getMinutes())}-${Pad(At.getSeconds())}`
   );
+}
+
+// The major version of a version string ("2.1.0-beta.1" -> 2), or 0.
+function MajorVersion(Value: string): number {
+  const Major = parseInt(String(Value).replace(/^v/i, ''), 10);
+  return Number.isFinite(Major) ? Major : 0;
+}
+
+// Whether a file can be written at FilePath's folder: null, or what is wrong.
+function CheckWritable(FilePath: string): string | null {
+  const Probe = `${FilePath}.write-check-${process.pid}`;
+  try {
+    fs.mkdirSync(path.dirname(FilePath), { recursive: true });
+    fs.writeFileSync(Probe, '');
+    fs.unlinkSync(Probe);
+    return null;
+  } catch (Err) {
+    return `The show file cannot be saved there: ${ErrorText(Err)}`;
+  }
 }
 
 function SamePathKey(FilePath: string): string {
@@ -102,6 +118,7 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
   const StateFilePath = Options.StateFilePath ?? (() => AppDataManager.GetStateFilePath());
   const BackupsDirectory = Options.BackupsDirectory ?? (() => AppDataManager.GetBackupsDirectory());
   const ReadInfo = Options.ReadInfo ?? ReadShowFileInfo;
+  const Lock = Options.Lock ?? AppShowLock;
 
   interface PersistedState {
     CurrentFilePath: string | null;
@@ -145,7 +162,7 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
       // Through a temp file, so a crash mid-write never leaves a torn file
       // (which would read as no show open, and prompt as if for a first run).
       const TempPath = `${StatePath}.tmp`;
-      fs.writeFileSync(TempPath, JSON.stringify(State, null, 2), 'utf8');
+      WriteAndSyncFileSync(TempPath, JSON.stringify(State, null, 2));
       fs.renameSync(TempPath, StatePath);
     } catch (Err) {
       Logger.error('Failed to remember which show file is open:', Err);
@@ -171,14 +188,13 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
     return PendingUpgrade;
   }
 
-  // Every operation that writes or swaps the show file runs one at a time: an
-  // autosave that fired while an Open was swapping files in must not write the
-  // newly opened show over the old show's file.
-  let Queue: Promise<unknown> = Promise.resolve();
+  // Every operation that writes or swaps the show file runs one at a time, and
+  // never alongside a manager writing to the show: an autosave that fired while
+  // an Open was swapping files in must not write the newly opened show over the
+  // old show's file, and an edit to the old show must not land in the new one.
+  // The lock is shared with the managers (see Modules/ShowLock).
   function Exclusive<T>(Fn: () => Promise<T>): Promise<T> {
-    const Run = Queue.then(Fn, Fn);
-    Queue = Run.catch(() => {});
-    return Run;
+    return Lock.Exclusive(Fn);
   }
 
   // Runs after a swap, inside the same exclusive section, so the managers have
@@ -213,6 +229,18 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
     const [Err, Info] = await ReadInfo(FilePath);
     if (Err || !Info) return [ErrorText(Err), null];
     const FileVersion = Info.SavedWithVersion;
+    // A newer version's file may hold tables and settings this one does not
+    // know; edited here and saved, it would lose them and be stamped as this
+    // older version. Refused, as Server refuses a newer show file.
+    if (
+      (typeof Info.SchemaVersion === 'number' && Info.SchemaVersion > LATEST_SCHEMA_VERSION) ||
+      (FileVersion && MajorVersion(FileVersion) > MajorVersion(Version()))
+    ) {
+      return [
+        `This show file was saved by a newer version of ShowTrak Timers${FileVersion ? ` (v${FileVersion})` : ''}. Update ShowTrak Timers to open it.`,
+        null,
+      ];
+    }
     const NeedsUpgrade = !FileVersion || CompareVersions(FileVersion, Version()) < 0;
     return [null, { NeedsUpgrade, FileVersion }];
   }
@@ -291,27 +319,48 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
 
   async function New(FilePath: string): Promise<Result<string>> {
     Logger.log('Creating a new show at:', FilePath);
-    const [, Carried] = await Db.All<{ Key: string; Value: unknown }>(
-      `SELECT Key, Value FROM Settings WHERE Key IN (${CARRIED_SETTING_KEYS.map(() => '?').join(', ')})`,
-      CARRIED_SETTING_KEYS
+    // The new file's folder must take a file before the open show is put away:
+    // a read-only or unplugged folder would otherwise leave an empty show with
+    // no file behind it, and the show that was open closed.
+    const WriteProblem = CheckWritable(FilePath);
+    if (WriteProblem) return [WriteProblem, null];
+    // Kept until the new show is saved, so a save that still fails puts the
+    // show that was open back, unsaved changes and all.
+    const PreviousFile = CurrentFilePath;
+    const PreviousUnsaved = Db.HasUnsavedChanges();
+    const KeepPath = path.join(
+      os.tmpdir(),
+      `showtrak-timers-before-new-${process.pid}-${Date.now()}.${SHOW_FILE_EXTENSION}`
     );
-    const [Err] = await Db.ResetToEmpty();
-    if (Err) return [ErrorText(Err), null];
-    for (const Row of Carried || []) {
-      await Db.Run('INSERT OR REPLACE INTO Settings (Key, Value) VALUES (?, ?)', [
-        Row.Key,
-        Row.Value,
-      ]);
+    const [KeepErr] = await Db.SnapshotTo(KeepPath);
+    if (KeepErr) return [`Could not set the open show aside: ${ErrorText(KeepErr)}`, null];
+    try {
+      const [Err] = await Db.ResetToEmpty();
+      if (Err) return [ErrorText(Err), null];
+      Db.MarkClean();
+      PendingUpgrade = null;
+      PersistFilePath(null);
+      await AfterSwap();
+      const StampErr = await StampInfo('CreatedWithVersion', Version());
+      if (StampErr) Logger.error('Failed to stamp the show file creation version:', StampErr);
+      const [SaveErr] = await Save(FilePath);
+      if (SaveErr) {
+        Logger.error('The new show could not be saved; reopening the previous show:', SaveErr);
+        const [RestoreErr] = await Db.ReplaceWithFile(KeepPath);
+        if (RestoreErr) {
+          Logger.error('Failed to reopen the previous show:', RestoreErr);
+        } else {
+          if (PreviousUnsaved) Db.MarkUnsaved();
+          else Db.MarkClean();
+          PersistFilePath(PreviousFile);
+          await AfterSwap();
+        }
+        return [SaveErr, null];
+      }
+      return [null, 'New show created'];
+    } finally {
+      fs.promises.rm(KeepPath, { force: true }).catch(() => undefined);
     }
-    Db.MarkClean();
-    PendingUpgrade = null;
-    PersistFilePath(null);
-    await AfterSwap();
-    const StampErr = await StampInfo('CreatedWithVersion', Version());
-    if (StampErr) Logger.error('Failed to stamp the show file creation version:', StampErr);
-    const [SaveErr] = await Save(FilePath);
-    if (SaveErr) return [SaveErr, null];
-    return [null, 'New show created'];
   }
 
   // Clear the working show with no file open (the operator is then asked to

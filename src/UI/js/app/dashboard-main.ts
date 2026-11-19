@@ -96,10 +96,13 @@ function SchedulePaint(): void {
   Loop.Schedule();
 }
 
-function Render(Timers: DashboardTimerLike[]): void {
+// Draw the timers. Reanchor is for a new list from the host; a redraw for a
+// groups or layout change keeps each running timer where it is, rather than
+// winding it back to the last list's value.
+function Render(Timers: DashboardTimerLike[], Reanchor = true): void {
   const At = performance.now();
   LastTimers = Timers;
-  Anchored = Timers.map((T) => Anchor(T, At));
+  if (Reanchor || Anchored.length !== Timers.length) Anchored = Timers.map((T) => Anchor(T, At));
   if (!Grid) return;
   // With no groups (or a host from before groups) this is one plain grid, as
   // before; otherwise one titled section per group that has timers on show.
@@ -152,7 +155,34 @@ function Render(Timers: DashboardTimerLike[]): void {
   SchedulePaint();
 }
 
+// The timers cached for an offline reload: rewritten when what is shown
+// changes (a timer added, renamed, started or stopped), and otherwise at most
+// every few seconds, not on every push while timers run.
+const CACHE_REFRESH_MS = 5000;
+let CachedKey = '';
+let CachedAt = 0;
+function CacheTimers(Timers: DashboardTimerLike[]): void {
+  const Key = JSON.stringify(Timers.map(({ ElapsedMs: _E, Warning: _W, ...Rest }) => Rest));
+  const At = performance.now();
+  if (Key === CachedKey && At - CachedAt < CACHE_REFRESH_MS) return;
+  CachedKey = Key;
+  CachedAt = At;
+  WriteCachedTimers(Storage, Timers);
+}
+
 function SetOnline(Value: boolean): void {
+  // Going offline, running timers stop where they are on screen, rather than
+  // snapping back to the last list the host sent.
+  if (Online && !Value) {
+    const At = performance.now();
+    Anchored = Anchored.map((Entry) =>
+      IsTicking(Entry.Timer.Status)
+        ? Anchor({ ...Entry.Timer, ElapsedMs: ElapsedAt(Entry, At) }, At)
+        : Entry
+    );
+    LastTimers = Anchored.map((Entry) => Entry.Timer);
+    WriteCachedTimers(Storage, LastTimers);
+  }
   Online = Value;
   document.body.classList.toggle('is-offline', !Value);
   if (Status) {
@@ -169,14 +199,18 @@ SetOnline(false);
 
 // --- Passcode (as ShowTrak Server's Web UI login) -----------------------------
 
-const PASSCODE_KEY = 'showtrak-timers:dashboard:passcode';
+// What the browser keeps after a sign-in: the host's token, never the passcode
+// (so it cannot be read back out of a crew phone). Earlier versions kept the
+// passcode itself; that is forgotten here.
+const TOKEN_KEY = 'showtrak-timers:dashboard:token';
+const OLD_PASSCODE_KEY = 'showtrak-timers:dashboard:passcode';
 const PIN_LENGTH = 4;
 let Pin = '';
 let Socket: DashboardSocket | null = null;
 
 function Stored(): string | null {
   try {
-    return window.localStorage.getItem(PASSCODE_KEY);
+    return window.localStorage.getItem(TOKEN_KEY);
   } catch {
     return null;
   }
@@ -184,11 +218,17 @@ function Stored(): string | null {
 
 function Store(Value: string | null): void {
   try {
-    if (Value === null) window.localStorage.removeItem(PASSCODE_KEY);
-    else window.localStorage.setItem(PASSCODE_KEY, Value);
+    if (Value === null) window.localStorage.removeItem(TOKEN_KEY);
+    else window.localStorage.setItem(TOKEN_KEY, Value);
   } catch {
     // Private browsing may refuse storage: the passcode is then asked each visit.
   }
+}
+
+try {
+  window.localStorage.removeItem(OLD_PASSCODE_KEY);
+} catch {
+  // Storage blocked: nothing was kept there either.
 }
 
 function LoginVisible(): boolean {
@@ -222,11 +262,14 @@ function ShowLogin(Visible: boolean): void {
   }
 }
 
-type LoginReply = { ok?: boolean; error?: string; retryAfterMs?: number };
+type LoginReply = { ok?: boolean; token?: string; error?: string; retryAfterMs?: number };
 
-function SendLogin(Passcode: string, OnReply: (Reply: LoginReply) => void): void {
+function SendLogin(
+  Credentials: { password: string } | { token: string },
+  OnReply: (Reply: LoginReply) => void
+): void {
   if (!Socket) return;
-  Socket.emit('auth:login', { password: Passcode }, OnReply);
+  Socket.emit('auth:login', Credentials, OnReply);
 }
 
 function SubmitPin(): void {
@@ -234,10 +277,9 @@ function SubmitPin(): void {
     SetLoginError('Enter the 4 digit passcode.');
     return;
   }
-  const Passcode = Pin;
-  SendLogin(Passcode, (Reply) => {
+  SendLogin({ password: Pin }, (Reply) => {
     if (Reply && Reply.ok) {
-      Store(Passcode);
+      if (typeof Reply.token === 'string') Store(Reply.token);
       SetLoginError('');
       ShowLogin(false);
       return;
@@ -287,8 +329,8 @@ function WireLogin(): void {
   });
 }
 
-// The host's greeting: straight in, or a passcode is needed. A passcode this
-// browser was given before is tried first, silently.
+// The host's greeting: straight in, or a passcode is needed. The token this
+// browser was given at its last sign-in is tried first, silently.
 function OnHello(Hello: { PasswordProtection?: boolean; Authed?: boolean } | null): void {
   if (!Hello || !Hello.PasswordProtection || Hello.Authed) {
     ShowLogin(false);
@@ -299,12 +341,12 @@ function OnHello(Hello: { PasswordProtection?: boolean; Authed?: boolean } | nul
     ShowLogin(true);
     return;
   }
-  SendLogin(Remembered, (Reply) => {
+  SendLogin({ token: Remembered }, (Reply) => {
     if (Reply && Reply.ok) {
       ShowLogin(false);
       return;
     }
-    // A passcode that no longer works is forgotten.
+    // A token that no longer works (the passcode changed) is forgotten.
     if (Reply && Reply.error === 'invalid_password') Store(null);
     ShowLogin(true);
     if (Reply && Reply.error === 'rate_limited')
@@ -317,6 +359,9 @@ WireLogin();
 if (typeof io === 'function') {
   Socket = io({
     transports: ['websocket', 'polling'],
+    // Fall back to polling where WebSockets are blocked (some venue Wi-Fi):
+    // without this the client only ever tries the first transport.
+    tryAllTransports: true,
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 10000,
@@ -329,12 +374,12 @@ if (typeof io === 'function') {
     Layout = NormalizeDashboardLayout(Payload);
     WriteCachedLayout(Storage, Layout);
     ApplyLayout();
-    Render(LastTimers);
+    Render(LastTimers, false);
   });
   Socket.on('groups:update', (Payload: unknown) => {
     Groups = NormalizeDashboardGroups(Payload);
     WriteCachedGroups(Storage, Groups);
-    Render(LastTimers);
+    Render(LastTimers, false);
   });
   Socket.on('timers:update', (Payload: unknown) => {
     const List = Array.isArray(Payload)
@@ -342,7 +387,7 @@ if (typeof io === 'function') {
           NormalizeDashboardTimer(T as Record<string, unknown>)
         )
       : [];
-    WriteCachedTimers(Storage, List);
+    CacheTimers(List);
     SetOnline(true);
     Render(List);
   });

@@ -1,16 +1,7 @@
 // IPC: timers (list, edit, order, run control).
 import { RPC } from '../rpc';
 import { Manager as TimerManager } from '../../Modules/TimerManager';
-import {
-  Action,
-  Direction,
-  Guard,
-  GroupRef,
-  IDList,
-  PlainObject,
-  TimerID,
-  TimerIDs,
-} from './validate';
+import { Action, Guard, GroupRef, PlainObject, TimerID, TimerIDs } from './validate';
 import { GroupRefProblem } from './groups';
 
 // A patch's GroupID, when it has one, must name a group that exists.
@@ -61,12 +52,6 @@ export function register(): void {
   );
 
   RPC.handle('Timer:Delete', (_E, ID) => Guard(() => TimerManager.Delete(TimerID(ID))));
-
-  RPC.handle('Timer:Move', (_E, ID, Dir) =>
-    Guard(() => TimerManager.Move(TimerID(ID), Direction(Dir)))
-  );
-
-  RPC.handle('Timers:Reorder', (_E, IDs) => Guard(() => TimerManager.Reorder(IDList(IDs))));
 
   RPC.handle('Timer:Control', (_E, ID, Act) =>
     Guard(() => TimerManager.Control(TimerID(ID), Action(Act)))

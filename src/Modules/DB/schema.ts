@@ -58,7 +58,7 @@ export const Migrations: Migration[] = [
     Name: 'Per-timer completion and warning behaviour',
     async Up(Db) {
       // What a timer does when it reaches its duration: HOLD (stop there,
-      // 1.x behaviour), OVERRUN, RESET or LOOP. See TimerManager/types.ts.
+      // 1.x behaviour), OVERRUN, RESET or LOOP. See common/timers.ts.
       await Db.AddColumnIfMissing('Timers', 'EndBehaviour', "TEXT NOT NULL DEFAULT 'HOLD'");
       // Sound references ("builtin:alert_1", "asset:<id>") or NULL for none.
       // The 1.x TextAlert/AudioAlert flags were stored but never acted on, so
@@ -82,6 +82,16 @@ export const Migrations: Migration[] = [
       await Db.Run(
         `INSERT OR IGNORE INTO Settings (Key, Value)
          SELECT 'SYSTEM_AUTO_UPDATE_ENABLED', Value FROM Settings WHERE Key = 'SYSTEM_AUTO_UPDATE'`
+      );
+      // 1.x updated automatically unless told not to, and only stored the
+      // setting when someone turned it off. An upgraded 1.x install (one with
+      // timers or settings) keeps updating automatically; a new install (an
+      // empty database) gets 2.0's default, off.
+      await Db.Run(
+        `INSERT OR IGNORE INTO Settings (Key, Value)
+         SELECT 'SYSTEM_AUTO_UPDATE_ENABLED', 1
+         WHERE NOT EXISTS (SELECT 1 FROM Settings WHERE Key = 'SYSTEM_AUTO_UPDATE')
+           AND (EXISTS (SELECT 1 FROM Timers) OR EXISTS (SELECT 1 FROM Settings))`
       );
       // Display sleep is now always prevented, as in ShowTrak Server.
       await Db.Run(

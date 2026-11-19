@@ -26,6 +26,11 @@ const EDITOR_ID = 'SHOWTRAK_MODAL_GROUP_EDITOR';
 
 let EditingGroupID: number | null = null;
 let RenameTimer: ReturnType<typeof setTimeout> | null = null;
+// What the list and the member list last drew. Timers push about once a second
+// while any runs, and redrawing an unchanged list then would swallow clicks and
+// end drags mid-way: they are only redrawn when what they show changed.
+let RenderedListHtml = '';
+let RenderedMembersHtml = '';
 
 function GroupByID(ID: number | null): GroupView | undefined {
   return ID === null ? undefined : Groups.find((G) => G.GroupID === ID);
@@ -53,8 +58,10 @@ async function Save(Patch: GroupPatchView, Success?: string): Promise<boolean> {
 
 // --- The list ----------------------------------------------------------------
 
-function RenderGroupList(): void {
+function RenderGroupList(Force = false): void {
   const $List = $('#GROUP_MANAGER_GROUP_LIST');
+  // Never under a drag in progress (the drop would land on a row that is gone).
+  if (!Force && document.querySelector('#GROUP_MANAGER_SORTABLE_LIST .dragging')) return;
   const Rows = Groups.map((Group) => {
     const KeyBind = FormatKeyBindLabel(Group.KeyBind);
     const Badge = KeyBind
@@ -76,14 +83,17 @@ function RenderGroupList(): void {
       </button>
     </div>`;
   }).join('');
-  $List.html(`<div id="GROUP_MANAGER_SORTABLE_LIST" class="d-grid gap-2">${Rows}</div>
+  const Html = `<div id="GROUP_MANAGER_SORTABLE_LIST" class="d-grid gap-2">${Rows}</div>
     <div class="GROUP_MANAGER_GROUP_ITEM GROUP_MANAGER_GROUP_ITEM_DEFAULT d-flex justify-content-between align-items-center p-3 rounded bg-ghost">
       <span class="GROUP_MANAGER_GROUP_TITLE text-start">Default Group</span>
       <div class="d-flex align-items-center gap-2">
         <span class="badge bg-ghost-light text-light">${Members(null)}</span>
         <span class="text-muted text-sm">Locked</span>
       </div>
-    </div>`);
+    </div>`;
+  if (!Force && Html === RenderedListHtml) return;
+  RenderedListHtml = Html;
+  $List.html(Html);
 }
 
 function DragAfterElement(Container: HTMLElement, Y: number): Element | null {
@@ -104,6 +114,7 @@ function DragAfterElement(Container: HTMLElement, Y: number): Element | null {
 function WireGroupList(): void {
   const $List = $('#GROUP_MANAGER_GROUP_LIST');
   $List.on('dragstart', '.GROUP_MANAGER_GROUP_ITEM[draggable="true"]', function (Event) {
+    this.dataset.dragged = '';
     this.classList.add('dragging');
     this.dataset.dragged = '';
     const Transfer = (Event.originalEvent as DragEvent | undefined)?.dataTransfer;
@@ -121,9 +132,14 @@ function WireGroupList(): void {
     else this.appendChild(Dragging);
   });
   $List.on('drop', '#GROUP_MANAGER_SORTABLE_LIST', (Event) => Event.preventDefault());
-  $List.on('dragend', '.GROUP_MANAGER_GROUP_ITEM', async function () {
+  $List.on('dragend', '.GROUP_MANAGER_GROUP_ITEM', async function (Event) {
     this.classList.remove('dragging');
     this.dataset.dragged = '1';
+    // Cancelled (Escape) or dropped outside the list: put the rows back.
+    if ((Event.originalEvent as DragEvent | undefined)?.dataTransfer?.dropEffect === 'none') {
+      RenderGroupList(true);
+      return;
+    }
     const Order = Array.from(
       document.querySelectorAll('#GROUP_MANAGER_SORTABLE_LIST .GROUP_MANAGER_GROUP_ITEM')
     )
@@ -155,7 +171,7 @@ export async function OpenGroupManager(): Promise<void> {
     return;
   }
   await CloseAllModals();
-  RenderGroupList();
+  RenderGroupList(true);
   openModal(MANAGER_ID);
 }
 
@@ -170,8 +186,7 @@ export async function CreateGroupAndEdit(): Promise<void> {
     void Notify(Err || 'Failed to create the group.', 'error');
     return;
   }
-  await OpenGroupEditor(Group.GroupID, Group);
-  $('#GROUP_MANAGER_EDITOR_NAME').trigger('focus').trigger('select');
+  await OpenGroupEditor(Group.GroupID, Group, { FocusName: true });
 }
 
 // --- The editor ----------------------------------------------------------------
@@ -206,31 +221,39 @@ function RenderSwatches(Group: GroupView): void {
   }
 }
 
-function RenderMembers(GroupID: number): void {
+function RenderMembers(GroupID: number, Force = false): void {
   const Members = CurrentTimers().filter((T) => T.GroupID === GroupID);
-  $('#GROUP_MANAGER_EDITOR_MEMBER_LIST').html(
-    Members.length
-      ? Members.map(
-          (
-            T
-          ) => `<div class="group-manager-member-row d-flex align-items-center justify-content-between gap-2">
+  const Html = Members.length
+    ? Members.map(
+        (
+          T
+        ) => `<div class="group-manager-member-row d-flex align-items-center justify-content-between gap-2">
             <span class="text-light text-truncate">${Safe(T.Name)}</span>
             <span class="d-flex align-items-center gap-2">
               <span class="text-muted text-sm">#${T.ID}</span>
               <button type="button" class="btn btn-sm group-manager-member-remove GROUP_MANAGER_MEMBER_REMOVE" data-timer-id="${T.ID}" title="Move to the Default group" aria-label="Move to the Default group"><i class="bi bi-dash-lg"></i></button>
             </span>
           </div>`
-        ).join('')
-      : '<div class="text-muted text-sm">No timers in this group.</div>'
-  );
+      ).join('')
+    : '<div class="text-muted text-sm">No timers in this group.</div>';
+  if (!Force && Html === RenderedMembersHtml) return;
+  RenderedMembersHtml = Html;
+  $('#GROUP_MANAGER_EDITOR_MEMBER_LIST').html(Html);
 }
 
-export async function OpenGroupEditor(GroupID: number, Known?: GroupView): Promise<void> {
+export async function OpenGroupEditor(
+  GroupID: number,
+  Known?: GroupView,
+  Options: { FocusName?: boolean } = {}
+): Promise<void> {
   const Group = Known ?? GroupByID(GroupID);
   if (!Group) {
     void Notify('Group not found.', 'error');
     return;
   }
+  // Whatever is open closes first (Preferences, the list, this editor on
+  // another group, whose rename still waiting is saved as it closes).
+  await CloseAllModals();
   EditingGroupID = Group.GroupID;
   if (RenameTimer) clearTimeout(RenameTimer);
   RenameTimer = null;
@@ -262,8 +285,13 @@ export async function OpenGroupEditor(GroupID: number, Known?: GroupView): Promi
     )
     .val(Group.KeyBind ?? '');
   RenderSwatches(Group);
-  RenderMembers(Group.GroupID);
-  closeModal(MANAGER_ID);
+  RenderMembers(Group.GroupID, true);
+  if (Options.FocusName) {
+    // Once shown: Bootstrap moves the focus to the modal itself as it opens.
+    $(`#${EDITOR_ID}`).one('shown.bs.modal', () => {
+      $('#GROUP_MANAGER_EDITOR_NAME').trigger('focus').trigger('select');
+    });
+  }
   openModal(EDITOR_ID);
 }
 
@@ -365,7 +393,10 @@ function WireEditor(): void {
       `Delete "${Group.Title}"? Its timers move to the Default group. This cannot be undone.`,
       { ConfirmLabel: 'Delete Group' }
     );
-    if (!Confirmed) return;
+    // Still the group asked about, in the show it was asked about.
+    if (Confirmed !== true || EditingGroupID !== Group.GroupID || !GroupByID(Group.GroupID)) {
+      return;
+    }
     const [Err] = await window.API.DeleteGroup(Group.GroupID);
     if (Err) {
       void Notify(`Failed to delete the group: ${Err}`, 'error');

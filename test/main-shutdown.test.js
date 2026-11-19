@@ -36,15 +36,20 @@ function deferred() {
 }
 
 /** A coordinator over recording fakes. `answers` queues ConfirmClose results. */
-function coordinator({ answers = [], rendererCanConfirm = true, cleanup } = {}) {
-  const calls = { quit: 0, prompts: [], rendererAsks: 0, cleanups: 0, order: [] };
+function coordinator({ answers = [], rendererCanConfirm = true, cleanup, deadlineMs } = {}) {
+  const calls = { quit: 0, exits: [], prompts: [], rendererAsks: 0, cleanups: 0, order: [] };
   const Coordinator = CreateShutdownCoordinator({
     App: {
       quit: () => {
         calls.quit++;
         calls.order.push('quit');
       },
+      exit: (Code) => {
+        calls.exits.push(Code);
+        calls.order.push('exit');
+      },
     },
+    CleanupDeadlineMs: deadlineMs,
     ConfirmClose: async (Window) => {
       calls.prompts.push(Window);
       const Answer = answers.length ? answers.shift() : false;
@@ -369,4 +374,36 @@ test('each coordinator keeps its own state', async () => {
   B.Coordinator.HandleWillQuit(Event);
   assert.equal(Event.prevented, 1);
   await flush(10);
+});
+
+test('a cleanup that hangs is given up on at the deadline, and the app exits anyway', async () => {
+  const Never = deferred();
+  const { Coordinator, calls } = coordinator({ cleanup: () => Never.promise, deadlineMs: 20 });
+  Coordinator.HandleWillQuit(closeEvent());
+  await flush();
+  assert.deepEqual(calls.exits, []);
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  await flush(10);
+  // exit, not quit: a quit would wait on the stuck cleanup all over again.
+  assert.deepEqual(calls.exits, [0]);
+  assert.equal(calls.quit, 0);
+  assert.ok(logger.lines('error').some((L) => /did not finish in time/.test(L)));
+  // Whatever will-quit follows goes straight through.
+  const After = closeEvent();
+  Coordinator.HandleWillQuit(After);
+  assert.equal(After.prevented, 0);
+});
+
+test('the default cleanup deadline is ten seconds', () => {
+  const { CLEANUP_DEADLINE_MS } = require('../dist/main/shutdown');
+  assert.equal(CLEANUP_DEADLINE_MS, 10000);
+});
+
+test('a system shutdown with an event holds it (preventDefault) while the app quits', () => {
+  const { Coordinator, calls } = coordinator();
+  Coordinator.SetProtection(true);
+  const Event = closeEvent();
+  Coordinator.HandleSystemShutdown(Event);
+  assert.equal(Event.prevented, 1);
+  assert.equal(calls.quit, 1);
 });

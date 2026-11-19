@@ -8,6 +8,7 @@
 import { CreateLogger } from '../Logger';
 import { Manager as BroadcastManager } from '../Broadcast';
 import { Manager as AppDb, type Database } from '../DB';
+import { Manager as AppShowLock, LockMethods, type ShowLock } from '../ShowLock';
 import {
   DEFAULT_GROUP_SLUG,
   NormalizeColour,
@@ -49,6 +50,8 @@ export interface GroupPatch {
 export interface GroupManagerOptions {
   Db?: Database;
   Broadcast?: { emit(Event: string, ...Args: unknown[]): unknown };
+  /** The lock every write to the show takes (see Modules/ShowLock). */
+  Lock?: ShowLock;
 }
 
 function FromRow(Row: GroupRow): GroupView {
@@ -67,6 +70,7 @@ function FromRow(Row: GroupRow): GroupView {
 export function CreateGroupManager(Options: GroupManagerOptions = {}) {
   const Db = Options.Db ?? AppDb;
   const Broadcast = Options.Broadcast ?? BroadcastManager;
+  const Lock = Options.Lock ?? AppShowLock;
 
   let Groups: GroupView[] = [];
   let Loaded = false;
@@ -320,6 +324,9 @@ export function CreateGroupManager(Options: GroupManagerOptions = {}) {
       Announce();
     },
   };
+
+  // Writes to the show run under the show lock (see Modules/ShowLock).
+  LockMethods(Manager, ['Create', 'Update', 'Delete', 'Reorder'], Lock);
 
   return Manager;
 }

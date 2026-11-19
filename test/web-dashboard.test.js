@@ -28,6 +28,7 @@ const {
   CreateWebDashboard,
   ToDashboardTimers,
   ToDashboardGroups,
+  AgedTimers,
   ReadDashboardLayout,
   DASHBOARD_CSP,
 } = require('../dist/Modules/WebDashboard');
@@ -750,8 +751,12 @@ test("the layout is the desktop's group columns and colour saturation, clamped",
   });
 });
 
+// Timers in both groups, so both are on show.
+const GROUPED_TIMERS = () => [view(1, { GroupID: 4 }), view(2, { GroupID: 2 })];
+
 test('a browser gets the layout and groups, then the timers, on connecting', async (t) => {
   const { Port } = await startDashboard(t, {
+    Timers: GROUPED_TIMERS(),
     Groups: GROUPS,
     Layout: { UI_GROUP_COLUMN_COUNT: 3, UI_GROUP_COLOUR_SATURATION: 50 },
   });
@@ -766,7 +771,7 @@ test('a browser gets the layout and groups, then the timers, on connecting', asy
 });
 
 test('a group change is pushed straight away', async (t) => {
-  const { Port, Bus } = await startDashboard(t, { Groups: GROUPS });
+  const { Port, Bus } = await startDashboard(t, { Timers: GROUPED_TIMERS(), Groups: GROUPS });
   const Client = connect(t, Port);
   await waitFor(() => Client.groups.length > 0);
   Bus.emit('GroupsUpdated', [{ ...GROUPS[0], Title: 'Front of House' }]);
@@ -814,4 +819,77 @@ test('every timer says which group it is in (null for the Default group)', () =>
     Sent.map((T) => T.GroupID),
     [4, null]
   );
+});
+
+test('a group whose timers are all hidden from the dashboard is not sent to it', () => {
+  const Sent = ToDashboardTimers([
+    view(1, { GroupID: 4 }),
+    view(2, { GroupID: 2, ShowOnWeb: false }),
+  ]);
+  assert.deepEqual(
+    ToDashboardGroups(GROUPS, Sent).map((G) => G.GroupID),
+    [4]
+  );
+});
+
+test('showing a timer brings its group onto the page, before the timers that need it', async (t) => {
+  const Hidden = [view(1, { GroupID: 4 }), view(2, { GroupID: 2, ShowOnWeb: false })];
+  const { Port, Bus } = await startDashboard(t, { Timers: Hidden, Groups: GROUPS });
+  const Client = connect(t, Port);
+  await waitFor(() => Client.updates.length > 0);
+  assert.deepEqual(
+    Client.groups[0].map((G) => G.GroupID),
+    [4]
+  );
+  Client.order.length = 0;
+  Bus.emit('TimersUpdated', [view(1, { GroupID: 4 }), view(2, { GroupID: 2 })]);
+  await waitFor(() => Client.groups.length > 1);
+  assert.deepEqual(
+    Client.groups[1].map((G) => G.GroupID),
+    [2, 4]
+  );
+  await waitFor(() => Client.order.includes('timers'));
+  assert.deepEqual(Client.order.slice(0, 2), ['groups', 'timers']);
+});
+
+test('AgedTimers moves running timers on by the age of the list, and nothing else', () => {
+  const List = [
+    view(1, { Status: 'RUNNING', ElapsedMs: 1000 }),
+    view(2, { Status: 'OVERRUN', ElapsedMs: 5000 }),
+    view(3, { Status: 'PAUSED', ElapsedMs: 2000 }),
+    view(4, { Status: 'STANDBY', ElapsedMs: 0 }),
+  ];
+  assert.deepEqual(
+    AgedTimers(List, 250).map((T) => T.ElapsedMs),
+    [1250, 5250, 2000, 0]
+  );
+  assert.deepEqual(
+    AgedTimers(List, -5).map((T) => T.ElapsedMs),
+    [1000, 5000, 2000, 0]
+  );
+  assert.equal(List[0].ElapsedMs, 1000, 'the list given is not changed');
+});
+
+test('Stop does not wait for a client that never finishes its request', async (t) => {
+  const { Dashboard, Port } = await startDashboard(t);
+  const net = require('node:net');
+  const Stalled = net.connect(Port, LOOPBACK);
+  t.after(() => Stalled.destroy());
+  await new Promise((resolve) => Stalled.once('connect', resolve));
+  // Headers started, never finished.
+  Stalled.write('GET / HTTP/1.1\r\nHost: x\r\n');
+  await sleep(50);
+  const Started = Date.now();
+  await Dashboard.Stop();
+  assert.ok(Date.now() - Started < 2000, `Stop took ${Date.now() - Started} ms`);
+});
+
+test('Start and Stop called together run one after the other, ending as the last asked', async (t) => {
+  const { Dashboard } = await startDashboard(t);
+  const Results = await Promise.all([Dashboard.Stop(), Dashboard.Start(), Dashboard.Start()]);
+  assert.deepEqual(
+    Results.map((R) => R[0]),
+    [null, null, null]
+  );
+  assert.equal(Dashboard.IsRunning(), true);
 });

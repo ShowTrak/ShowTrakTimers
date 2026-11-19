@@ -22,8 +22,11 @@ test.after(() => restore());
 const {
   CreateWebDashboard,
   PasscodeMatches,
+  ClientAddress,
   LOGIN_MAX_FAILURES,
   LOGIN_LOCKOUT_MS,
+  LOGIN_GLOBAL_MAX_FAILURES,
+  LOGIN_GLOBAL_LOCKOUT_MS,
 } = require('../dist/Modules/WebDashboard');
 const { ValidatePasscode } = require('../dist/Modules/SettingsManager/validators');
 const { io } = require('socket.io-client');
@@ -55,7 +58,10 @@ const TIMERS = [
   },
 ];
 
-async function start(t, { Protection = true, Passcode = '1234', Clock } = {}) {
+async function start(
+  t,
+  { Protection = true, Passcode = '1234', Clock, SessionKeyFile = null } = {}
+) {
   const Port = await freeTcpPort();
   const Values = {
     WEB_ENABLE_DASHBOARD: true,
@@ -72,6 +78,7 @@ async function start(t, { Protection = true, Passcode = '1234', Clock } = {}) {
     Timers: recordingManager({ GetAll: async () => TIMERS }),
     Broadcast: Bus,
     StaticRoot,
+    SessionKeyFile,
     ...(Clock ? { Now: Clock } : {}),
   });
   t.after(() => Dashboard.Stop());
@@ -95,6 +102,15 @@ function connect(t, Port) {
 
 const login = (Client, Password) =>
   new Promise((resolve) => Client.Socket.emit('auth:login', { password: Password }, resolve));
+const loginWithToken = (Client, Token) =>
+  new Promise((resolve) => Client.Socket.emit('auth:login', { token: Token }, resolve));
+
+// A sign-in that worked: ok, and the token the browser keeps instead of the passcode.
+function assertSignedIn(Reply) {
+  assert.equal(Reply.ok, true, JSON.stringify(Reply));
+  assert.match(Reply.token, /^[0-9a-f]{48}$/);
+  assert.equal(Object.keys(Reply).length, 2);
+}
 
 test('an open dashboard greets a browser as signed in and sends the timers', async (t) => {
   const { Port } = await start(t, { Protection: false });
@@ -137,7 +153,7 @@ test('a wrong passcode is refused; the right one signs the browser in', async (t
   assert.deepEqual(await login(Client, '0000'), { error: 'invalid_password' });
   assert.deepEqual(await login(Client, ''), { error: 'invalid_password' });
   assert.deepEqual(Client.updates, []);
-  assert.deepEqual(await login(Client, '1234'), { ok: true });
+  assertSignedIn(await login(Client, '1234'));
   await waitFor(() => Client.updates.length, { Label: 'timers after login' });
   assert.equal(Dashboard.ClientCount(), 1);
   assert.deepEqual(Client.counts.at(-1), { count: 1 });
@@ -165,7 +181,7 @@ test('too many wrong passcodes lock that address out for a while', async (t) => 
   assert.equal(Locked.error, 'rate_limited', 'even the right passcode waits out the lockout');
   assert.equal(Locked.retryAfterMs, LOGIN_LOCKOUT_MS);
   Now += LOGIN_LOCKOUT_MS + 1;
-  assert.deepEqual(await login(Client, '1234'), { ok: true });
+  assertSignedIn(await login(Client, '1234'));
 });
 
 test('changing the passcode signs every browser out and greets it again', async (t) => {
@@ -185,7 +201,7 @@ test('changing the passcode signs every browser out and greets it again', async 
   await sleep(150);
   assert.equal(Client.updates.length, Before, 'no pushes once signed out');
   assert.deepEqual(await login(Client, '1234'), { error: 'invalid_password' });
-  assert.deepEqual(await login(Client, '5678'), { ok: true });
+  assertSignedIn(await login(Client, '5678'));
 });
 
 test('turning protection off lets every connected browser straight in', async (t) => {
@@ -222,4 +238,104 @@ test('a passcode setting is four digits, or empty for none', () => {
   for (const Bad of ['123', '12345', 'abcd', '12 4', '-123']) {
     assert.match(ValidatePasscode(Bad), /exactly 4 digits/, Bad);
   }
+});
+
+// --- Sign-in tokens --------------------------------------------------------------
+
+test('a browser signs in again with its token after reconnecting, and never needs the passcode', async (t) => {
+  const { Port, Dashboard } = await start(t);
+  const First = connect(t, Port);
+  await waitFor(() => First.hellos.length, { Label: 'greeting' });
+  const { token } = await login(First, '1234');
+  First.Socket.close();
+
+  const Again = connect(t, Port);
+  await waitFor(() => Again.hellos.length, { Label: 'second greeting' });
+  assertSignedIn(await loginWithToken(Again, token));
+  await waitFor(() => Again.updates.length, { Label: 'timers' });
+  assert.equal(Dashboard.ClientCount(), 1);
+});
+
+test('a wrong token is refused without counting as a passcode guess', async (t) => {
+  const { Port } = await start(t, { Clock: () => 5_000_000 });
+  const Client = connect(t, Port);
+  await waitFor(() => Client.hellos.length, { Label: 'greeting' });
+  for (let I = 0; I < LOGIN_MAX_FAILURES + 2; I++) {
+    assert.deepEqual(await loginWithToken(Client, 'f'.repeat(48)), { error: 'invalid_password' });
+  }
+  // Not locked out: the passcode still works.
+  assertSignedIn(await login(Client, '1234'));
+});
+
+test('changing the passcode makes every earlier token worthless, even if the old passcode comes back', async (t) => {
+  const { Port, Values, Bus } = await start(t);
+  const Client = connect(t, Port);
+  await waitFor(() => Client.hellos.length, { Label: 'greeting' });
+  const { token: Old } = await login(Client, '1234');
+  Values.WEB_DASHBOARD_PASSWORD = '5678';
+  Bus.emit('WebDashboard:AuthChanged');
+  Values.WEB_DASHBOARD_PASSWORD = '1234';
+  Bus.emit('WebDashboard:AuthChanged');
+  await waitFor(() => Client.hellos.length === 3, { Label: 'greeted again' });
+  assert.deepEqual(await loginWithToken(Client, Old), { error: 'invalid_password' });
+});
+
+test('the token survives a restart when it is kept in a file', async (t) => {
+  const Dir = fs.mkdtempSync(path.join(os.tmpdir(), 'st-timers-dash-key-'));
+  t.after(() => fs.rmSync(Dir, { recursive: true, force: true }));
+  const KeyFile = path.join(Dir, 'Storage', 'web-dashboard-session.json');
+  const First = await start(t, { SessionKeyFile: () => KeyFile });
+  const A = connect(t, First.Port);
+  await waitFor(() => A.hellos.length, { Label: 'greeting' });
+  const { token } = await login(A, '1234');
+  A.Socket.close();
+  await First.Dashboard.Stop();
+  assert.equal(JSON.parse(fs.readFileSync(KeyFile, 'utf8')).Key, token);
+
+  const Second = await start(t, { SessionKeyFile: () => KeyFile });
+  const B = connect(t, Second.Port);
+  await waitFor(() => B.hellos.length, { Label: 'greeting after restart' });
+  assertSignedIn(await loginWithToken(B, token));
+});
+
+test('signing in again when already signed in is answered, but not greeted or counted again', async (t) => {
+  const { Port, Bus } = await start(t);
+  const Client = connect(t, Port);
+  await waitFor(() => Client.hellos.length, { Label: 'greeting' });
+  await login(Client, '1234');
+  await waitFor(() => Client.updates.length, { Label: 'timers' });
+  const Updates = Client.updates.length;
+  const Counts = Bus.counts.length;
+  for (let I = 0; I < 20; I++) assertSignedIn(await login(Client, '1234'));
+  await sleep(100);
+  assert.equal(Client.updates.length, Updates, 'no re-sent timers');
+  assert.equal(Bus.counts.length, Counts, 'no viewer-count churn');
+});
+
+test('too many wrong passcodes across every address pause passcode sign-ins and tell the operator', async (t) => {
+  let Now = 9_000_000;
+  const { Port, Bus } = await start(t, { Clock: () => Now });
+  const Notices = [];
+  Bus.on('Notify', (Message) => Notices.push(Message));
+  const Client = connect(t, Port);
+  await waitFor(() => Client.hellos.length, { Label: 'greeting' });
+  // Spread over the per-address window, so only the global limit can trip.
+  for (let I = 0; I < LOGIN_GLOBAL_MAX_FAILURES; I++) {
+    await login(Client, '9999');
+    Now += 7_000;
+  }
+  const Paused = await login(Client, '1234');
+  assert.equal(Paused.error, 'rate_limited');
+  assert.ok(Paused.retryAfterMs > 0 && Paused.retryAfterMs <= LOGIN_GLOBAL_LOCKOUT_MS);
+  assert.equal(Notices.length, 1);
+  assert.match(Notices[0], /many wrong passcodes/);
+  Now += LOGIN_GLOBAL_LOCKOUT_MS + 1;
+  assertSignedIn(await login(Client, '1234'));
+});
+
+test('ClientAddress treats an IPv4-mapped address as the IPv4 one', () => {
+  assert.equal(ClientAddress('::ffff:192.168.1.20'), '192.168.1.20');
+  assert.equal(ClientAddress('192.168.1.20'), '192.168.1.20');
+  assert.equal(ClientAddress('fe80::1'), 'fe80::1');
+  assert.equal(ClientAddress(undefined), 'unknown');
 });

@@ -1,6 +1,7 @@
 // Modal plumbing shared by every panel: the titlebar headers, closing whatever
 // is open, and the About modal (all as in ShowTrak Server).
 import { closeAllModals, closeModal, openModal } from './lib/modal';
+import { CancelConfirmation } from './lib/toasts';
 import { buildModalHeader } from './lib/modal-header';
 import { Config } from './state';
 import { Wait } from './utils';
@@ -24,10 +25,26 @@ export function InitModalHeaders(): void {
   Build('GROUP_EDITOR_HEADER', 'Edit Group', 'SHOWTRAK_MODAL_GROUP_EDITOR');
 }
 
+// The longest a close is waited for (Bootstrap's fade is about 300 ms).
+const MODAL_HIDE_WAIT_MS = 700;
+
+/**
+ * Close every modal (but the prompts that need an answer) and any confirmation
+ * waiting in one, and resolve once they have finished closing. It waits for
+ * Bootstrap's 'hidden' event, not a fixed time: a modal reopened while its own
+ * close was still finishing would otherwise get that late event, and reset the
+ * editor it had just opened. Resolves at once when nothing was open.
+ */
 export async function CloseAllModals(): Promise<void> {
+  CancelConfirmation();
+  const Closing = Array.from(document.querySelectorAll<HTMLElement>('.modal')).filter(
+    (El) => El.style.display === 'block' && El.getAttribute('data-bs-backdrop') !== 'static'
+  );
+  const Hidden = Closing.map(
+    (El) => new Promise<void>((resolve) => $(El).one('hidden.bs.modal', () => resolve()))
+  );
   closeAllModals();
-  // Let Bootstrap finish its hide transition before the next modal opens.
-  await Wait(300);
+  if (Hidden.length) await Promise.race([Promise.all(Hidden), Wait(MODAL_HIDE_WAIT_MS)]);
 }
 
 // "^1.2.3" -> "1.2", as Server's About modal lists them.

@@ -6,6 +6,7 @@
 // string argument "Walk In"), which is the only way to send a value containing
 // characters an OSC address cannot (spaces, slashes).
 import type { ControlAction } from '../TimerManager';
+import { MAX_DURATION_MS } from '../../common/timers';
 
 export type OscParams = Record<string, string>;
 
@@ -154,10 +155,10 @@ export const ROUTES: OscRoute[] = [
       if (ID === null) return Fail(`Invalid timer ID "${Params.TimerID}"`);
       const Ms = Milliseconds(Params.ms);
       if (Ms === null) return Fail(`Invalid duration "${Params.ms}"`);
-      const Err = await Context.SetDuration(ID, Math.floor(Ms));
-      return Err
-        ? Fail(`Timer ${ID}: ${Err}`)
-        : Ok(`Timer ${ID} duration set to ${Math.floor(Ms)} ms`);
+      // Clamped as the timer stores it, so the reply says what was set.
+      const Duration = Math.min(Math.floor(Ms), MAX_DURATION_MS);
+      const Err = await Context.SetDuration(ID, Duration);
+      return Err ? Fail(`Timer ${ID}: ${Err}`) : Ok(`Timer ${ID} duration set to ${Duration} ms`);
     },
   },
   {
@@ -168,8 +169,9 @@ export const ROUTES: OscRoute[] = [
       if (ID === null) return Fail(`Invalid timer ID "${Params.TimerID}"`);
       const Ms = Milliseconds(Params.TimeInMS);
       if (Ms === null) return Fail(`Invalid time "${Params.TimeInMS}"`);
-      const Err = await Context.JumpTo(ID, Ms);
-      return Err ? Fail(`Timer ${ID}: ${Err}`) : Ok(`Timer ${ID} moved to ${Math.floor(Ms)} ms`);
+      const Target = Math.min(Math.floor(Ms), MAX_DURATION_MS);
+      const Err = await Context.JumpTo(ID, Target);
+      return Err ? Fail(`Timer ${ID}: ${Err}`) : Ok(`Timer ${ID} moved to ${Target} ms`);
     },
   },
   {

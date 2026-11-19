@@ -193,12 +193,18 @@ export function RefreshGroupLayout(): void {
   Paint();
 }
 
+// The status line is a live region: written only when it changes, so a screen
+// reader is not handed the same text again with every push.
+let BottomBarText: string | null = null;
 function UpdateBottomBar(): void {
   const Clients = Services?.WebDashboard.Clients ?? 0;
   const Selection = SelectionStatusText();
   const Parts = [Selection || SummariseTimers(CurrentTimers())];
   if (Clients > 0) Parts.push(`${Clients} Dashboard Viewer${Clients === 1 ? '' : 's'}`);
-  $('#BOTTOM_BAR_STATUS').text(Parts.join(' · '));
+  const Text = Parts.join(' · ');
+  if (Text === BottomBarText) return;
+  BottomBarText = Text;
+  $('#BOTTOM_BAR_STATUS').text(Text);
 }
 
 export function ApplyTimers(Timers: TimerView[]): void {
@@ -227,15 +233,7 @@ export async function ControlAll(Action: ControlAction): Promise<void> {
     void Notify(Err, 'error');
     return;
   }
-  const Verb =
-    Action === 'Pause'
-      ? 'Paused'
-      : Action === 'Unpause'
-        ? 'Resumed'
-        : Action === 'Stop'
-          ? 'Stopped'
-          : 'Started';
-  void Notify(`${Verb} ${Count} timer${Count === 1 ? '' : 's'}.`, 'info', 1800);
+  void Notify(`${PAST_TENSE[Action]} ${Count} timer${Count === 1 ? '' : 's'}.`, 'info', 1800);
 }
 
 const PAST_TENSE: Readonly<Record<ControlAction, string>> = {
@@ -367,11 +365,19 @@ function WireDragAndDrop(): void {
     this.classList.add('dnd-over');
   });
   $Grid.on('drop', '.timer-group-zone', (Event) => Event.preventDefault());
-  $Grid.on('dragend', '.SHOWTRAK_TIMER', async function () {
+  $Grid.on('dragend', '.SHOWTRAK_TIMER', async function (Event) {
     this.classList.remove('dragging');
     $Grid.find('.dnd-over').removeClass('dnd-over');
     if (DraggingID === null) return;
     DraggingID = null;
+    // Cancelled (Escape) or dropped somewhere that is not a group: the tile
+    // was moved live as it was dragged, so put everything back as it was.
+    if ((Event.originalEvent as DragEvent | undefined)?.dataTransfer?.dropEffect === 'none') {
+      RenderedKey = '';
+      RenderStructure();
+      Paint();
+      return;
+    }
     const Layout = ArrangementOnPage();
     if (LayoutKey(Layout) === LayoutAtDragStart) return;
     // Redrawn from the push that follows; an empty group a tile left gets its

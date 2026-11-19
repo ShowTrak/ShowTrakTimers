@@ -111,7 +111,7 @@ function RenderBoolean($Target: JQuery<HTMLElement>, Setting: SettingView): void
       ${DescriptionLine(Setting.Description)}
     </div>
     <div class="form-check form-switch">
-      <input class="form-check-input" type="checkbox" id="SETTING_${Setting.Key}" ${
+      <input class="form-check-input" type="checkbox" id="SETTING_${Setting.Key}" aria-label="${Safe(Setting.Title)}" ${
         Setting.Value ? 'checked' : ''
       }>
     </div>
@@ -141,12 +141,12 @@ function RenderField($Target: JQuery<HTMLElement>, Setting: SettingView): void {
   const InputHtml = IsNumber
     ? `<input type="number" class="form-control form-control-sm bg-ghost-light text-light border-0" id="SETTING_${
         Setting.Key
-      }" value="${Safe(Setting.Value)}" step="1" ${HasMin ? `min="${Setting.Min}"` : ''} ${
+      }" aria-label="${Safe(Setting.Title)}" value="${Safe(Setting.Value)}" step="1" ${HasMin ? `min="${Setting.Min}"` : ''} ${
         HasMax ? `max="${Setting.Max}"` : ''
       } />`
     : `<input type="text" class="form-control form-control-sm bg-ghost-light text-light border-0" id="SETTING_${
         Setting.Key
-      }" value="${Safe(Setting.Value)}" autocomplete="off" spellcheck="false" />`;
+      }" aria-label="${Safe(Setting.Title)}" value="${Safe(Setting.Value)}" autocomplete="off" spellcheck="false" />`;
   const SaveHtml = Setting.RequiresSave
     ? `<button type="button" class="btn btn-sm btn-success" id="SETTING_${Setting.Key}_SAVE" disabled>Save</button>`
     : '';
@@ -211,7 +211,7 @@ function RenderSlider($Target: JQuery<HTMLElement>, Setting: SettingView): void 
       )}</span>
     </div>
     ${DescriptionLine(Setting.Description)}
-    <input type="range" class="form-range" id="SETTING_${Setting.Key}" min="${Min}" max="${Max}" step="1" value="${Safe(
+    <input type="range" class="form-range" id="SETTING_${Setting.Key}" aria-label="${Safe(Setting.Title)}" min="${Min}" max="${Max}" step="1" value="${Safe(
       Setting.Value
     )}" />
   </div>`);
@@ -233,7 +233,7 @@ function RenderOption($Target: JQuery<HTMLElement>, Setting: SettingView): void 
       `<option value="${Safe(Opt)}" ${Setting.Value === Opt ? 'selected' : ''}>${Safe(Opt)}</option>`
   ).join('');
   const IsShort = Options.every((Opt) => String(Opt).length <= SHORT_OPTION_LENGTH);
-  const SelectHtml = `<select class="form-select form-select-sm bg-ghost-light text-light border-0" id="SETTING_${Setting.Key}">${OptionsHtml}</select>`;
+  const SelectHtml = `<select class="form-select form-select-sm bg-ghost-light text-light border-0" id="SETTING_${Setting.Key}" aria-label="${Safe(Setting.Title)}">${OptionsHtml}</select>`;
   $Target.append(`<div class="bg-ghost p-2 rounded text-start ${IsShort ? 'setting-inline' : 'd-grid gap-1'}">
     <div class="d-grid${IsShort ? ' setting-inline-label' : ''}">
       <span>${Safe(Setting.Title)}</span>

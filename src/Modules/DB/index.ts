@@ -202,6 +202,8 @@ export function CreateDatabase(FilePath: string): Database {
 export interface ShowFileInfo {
   CreatedWithVersion: string | null;
   SavedWithVersion: string | null;
+  /** The file's schema version (SQLite user_version), when it could be read. */
+  SchemaVersion?: number | null;
 }
 
 // Read-only probe of a file on disk: [Error, Value] from Fn, the probe always closed.
@@ -275,7 +277,17 @@ export async function ReadShowFileInfo(FilePath: string): Promise<DbResult<ShowF
   const [ValidErr] = await ValidateShowFile(FilePath);
   if (ValidErr) return [ValidErr, null];
   return Probe(FilePath, async (Db) => {
-    const Info: ShowFileInfo = { CreatedWithVersion: null, SavedWithVersion: null };
+    const Info: ShowFileInfo = {
+      CreatedWithVersion: null,
+      SavedWithVersion: null,
+      SchemaVersion: null,
+    };
+    const Schema = await ProbeGet<{ user_version: number }>(Db, 'PRAGMA user_version').catch(
+      () => null
+    );
+    if (Schema && Number.isFinite(Number(Schema.user_version))) {
+      Info.SchemaVersion = Number(Schema.user_version);
+    }
     let Rows: Array<{ Key: unknown; Value: unknown }> = [];
     try {
       Rows = await ProbeAll(Db, 'SELECT Key, Value FROM ShowFileInfo');
@@ -312,6 +324,35 @@ async function RenameWithRetry(From: string, To: string): Promise<void> {
   }
 }
 
+// Flush a file's contents to the disk. VACUUM INTO does not sync what it writes,
+// and a rename can reach the disk before the data it points at: a power cut
+// just after a save could otherwise leave the show file empty or torn, with the
+// previous version already replaced.
+async function SyncFile(FilePath: string): Promise<void> {
+  const Handle = await fs.promises.open(FilePath, 'r+');
+  try {
+    await Handle.sync();
+  } finally {
+    await Handle.close();
+  }
+}
+
+// Flush a folder's entries (the rename itself). Not possible on Windows, where
+// opening a folder fails; NTFS journals the rename instead.
+async function SyncDirectory(Dir: string): Promise<void> {
+  if (process.platform === 'win32') return;
+  try {
+    const Handle = await fs.promises.open(Dir, 'r');
+    try {
+      await Handle.sync();
+    } finally {
+      await Handle.close();
+    }
+  } catch {
+    /* intentional: best-effort; the file itself is already on disk */
+  }
+}
+
 // Statements that change the show. Anything else (SELECT, PRAGMA, VACUUM) does not.
 function IsShowWrite(Sql: string): boolean {
   return /^\s*(INSERT|UPDATE|DELETE|REPLACE)\b/i.test(Sql);
@@ -340,11 +381,61 @@ export interface WorkingDatabase extends Database {
   OnUnsavedChange(Listener: (Unsaved: boolean) => void): () => void;
 }
 
+// The schema version in a SQLite file's header (user_version, at byte 60), or
+// null when the file is missing or not a SQLite database.
+function HeaderUserVersion(FilePath: string): number | null {
+  let Fd: number | null = null;
+  try {
+    Fd = fs.openSync(FilePath, 'r');
+    const Header = Buffer.alloc(100);
+    if (fs.readSync(Fd, Header, 0, 100, 0) < 100) return null;
+    if (Header.toString('latin1', 0, 16) !== 'SQLite format 3\u0000') return null;
+    return Header.readUInt32BE(60);
+  } catch {
+    return null;
+  } finally {
+    if (Fd !== null) fs.closeSync(Fd);
+  }
+}
+
+/**
+ * Copy a 1.x working database to the Backups folder before 2.0 migrates it in
+ * place. Until its owner saves it to a show file it is the only copy of their
+ * timers. A 1.x database is the only kind with schema version 0. Returns the
+ * backup's path, or null when there was nothing to back up.
+ */
+export function BackupLegacyDatabase(FilePath: string, BackupsDirectory: string): string | null {
+  if (HeaderUserVersion(FilePath) !== 0) return null;
+  try {
+    const Pad = (N: number) => String(N).padStart(2, '0');
+    const At = new Date();
+    const Stamp =
+      `${At.getFullYear()}-${Pad(At.getMonth() + 1)}-${Pad(At.getDate())} ` +
+      `${Pad(At.getHours())}-${Pad(At.getMinutes())}-${Pad(At.getSeconds())}`;
+    fs.mkdirSync(BackupsDirectory, { recursive: true });
+    const Target = path.join(BackupsDirectory, `ShowTrak Timers 1.x data ${Stamp}.showtraktimers`);
+    fs.copyFileSync(FilePath, Target, fs.constants.COPYFILE_EXCL);
+    Logger.log('Backed up the 1.x database before upgrading it:', Target);
+    return Target;
+  } catch (Err) {
+    Logger.databaseError('Failed to back up the 1.x database:', Err);
+    return null;
+  }
+}
+
+export interface WorkingDatabaseOptions {
+  /** Where a 1.x database is copied before it is upgraded (see BackupLegacyDatabase). */
+  BackupsDirectory?: () => string;
+}
+
 /**
  * Build a working database over FilePath (the app's is Storage/DB.sqlite; the
  * tests build their own). Opened lazily, on the first query.
  */
-export function CreateWorkingDatabase(GetFilePath: () => string): WorkingDatabase {
+export function CreateWorkingDatabase(
+  GetFilePath: () => string,
+  Options: WorkingDatabaseOptions = {}
+): WorkingDatabase {
   let Current: Database | null = null;
   let Unsaved = false;
   // Bumped by every write that marks the show unsaved; a snapshot records it so
@@ -373,6 +464,7 @@ export function CreateWorkingDatabase(GetFilePath: () => string): WorkingDatabas
 
   function Db(): Database {
     if (!Current) {
+      if (Options.BackupsDirectory) BackupLegacyDatabase(GetFilePath(), Options.BackupsDirectory());
       Current = CreateDatabase(GetFilePath());
       Current.Ready().then(
         () => Logger.success('Connected to SQLite database.'),
@@ -427,7 +519,9 @@ export function CreateWorkingDatabase(GetFilePath: () => string): WorkingDatabas
         if (fs.existsSync(WorkingPath + Suffix)) fs.unlinkSync(WorkingPath + Suffix);
       }
       const HadFile = fs.existsSync(WorkingPath);
-      if (HadFile) fs.renameSync(WorkingPath, BackupPath);
+      // Retried like a save: on Windows, antivirus or the indexer can hold the
+      // working copy for a moment just after it was closed.
+      if (HadFile) await RenameWithRetry(WorkingPath, BackupPath);
       try {
         fs.mkdirSync(path.dirname(WorkingPath), { recursive: true });
         Prepare(WorkingPath);
@@ -518,8 +612,10 @@ export function CreateWorkingDatabase(GetFilePath: () => string): WorkingDatabas
         const [Err] = await Tracked((D) => D.Run(`VACUUM INTO '${TempPath!.replace(/'/g, "''")}'`));
         if (Err) return [Err, null];
         const Generation = DirtyGeneration;
+        await SyncFile(TempPath);
         await RenameWithRetry(TempPath, TargetPath);
         TempPath = null;
+        await SyncDirectory(Dir);
         SnapshotGeneration = Generation;
         return [null, TargetPath];
       } catch (Err) {
@@ -569,6 +665,7 @@ export function CreateWorkingDatabase(GetFilePath: () => string): WorkingDatabas
 }
 
 // The app's working database, opened lazily on first use.
-export const Manager: WorkingDatabase = CreateWorkingDatabase(() =>
-  path.join(AppDataManager.GetStorageDirectory(), 'DB.sqlite')
+export const Manager: WorkingDatabase = CreateWorkingDatabase(
+  () => path.join(AppDataManager.GetStorageDirectory(), 'DB.sqlite'),
+  { BackupsDirectory: () => AppDataManager.GetBackupsDirectory() }
 );

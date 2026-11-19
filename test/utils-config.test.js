@@ -7,7 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
-const { Wait, ErrorMessage, CompareVersions } = require('../dist/Modules/Utils');
+const { Wait, CompareVersions } = require('../dist/Modules/Utils');
 const { Config } = require('../dist/Modules/Config');
 const Constants = require('../dist/Modules/Config/constants');
 const { DIST_ROOT } = require('../dist/Modules/Config/dist-root');
@@ -50,24 +50,6 @@ test('CompareVersions orders Squirrel pre-release names (2.0.0-beta1 < 2.0.0-bet
   assert.equal(Sign(CompareVersions('2.0.0-beta2', '2.0.0-beta1')), 1);
   assert.equal(Sign(CompareVersions('2.0.0-beta10', '2.0.0-beta9')), 1);
   assert.equal(Sign(CompareVersions('2.0.0-beta1', '2.0.0-beta2')), -1);
-});
-
-// --- ErrorMessage ------------------------------------------------------------
-
-test('ErrorMessage gives the message of an error or error-like object', () => {
-  assert.equal(ErrorMessage(new Error('boom')), 'boom');
-  assert.equal(ErrorMessage(new TypeError('bad type')), 'bad type');
-  assert.equal(ErrorMessage({ message: 'plain object' }), 'plain object');
-});
-
-test('ErrorMessage falls back to String() for anything else', () => {
-  assert.equal(ErrorMessage('just text'), 'just text');
-  assert.equal(ErrorMessage(42), '42');
-  assert.equal(ErrorMessage(null), 'null');
-  assert.equal(ErrorMessage(undefined), 'undefined');
-  assert.equal(ErrorMessage(new Error('')), 'Error');
-  assert.equal(ErrorMessage({ message: 7 }), '[object Object]');
-  assert.equal(ErrorMessage({}), '[object Object]');
 });
 
 // --- Wait --------------------------------------------------------------------

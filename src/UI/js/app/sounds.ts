@@ -30,6 +30,21 @@ function Builtin(Name: string): Howl | null {
   return BuiltinHowls[Name]!;
 }
 
+// Forget a cached player and free its audio: Howler keeps every player it has
+// made (with the whole sound, as a data URL) until it is unloaded. One still
+// playing an alert is let finish first.
+function DropAssetHowl(ID: string): void {
+  const Entry = AssetHowls.get(ID);
+  if (!Entry) return;
+  AssetHowls.delete(ID);
+  if (Entry.Howl.playing()) Entry.Howl.once('end', () => Entry.Howl.unload());
+  else Entry.Howl.unload();
+}
+
+function DropAllAssetHowls(): void {
+  for (const ID of [...AssetHowls.keys()]) DropAssetHowl(ID);
+}
+
 async function Asset(ID: string): Promise<{ Howl: Howl; Volume: number } | null> {
   if (typeof Howl === 'undefined') return null;
   const Cached = AssetHowls.get(ID);
@@ -128,14 +143,14 @@ export function RenderSoundLibrary(): void {
       return `
       <div class="audio-asset-row rounded bg-ghost p-2 text-start" data-sound-id="${Safe(Sound.ID)}">
         <input type="text" class="form-control form-control-sm audio-asset-label-inline" data-sound-label
-          value="${Safe(Sound.Label)}" maxlength="40" placeholder="Label" />
+          aria-label="Sound name" value="${Safe(Sound.Label)}" maxlength="40" placeholder="Label" />
         <div class="text-sm text-muted text-truncate audio-asset-meta" title="${Safe(Sound.OriginalName)}">
           ${Safe(Meta)}${Missing}
         </div>
         <div class="d-flex align-items-center gap-2 audio-asset-volume-wrap">
           <i class="bi bi-volume-down-fill text-muted" aria-hidden="true"></i>
           <input type="range" class="form-range flex-grow-1" min="0" max="100" step="1"
-            value="${Math.min(100, Sound.Volume)}" data-sound-volume />
+            value="${Math.min(100, Sound.Volume)}" aria-label="Volume of ${Safe(Sound.Label)}" data-sound-volume />
           <span class="text-sm" data-sound-volume-label>${Math.min(100, Sound.Volume)}%</span>
         </div>
         <div class="d-flex gap-1 flex-shrink-0 audio-asset-actions">
@@ -178,7 +193,7 @@ function WireSoundLibrary(): void {
       ID,
       setTimeout(async () => {
         VolumeTimers.delete(ID);
-        AssetHowls.delete(ID);
+        DropAssetHowl(ID);
         const [Err] = await window.API.UpdateSound(ID, { Volume });
         if (Err) void Notify(Err, 'error');
       }, 400)
@@ -199,7 +214,7 @@ function WireSoundLibrary(): void {
     if (!Confirmed) return;
     const [Err] = await window.API.DeleteSound(ID);
     if (Err) void Notify(Err, 'error');
-    else AssetHowls.delete(ID);
+    else DropAssetHowl(ID);
   });
 
   $('#SOUND_LIBRARY_IMPORT').on('click', async () => {
@@ -218,7 +233,7 @@ export async function OpenSoundLibrary(): Promise<void> {
 export function ApplySounds(List: LibrarySoundView[]): void {
   setSounds(List);
   // Labels/volumes may have changed: drop cached players so they reload.
-  AssetHowls.clear();
+  DropAllAssetHowls();
   // Don't redraw under someone typing a label.
   const Active = document.activeElement;
   if (!(Active instanceof HTMLInputElement && Active.closest('#SOUND_LIBRARY_LIST'))) {

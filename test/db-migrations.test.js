@@ -271,7 +271,7 @@ test('1.x settings are carried over: SYSTEM_AUTO_UPDATE is renamed, display slee
   ]);
 });
 
-test('a 1.x install that never saved SYSTEM_AUTO_UPDATE gets no SYSTEM_AUTO_UPDATE_ENABLED row (the new default applies)', async (t) => {
+test('a 1.x install that never saved SYSTEM_AUTO_UPDATE keeps updating automatically, as 1.x did', async (t) => {
   const FilePath = path.join(Workspace(t), 'DB.sqlite');
   await RawExec(FilePath, [
     TIMERS_1_1,
@@ -279,6 +279,26 @@ test('a 1.x install that never saved SYSTEM_AUTO_UPDATE gets no SYSTEM_AUTO_UPDA
     "INSERT INTO Settings (Key, Value) VALUES ('SYSTEM_PREVENT_DISPLAY_SLEEP', 0)",
   ]);
   const Db = Open(t, FilePath);
+  await Db.Ready();
+  const [, Rows] = await Db.All('SELECT Key, Value FROM Settings');
+  assert.deepEqual(Rows, [{ Key: 'SYSTEM_AUTO_UPDATE_ENABLED', Value: 1 }]);
+});
+
+test('a 1.x install with timers but no settings also keeps updating automatically', async (t) => {
+  const FilePath = path.join(Workspace(t), 'DB.sqlite');
+  await RawExec(FilePath, [
+    TIMERS_1_1,
+    SETTINGS_1_X,
+    "INSERT INTO Timers (Type, Name, Duration) VALUES ('COUNTDOWN', 'Walk In', 60000)",
+  ]);
+  const Db = Open(t, FilePath);
+  await Db.Ready();
+  const [, Rows] = await Db.All('SELECT Key, Value FROM Settings');
+  assert.deepEqual(Rows, [{ Key: 'SYSTEM_AUTO_UPDATE_ENABLED', Value: 1 }]);
+});
+
+test('a new, empty database gets no SYSTEM_AUTO_UPDATE_ENABLED row (the new default, off, applies)', async (t) => {
+  const Db = Open(t, path.join(Workspace(t), 'DB.sqlite'));
   await Db.Ready();
   const [, Rows] = await Db.All('SELECT Key FROM Settings');
   assert.deepEqual(Rows, []);
@@ -491,7 +511,12 @@ test('the app database is opened lazily, in the app data Storage folder', async 
   const { Manager } = loadWithMocks(
     path.join(__dirname, '..', 'dist', 'Modules', 'DB', 'index.js'),
     {
-      '../AppData': { Manager: { GetStorageDirectory: () => Storage } },
+      '../AppData': {
+        Manager: {
+          GetStorageDirectory: () => Storage,
+          GetBackupsDirectory: () => path.join(Storage, '..', 'Backups'),
+        },
+      },
     }
   );
   // Loading the module (as the test suite and every manager do) opens nothing.
@@ -514,4 +539,42 @@ test('the app database is opened lazily, in the app data Storage folder', async 
   ]);
   assert.deepEqual(await Manager.All('SELECT Key FROM Settings'), [null, [{ Key: 'X' }]]);
   await Manager.Close();
+});
+
+// --- The 1.x database is backed up before it is upgraded -------------------------
+
+test('a 1.x working database is copied to Backups, untouched, before it is migrated', async (t) => {
+  const { BackupLegacyDatabase, CreateWorkingDatabase } = require('../dist/Modules/DB');
+  const Dir = Workspace(t);
+  const FilePath = path.join(Dir, 'Storage', 'DB.sqlite');
+  fs.mkdirSync(path.dirname(FilePath), { recursive: true });
+  await RawExec(FilePath, [
+    TIMERS_1_1,
+    SETTINGS_1_X,
+    "INSERT INTO Timers (Type, Name, Duration) VALUES ('COUNTDOWN', 'Walk In', 60000)",
+  ]);
+  const Before = fs.readFileSync(FilePath);
+  const Backups = path.join(Dir, 'Backups');
+  const Working = CreateWorkingDatabase(() => FilePath, { BackupsDirectory: () => Backups });
+  t.after(() => WithinMs(Working.Close(), 2000));
+  await Working.Ready();
+  const Files = fs.readdirSync(Backups);
+  assert.equal(Files.length, 1);
+  assert.match(Files[0], /^ShowTrak Timers 1\.x data .+\.showtraktimers$/);
+  assert.ok(fs.readFileSync(path.join(Backups, Files[0])).equals(Before), 'copied as it was');
+  assert.equal(await Working.SchemaVersion(), LATEST_SCHEMA_VERSION, 'then migrated');
+  // Already migrated: nothing more is backed up.
+  assert.equal(BackupLegacyDatabase(FilePath, Backups), null);
+  assert.equal(fs.readdirSync(Backups).length, 1);
+});
+
+test('nothing is backed up for a new install or a missing file', (t) => {
+  const { BackupLegacyDatabase } = require('../dist/Modules/DB');
+  const Dir = Workspace(t);
+  const Backups = path.join(Dir, 'Backups');
+  assert.equal(BackupLegacyDatabase(path.join(Dir, 'missing.sqlite'), Backups), null);
+  const NotSqlite = path.join(Dir, 'empty.sqlite');
+  fs.writeFileSync(NotSqlite, '');
+  assert.equal(BackupLegacyDatabase(NotSqlite, Backups), null);
+  assert.equal(fs.existsSync(Backups), false);
 });

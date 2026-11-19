@@ -3,7 +3,7 @@
 // (no show open, data from before show files to save, a file an older version
 // saved that needs upgrading, the last file gone missing).
 import { closeAllModals, closeModal, openModal } from './lib/modal';
-import { ConfirmationDialog, Notify } from './lib/toasts';
+import { CancelConfirmation, ConfirmationDialog, Notify } from './lib/toasts';
 import { setShowFile, SettingDebounceTimers, ShowFile } from './state';
 import { DiscardTimerEditor } from './timer-editor';
 import { DiscardGroupEditor } from './group-manager';
@@ -39,6 +39,8 @@ export function RenderShowFile(State: ShowFileStateView): void {
 // nothing still open may write to them: editors are closed with their pending
 // saves dropped, and the selection is cleared.
 function ShowChanged(): void {
+  // A question still waiting was about the old show (Delete "Walk In"?).
+  CancelConfirmation();
   ClearSelection();
   DiscardTimerEditor();
   DiscardGroupEditor();

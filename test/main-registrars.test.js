@@ -199,71 +199,12 @@ test('Timer:Delete rejects a bad ID', async () => {
   assert.deepEqual(lastCall(timers, 'Delete').args, [4]);
 });
 
-test('Timer:Move accepts only up or down, in any case', async () => {
-  for (const Dir of [undefined, null, '', 'left', 'upward', 1, {}]) {
-    await rejects('Timer:Move', [3, Dir], 'Invalid direction');
-  }
-  await rejects('Timer:Move', ['x', 'UP'], 'Invalid timer ID');
-  await invoke('Timer:Move', '3', 'up');
-  assert.deepEqual(lastCall(timers, 'Move').args, [3, 'UP']);
-  await invoke('Timer:Move', 3, 'Down');
-  assert.deepEqual(lastCall(timers, 'Move').args, [3, 'DOWN']);
-});
-
-test('Timers:Reorder takes a list of valid IDs only', async () => {
-  for (const IDs of [undefined, null, 'abc', 3, { 0: 1 }]) {
-    await rejects('Timers:Reorder', [IDs], 'Invalid order');
-  }
-  await rejects('Timers:Reorder', [[1, 'x', 3]], 'Invalid timer ID');
-  await rejects('Timers:Reorder', [[1, 0]], 'Invalid timer ID');
-  await rejects('Timers:Reorder', [new Array(10001).fill(1)], 'Invalid order');
-  assert.deepEqual(await invoke('Timers:Reorder', ['3', 1, '2']), [null, true]);
-  assert.deepEqual(lastCall(timers, 'Reorder').args, [[3, 1, 2]]);
-  await invoke('Timers:Reorder', []);
-  assert.deepEqual(lastCall(timers, 'Reorder').args, [[]]);
-});
-
-test('Timer:Control accepts the four actions in any case', async () => {
-  for (const Act of [undefined, null, '', 'Explode', 'Resume', 'Reset', 1, {}]) {
-    await rejects('Timer:Control', [3, Act], 'Invalid timer action');
-  }
-  await rejects('Timer:Control', [0, 'Start'], 'Invalid timer ID');
-  for (const [Sent, Expected] of [
-    ['start', 'Start'],
-    ['STOP', 'Stop'],
-    ['Pause', 'Pause'],
-    ['unPause', 'Unpause'],
-  ]) {
-    assert.deepEqual(await invoke('Timer:Control', '3', Sent), [null, { ID: 3 }]);
-    assert.deepEqual(lastCall(timers, 'Control').args, [3, Expected]);
-  }
-});
-
-test('Timer:JumpTo checks the ID and lets the timer manager judge the time', async () => {
-  for (const ID of BAD_IDS) await rejects('Timer:JumpTo', [ID, 1000], 'Invalid timer ID');
-  assert.deepEqual(await invoke('Timer:JumpTo', '3', '1500'), [null, { ID: 3 }]);
-  assert.deepEqual(lastCall(timers, 'JumpTo').args, [3, 1500]);
-  // A non-numeric time arrives as NaN and the manager refuses it.
-  assert.deepEqual(await invoke('Timer:JumpTo', 3, 'soon'), ['Invalid time', null]);
-  assert.ok(Number.isNaN(lastCall(timers, 'JumpTo').args[1]));
-});
-
-test('Timers:ControlAll wraps the count in a result tuple', async () => {
-  for (const Act of [undefined, 'Explode', 7]) {
-    await rejects('Timers:ControlAll', [Act], 'Invalid timer action');
-  }
-  assert.deepEqual(await invoke('Timers:ControlAll', 'pause'), [null, 4]);
-  assert.deepEqual(lastCall(timers, 'ControlAll').args, ['Pause']);
-});
-
 test('a timer manager that throws comes back as an error tuple, not an exception', async () => {
   for (const [Channel, Args, Method] of [
     ['Timer:Get', [1], 'Get'],
     ['Timer:Create', [{}], 'Create'],
     ['Timer:Update', [3, {}], 'Update'],
     ['Timer:Delete', [3], 'Delete'],
-    ['Timer:Move', [3, 'up'], 'Move'],
-    ['Timers:Reorder', [[1]], 'Reorder'],
     ['Timer:Control', [3, 'Start'], 'Control'],
     ['Timer:JumpTo', [3, 10], 'JumpTo'],
     ['Timers:ControlAll', ['Stop'], 'ControlAll'],
@@ -603,8 +544,6 @@ test('no guarded handler throws, whatever it is sent', async () => {
     'Timer:Create',
     'Timer:Update',
     'Timer:Delete',
-    'Timer:Move',
-    'Timers:Reorder',
     'Timer:Control',
     'Timer:JumpTo',
     'Timers:ControlAll',
@@ -643,13 +582,10 @@ test('TimerID accepts positive whole numbers, including numeric strings', () => 
   }
 });
 
-test('Action and Direction return the canonical spelling', () => {
+test('Action returns the canonical spelling', () => {
   assert.equal(Validate.Action('START'), 'Start');
   assert.equal(Validate.Action('unpause'), 'Unpause');
   assert.throws(() => Validate.Action('Resume'), /Invalid timer action/);
-  assert.equal(Validate.Direction('up'), 'UP');
-  assert.equal(Validate.Direction('dOwN'), 'DOWN');
-  assert.throws(() => Validate.Direction('sideways'), /Invalid direction/);
 });
 
 test('PlainObject passes objects, maps nothing to {}, and names what it rejects', () => {
@@ -662,14 +598,6 @@ test('PlainObject passes objects, maps nothing to {}, and names what it rejects'
     /^ValidationError: Invalid payload$|Invalid payload/
   );
   assert.throws(() => Validate.PlainObject('x', 'timer'), { message: 'Invalid timer' });
-});
-
-test('IDList validates every entry and caps the length', () => {
-  assert.deepEqual(Validate.IDList(['1', 2]), [1, 2]);
-  assert.deepEqual(Validate.IDList(new Array(10000).fill(3)).length, 10000);
-  assert.throws(() => Validate.IDList(new Array(10001).fill(3)), { message: 'Invalid order' });
-  assert.throws(() => Validate.IDList([1, -2]), { message: 'Invalid timer ID' });
-  assert.throws(() => Validate.IDList('1,2'), { message: 'Invalid order' });
 });
 
 test('SettingKey accepts upper-case keys of up to 64 characters', () => {

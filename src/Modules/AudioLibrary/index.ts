@@ -8,6 +8,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { CreateLogger } from '../Logger';
 import { Manager as AppData } from '../AppData';
+import { WriteAndSyncFileSync } from '../Utils';
 
 const Logger = CreateLogger('AudioLibrary');
 
@@ -149,7 +150,7 @@ export function CreateAudioLibrary(Directory: () => string = () => AppData.GetAu
       fs.mkdirSync(Directory(), { recursive: true });
       // Write then rename, so a crash mid-write never leaves a torn manifest.
       const Temp = `${ManifestPath()}.tmp`;
-      fs.writeFileSync(Temp, JSON.stringify(Sounds, null, 2), 'utf8');
+      WriteAndSyncFileSync(Temp, JSON.stringify(Sounds, null, 2));
       fs.renameSync(Temp, ManifestPath());
       return true;
     } catch (Err) {

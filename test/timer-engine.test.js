@@ -414,6 +414,26 @@ test('LOOP: a zero-length loop holds as complete instead of spinning', () => {
   assert.deepEqual(T.Evaluate(), []);
 });
 
+test('LOOP: a loop shorter than a second holds at its end instead of firing many times a second', () => {
+  const { T, Clock } = Make({ EndBehaviour: 'LOOP', Duration: 10 });
+  assert.deepEqual(Kinds(T.Start()), []);
+  Clock.Advance(10);
+  assert.deepEqual(Kinds(T.Evaluate()), ['complete']);
+  assert.equal(T.Status, 'COMPLETE');
+  Clock.Advance(1000);
+  assert.deepEqual(T.Evaluate(), []);
+});
+
+test('LOOP: a one-second loop still loops', () => {
+  const { T, Clock } = Make({ EndBehaviour: 'LOOP', Duration: 1000 });
+  T.Start();
+  Clock.Advance(1000);
+  assert.deepEqual(Kinds(T.Evaluate()), ['complete']);
+  assert.equal(T.Status, 'RUNNING');
+  Clock.Advance(1000);
+  assert.deepEqual(Kinds(T.Evaluate()), ['complete']);
+});
+
 test('a zero-length timer completes the moment it starts', () => {
   const { T } = Make({ Duration: 0, WarningMs: 5000 });
   assert.deepEqual(Kinds(T.Start()), ['complete']);

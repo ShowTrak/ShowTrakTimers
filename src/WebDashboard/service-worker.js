@@ -1,7 +1,14 @@
-// Offline shell for the Web Dashboard. Bumped with each change to how this
-// worker caches (v5: network first), so a browser drops the older shell on its
-// next visit.
-const STATIC_CACHE = 'showtrak-dashboard-static-v5';
+// Offline shell for the Web Dashboard.
+//
+// Browsers only run a service worker on a secure origin: https, or the host's
+// own localhost. A phone opening http://<host-ip>:4300 never registers it, so
+// there the offline view is the page's own cache of the last timers (kept in
+// localStorage), not this shell.
+//
+// The cache is named after the app version (scripts/copy-assets.js fills it in
+// at build), so every update starts a fresh cache and drops the old one: an
+// offline reload never pairs one version's page with another's script.
+const STATIC_CACHE = 'showtrak-dashboard-static-__APP_VERSION__';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -40,8 +47,22 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
 
+  // The page itself: network first, kept as the offline copy of index.html.
   if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).catch(() => caches.match('/index.html')));
+    event.respondWith(
+      fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.ok && networkResponse.type === 'basic') {
+            const cloned = networkResponse.clone();
+            caches
+              .open(STATIC_CACHE)
+              .then((cache) => cache.put('/index.html', cloned))
+              .catch(() => {});
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match('/index.html').then((cached) => cached || Response.error()))
+    );
     return;
   }
 

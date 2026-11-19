@@ -8,7 +8,14 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { QuietLogs, TempDir, RecordingBus, RawAll, WithinMs } = require('./helpers/data-helpers');
+const {
+  QuietLogs,
+  TempDir,
+  RecordingBus,
+  RawAll,
+  RawExec,
+  WithinMs,
+} = require('./helpers/data-helpers');
 QuietLogs();
 
 const { CreateWorkingDatabase } = require('../dist/Modules/DB');
@@ -184,6 +191,30 @@ test('RequestOpen opens a file this version saved straight away', async (t) => {
   assert.equal(Manager.GetCurrentFilePath(), File);
   assert.equal(Manager.HasUnsavedChanges(), false);
   assert.equal(Bus.Of('ReinitializeSystem').length, 1, 'every manager reloads the new show');
+});
+
+test('a file from a newer major version is refused, and the open show is left as it was', async (t) => {
+  const { Manager, Db, Show } = Setup(t);
+  const File = await FileFromVersion(t, '3.0.0', ['From the future'], Show('Newer.showtraktimers'));
+  const Before = fs.readFileSync(File);
+  await AddTimer(Db, 'Still here');
+  const Current = Show('Current.showtraktimers');
+  await Manager.Save(Current);
+  const [Err, Outcome] = await Manager.RequestOpen(File);
+  assert.equal(Outcome, null);
+  assert.match(Err, /saved by a newer version of ShowTrak Timers \(v3\.0\.0\)\. Update/);
+  assert.equal(Manager.GetCurrentFilePath(), Current);
+  const [, Rows] = await Db.All('SELECT Name FROM Timers');
+  assert.deepEqual(Rows, [{ Name: 'Still here' }]);
+  assert.ok(fs.readFileSync(File).equals(Before), 'the newer file is never written');
+});
+
+test('a file with a newer schema is refused, even from the same major version', async (t) => {
+  const { Manager, Show } = Setup(t);
+  const File = await FileFromVersion(t, '2.9.0', ['Newer schema'], Show('Schema.showtraktimers'));
+  await RawExec(File, ['PRAGMA user_version = 999']);
+  const [Err] = await Manager.RequestOpen(File);
+  assert.match(Err, /saved by a newer version/);
 });
 
 test('an older file is held for the operator, untouched, until they answer', async (t) => {
@@ -385,6 +416,12 @@ test('machine settings an older version kept in the database are not show data',
   await Db.Run("INSERT INTO Settings (Key, Value) VALUES ('SYSTEM_UPDATE_CHANNEL', 'Beta')");
   assert.equal(await Manager.HasUnsavedWorkingData(), false);
   await Db.Run("INSERT INTO Settings (Key, Value) VALUES ('OSC_PORT', 9000)");
+  assert.equal(
+    await Manager.HasUnsavedWorkingData(),
+    false,
+    'network settings are machine settings'
+  );
+  await Db.Run("INSERT INTO Settings (Key, Value) VALUES ('UI_GROUP_COLUMN_COUNT', 4)");
   assert.equal(await Manager.HasUnsavedWorkingData(), true, 'a show setting is');
 });
 
@@ -481,7 +518,7 @@ test('a show file gone missing with unsaved changes keeps them in Backups first'
   );
 });
 
-test('a new show keeps the network settings, and nothing else', async (t) => {
+test('a new show starts with no settings of its own (network settings belong to the machine)', async (t) => {
   const { Manager, Db, Show } = Setup(t);
   await Db.Run(
     "INSERT INTO Settings (Key, Value) VALUES ('OSC_PORT', 9000), ('WEB_DASHBOARD_PASSWORD_PROTECTION_ENABLED', 1), ('WEB_DASHBOARD_PASSWORD', '1234'), ('UI_GROUP_COLUMN_COUNT', 4)"
@@ -489,12 +526,22 @@ test('a new show keeps the network settings, and nothing else', async (t) => {
   await Manager.Save(Show('Old.showtraktimers'));
   const Target = Show('New.showtraktimers');
   await Manager.New(Target);
-  const Rows = await RawAll(Target, 'SELECT Key, Value FROM Settings ORDER BY Key');
-  assert.deepEqual(Rows, [
-    { Key: 'OSC_PORT', Value: 9000 },
-    { Key: 'WEB_DASHBOARD_PASSWORD', Value: '1234' },
-    { Key: 'WEB_DASHBOARD_PASSWORD_PROTECTION_ENABLED', Value: 1 },
-  ]);
+  assert.deepEqual(await RawAll(Target, 'SELECT Key, Value FROM Settings ORDER BY Key'), []);
+});
+
+test('a new show in a folder that cannot be written to leaves the open show as it was', async (t) => {
+  const { Manager, Db, Show } = Setup(t);
+  await Db.Run("INSERT INTO Timers (Type, Name, Duration) VALUES ('COUNTDOWN', 'Kept', 60000)");
+  const Old = Show('Old.showtraktimers');
+  await Manager.Save(Old);
+  // A file where the folder should be: nothing can be created inside it.
+  const Blocked = Show('Blocked');
+  fs.writeFileSync(Blocked, '');
+  const [Err] = await Manager.New(path.join(Blocked, 'New.showtraktimers'));
+  assert.match(Err, /cannot be saved there/);
+  assert.equal(Manager.GetCurrentFilePath(), Old);
+  const [, Rows] = await Db.All('SELECT Name FROM Timers');
+  assert.deepEqual(Rows, [{ Name: 'Kept' }]);
 });
 
 test('state.json is written whole, through a temp file', async (t) => {
