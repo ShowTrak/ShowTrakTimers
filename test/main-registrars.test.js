@@ -22,6 +22,67 @@ const { installMainStubs } = require('./helpers/net-main-stubs');
 const stubs = installMainStubs();
 test.after(() => stubs.restore());
 
+// The group manager, the show-file manager and the show-file pickers, which
+// installMainStubs does not cover: recording stubs, so no database or native
+// dialog is reached. `showState` steers them per test.
+const { installModuleMocks, matchesModule, recordingManager } = require('./helpers/main-mocks');
+const showState = {
+  currentFile: null,
+  // What the Save / Open pickers return (null: cancelled).
+  savePick: null,
+  openPick: null,
+  saveTitles: [],
+  openTitles: [],
+};
+const groups = recordingManager({
+  GetAll: async () => [{ GroupID: 1, Title: 'Stage' }],
+  Has: async (ID) => ID === 1 || ID === 2,
+  Create: async () => [null, { GroupID: 3 }],
+  Update: async (ID) => [null, { GroupID: ID }],
+  Delete: async () => [null, true],
+  Reorder: async () => [null, true],
+});
+const showFile = recordingManager({
+  GetCurrentFilePath: () => showState.currentFile,
+  Save: async () => [null, 'Saved'],
+  SaveCurrent: async () => [null, showState.currentFile],
+  RequestOpen: async (Path) => [null, { Status: 'Opened', FilePath: Path }],
+  New: async () => [null, 'New show created'],
+  CheckCurrentFile: async () => [null, null],
+  AcceptUpgrade: async () => [null, { FilePath: '/a', BackupPath: '/b' }],
+  DeclineUpgrade: async () => [null, 'Upgrade declined'],
+  HasUnsavedWorkingData: async () => true,
+  EnsureCurrentFileExists: async () => [null, { Missing: false }],
+});
+const restoreShowMocks = installModuleMocks([
+  { match: matchesModule('/Modules/GroupManager'), value: { Manager: groups } },
+  {
+    match: matchesModule('/Modules/ShowFile'),
+    value: {
+      Manager: showFile,
+      ShowFileDisplayName: (P) =>
+        String(P)
+          .split('/')
+          .pop()
+          .replace(/\.showtraktimers$/i, ''),
+    },
+  },
+  {
+    match: matchesModule('../show-dialogs'),
+    value: {
+      PickShowFileToSave: async (Title, Suggested) => {
+        showState.saveTitles.push([Title, Suggested]);
+        return showState.savePick;
+      },
+      PickShowFileToOpen: async (Title) => {
+        showState.openTitles.push(Title);
+        return showState.openPick;
+      },
+    },
+  },
+]);
+test.after(() => restoreShowMocks());
+
 const { RegisterAllHandlers } = require('../dist/main/registrars');
 const { GetHandler, RegisteredChannels } = require('../dist/main/rpc');
 const Validate = require('../dist/main/registrars/validate');
@@ -65,7 +126,14 @@ function describe(Args) {
 const lastCall = (Manager, Method) => Manager.__callsTo(Method).at(-1);
 
 test.beforeEach(() => {
-  for (const M of [timers, settings, sounds, appData]) M.__calls.length = 0;
+  for (const M of [timers, settings, sounds, appData, groups, showFile]) M.__calls.length = 0;
+  Object.assign(showState, {
+    currentFile: null,
+    savePick: null,
+    openPick: null,
+    saveTitles: [],
+    openTitles: [],
+  });
   stubs.opened.length = 0;
   stubs.dialogs.length = 0;
   ModeManager.Set('SHOW');
@@ -654,4 +722,308 @@ test('Guard turns any throw into an error tuple and passes results through', asy
     ['database is locked', null]
   );
   assert.ok(new Validate.ValidationError('x') instanceof Error);
+});
+
+// --- Groups, bulk timer control and show files (2.0) -------------------------------
+// Groups 1 and 2 exist (groups.Has); anything else is "Group not found". The
+// timer-manager methods these channels add are canned here per test.
+
+/** Give a recording manager a method that records its calls like the rest. */
+function can(Manager, Name, Fn) {
+  Manager[Name] = (...Args) => {
+    Manager.__calls.push({ method: Name, args: Args });
+    return Fn(...Args);
+  };
+}
+can(timers, 'ControlMany', async (IDs) => IDs.length);
+can(timers, 'MoveToGroup', async (IDs) => [null, IDs.length]);
+can(timers, 'Arrange', async () => [null, true]);
+can(timers, 'ClearGroup', async () => [null, 2]);
+
+const BAD_LISTS = [undefined, null, 'x', 5, {}, [], true];
+
+test('Groups:List returns the group manager’s list', async () => {
+  assert.deepEqual(await invoke('Groups:List'), [{ GroupID: 1, Title: 'Stage' }]);
+});
+
+test('Group:Create takes an object or nothing', async () => {
+  for (const Patch of ['x', 5, true, [1]]) {
+    assert.deepEqual(await invoke('Group:Create', Patch), ['Invalid group', null]);
+  }
+  assert.equal(groups.__callsTo('Create').length, 0);
+  assert.deepEqual(await invoke('Group:Create', { Title: 'FOH' }), [null, { GroupID: 3 }]);
+  assert.deepEqual(lastCall(groups, 'Create').args, [{ Title: 'FOH' }]);
+  await invoke('Group:Create');
+  assert.deepEqual(lastCall(groups, 'Create').args, [{}]);
+});
+
+test('Group:Update checks the ID, then the patch', async () => {
+  for (const ID of BAD_IDS) {
+    assert.deepEqual(await invoke('Group:Update', ID, { Title: 'x' }), ['Invalid group ID', null]);
+  }
+  for (const Patch of ['x', 7, [], false]) {
+    assert.deepEqual(await invoke('Group:Update', 1, Patch), ['Invalid group', null]);
+  }
+  assert.equal(groups.__callsTo('Update').length, 0);
+  assert.deepEqual(await invoke('Group:Update', '2', { Colour: 3 }), [null, { GroupID: 2 }]);
+  assert.deepEqual(lastCall(groups, 'Update').args, [2, { Colour: 3 }]);
+});
+
+test('Group:Delete moves the group’s timers to Default first, then deletes it', async () => {
+  const Order = [];
+  can(timers, 'ClearGroup', async (ID) => {
+    Order.push(['ClearGroup', ID]);
+    return [null, 2];
+  });
+  const Delete = groups.Delete;
+  groups.Delete = async (ID) => {
+    Order.push(['Delete', ID]);
+    return Delete(ID);
+  };
+  try {
+    assert.deepEqual(await invoke('Group:Delete', '2'), [null, true]);
+    assert.deepEqual(Order, [
+      ['ClearGroup', 2],
+      ['Delete', 2],
+    ]);
+  } finally {
+    delete groups.Delete;
+    can(timers, 'ClearGroup', async () => [null, 2]);
+  }
+});
+
+test('Group:Delete stops when the timers cannot be moved out', async () => {
+  can(timers, 'ClearGroup', async () => ['database is locked', null]);
+  try {
+    assert.deepEqual(await invoke('Group:Delete', 1), ['database is locked', null]);
+    assert.equal(groups.__callsTo('Delete').length, 0, 'the group was deleted with timers in it');
+  } finally {
+    can(timers, 'ClearGroup', async () => [null, 2]);
+  }
+});
+
+test('Group:Delete reports a group that does not exist and touches nothing', async () => {
+  for (const ID of BAD_IDS) {
+    assert.deepEqual(await invoke('Group:Delete', ID), ['Invalid group ID', null]);
+  }
+  assert.deepEqual(await invoke('Group:Delete', 9), ['Group not found', null]);
+  assert.equal(timers.__callsTo('ClearGroup').length, 0);
+  assert.equal(groups.__callsTo('Delete').length, 0);
+});
+
+test('Groups:Reorder takes a list of valid group IDs only', async () => {
+  for (const Bad of [undefined, null, 'x', 5, {}]) {
+    assert.deepEqual(await invoke('Groups:Reorder', Bad), ['Invalid order', null]);
+  }
+  assert.deepEqual(await invoke('Groups:Reorder', [1, 'x']), ['Invalid group ID', null]);
+  assert.equal(groups.__callsTo('Reorder').length, 0);
+  assert.deepEqual(await invoke('Groups:Reorder', ['2', 1]), [null, true]);
+  assert.deepEqual(lastCall(groups, 'Reorder').args, [[2, 1]]);
+});
+
+test('Timers:ControlMany needs a list of valid IDs and a known action', async () => {
+  for (const Bad of BAD_LISTS) {
+    await rejects('Timers:ControlMany', [Bad, 'Start'], 'Invalid timer list');
+  }
+  await rejects('Timers:ControlMany', [[1, 'x'], 'Start'], 'Invalid timer ID');
+  await rejects('Timers:ControlMany', [[1], 'Restart'], 'Invalid timer action');
+  assert.deepEqual(await invoke('Timers:ControlMany', [3, '1', 3], 'unpause'), [null, 2]);
+  assert.deepEqual(lastCall(timers, 'ControlMany').args, [[3, 1], 'Unpause']);
+});
+
+test('Timers:DeleteMany deletes each, skipping ones already gone, and counts them', async () => {
+  await rejects('Timers:DeleteMany', [[]], 'Invalid timer list');
+  await rejects('Timers:DeleteMany', [[0]], 'Invalid timer ID');
+  can(timers, 'Delete', async (ID) => (ID === 2 ? ['Timer not found', null] : [null, true]));
+  try {
+    assert.deepEqual(await invoke('Timers:DeleteMany', [1, 2, 3]), [null, 2]);
+    assert.deepEqual(
+      timers.__callsTo('Delete').map((C) => C.args),
+      [[1], [2], [3]]
+    );
+  } finally {
+    delete timers.Delete;
+  }
+});
+
+test('Timers:DeleteMany stops at the first real failure', async () => {
+  can(timers, 'Delete', async (ID) => (ID === 2 ? ['database is locked', null] : [null, true]));
+  try {
+    assert.deepEqual(await invoke('Timers:DeleteMany', [1, 2, 3]), ['database is locked', null]);
+    assert.deepEqual(
+      timers.__callsTo('Delete').map((C) => C.args),
+      [[1], [2]]
+    );
+  } finally {
+    delete timers.Delete;
+  }
+});
+
+test('Timers:MoveToGroup moves to a group that exists, or to Default with null', async () => {
+  assert.deepEqual(await invoke('Timers:MoveToGroup', [1, 2], '1'), [null, 2]);
+  assert.deepEqual(lastCall(timers, 'MoveToGroup').args, [[1, 2], 1]);
+  assert.deepEqual(await invoke('Timers:MoveToGroup', [4], null), [null, 1]);
+  assert.deepEqual(lastCall(timers, 'MoveToGroup').args, [[4], null]);
+  timers.__calls.length = 0;
+  assert.deepEqual(await invoke('Timers:MoveToGroup', [1], 9), ['Group not found', null]);
+  assert.deepEqual(await invoke('Timers:MoveToGroup', [1], 'x'), ['Invalid group ID', null]);
+  assert.deepEqual(await invoke('Timers:MoveToGroup', [], 1), ['Invalid timer list', null]);
+  assert.equal(timers.__callsTo('MoveToGroup').length, 0);
+});
+
+test('Timers:Arrange validates every placement and every group in it', async () => {
+  for (const Bad of [undefined, null, 'x', 5, {}]) {
+    assert.deepEqual(await invoke('Timers:Arrange', Bad), ['Invalid arrangement', null]);
+  }
+  assert.deepEqual(await invoke('Timers:Arrange', ['x']), ['Invalid arrangement', null]);
+  assert.deepEqual(await invoke('Timers:Arrange', [{ ID: 'x', GroupID: 1 }]), [
+    'Invalid timer ID',
+    null,
+  ]);
+  assert.deepEqual(await invoke('Timers:Arrange', [{ ID: 1, GroupID: 9 }]), [
+    'Group not found',
+    null,
+  ]);
+  assert.equal(timers.__callsTo('Arrange').length, 0);
+  assert.deepEqual(
+    await invoke('Timers:Arrange', [
+      { ID: '2', GroupID: '1' },
+      { ID: 1, GroupID: null },
+      { ID: 3 },
+    ]),
+    [null, true]
+  );
+  assert.deepEqual(lastCall(timers, 'Arrange').args, [
+    [
+      { ID: 2, GroupID: 1 },
+      { ID: 1, GroupID: null },
+      { ID: 3, GroupID: null },
+    ],
+  ]);
+});
+
+test('Timer:Create and Timer:Update refuse a group that does not exist', async () => {
+  await rejects('Timer:Create', [{ Name: 'x', GroupID: 9 }], 'Group not found');
+  await rejects('Timer:Update', [3, { GroupID: 9 }], 'Group not found');
+  await rejects('Timer:Update', [3, { GroupID: 'abc' }], 'Invalid group ID');
+  assert.deepEqual(await invoke('Timer:Create', { GroupID: 2 }), [null, { ID: 9 }]);
+  assert.deepEqual(lastCall(timers, 'Create').args, [{ GroupID: 2 }]);
+  // null is the Default group, always there.
+  assert.deepEqual(await invoke('Timer:Update', 3, { GroupID: null }), [null, { ID: 3 }]);
+  assert.deepEqual(lastCall(timers, 'Update').args, [3, { GroupID: null }]);
+});
+
+test('Show:Save saves to the open file without asking where', async () => {
+  showState.currentFile = '/shows/Main.showtraktimers';
+  assert.deepEqual(await invoke('Show:Save'), [null, 'Saved']);
+  // To whichever file is open when the save runs (it queues behind an Open).
+  assert.equal(showFile.__callsTo('SaveCurrent').length, 1);
+  assert.equal(showFile.__callsTo('Save').length, 0);
+  assert.deepEqual(showState.saveTitles, []);
+});
+
+test('Show:Save with no file open asks where, and a cancelled picker saves nothing', async () => {
+  assert.deepEqual(await invoke('Show:Save'), ['Cancelled By User', null]);
+  assert.equal(showFile.__callsTo('Save').length, 0);
+  showState.savePick = '/shows/New.showtraktimers';
+  assert.deepEqual(await invoke('Show:Save'), [null, 'Saved']);
+  assert.deepEqual(lastCall(showFile, 'Save').args, ['/shows/New.showtraktimers']);
+});
+
+test('Show:SaveAs always asks, suggesting the open file’s name', async () => {
+  showState.currentFile = '/shows/Main Stage.showtraktimers';
+  assert.deepEqual(await invoke('Show:SaveAs'), ['Cancelled By User', null]);
+  assert.deepEqual(showState.saveTitles, [['Save Show File As', 'Main Stage']]);
+  assert.equal(showFile.__callsTo('Save').length, 0);
+  showState.savePick = '/shows/Copy.showtraktimers';
+  assert.deepEqual(await invoke('Show:SaveAs'), [null, 'Saved']);
+  assert.deepEqual(lastCall(showFile, 'Save').args, ['/shows/Copy.showtraktimers']);
+});
+
+test('Show:Open asks for a file and hands it to RequestOpen (which may ask to upgrade)', async () => {
+  assert.deepEqual(await invoke('Show:Open'), ['Cancelled By User', null]);
+  assert.equal(showFile.__callsTo('RequestOpen').length, 0);
+  showState.openPick = '/shows/Old.showtraktimers';
+  assert.deepEqual(await invoke('Show:Open'), [
+    null,
+    { Status: 'Opened', FilePath: '/shows/Old.showtraktimers' },
+  ]);
+  assert.deepEqual(lastCall(showFile, 'RequestOpen').args, ['/shows/Old.showtraktimers']);
+});
+
+test('Show:New asks where the new show goes before anything is cleared', async () => {
+  assert.deepEqual(await invoke('Show:New'), ['Cancelled By User', null]);
+  assert.equal(showFile.__callsTo('New').length, 0, 'a cancelled New cleared the show');
+  showState.savePick = '/shows/Fresh.showtraktimers';
+  assert.deepEqual(await invoke('Show:New'), [null, 'New show created']);
+  assert.deepEqual(lastCall(showFile, 'New').args, ['/shows/Fresh.showtraktimers']);
+});
+
+test('Show:ResolveUpgrade accepts only on a literal true', async () => {
+  assert.deepEqual(await invoke('Show:ResolveUpgrade', true), [
+    null,
+    { FilePath: '/a', BackupPath: '/b' },
+  ]);
+  for (const NotYes of [false, 'true', 1, undefined, null, {}]) {
+    assert.deepEqual(await invoke('Show:ResolveUpgrade', NotYes), [null, 'Upgrade declined']);
+  }
+  assert.equal(showFile.__callsTo('AcceptUpgrade').length, 1);
+  assert.equal(showFile.__callsTo('DeclineUpgrade').length, 6);
+});
+
+test('the show-file checks pass the manager’s answers through', async () => {
+  showState.currentFile = '/shows/Main.showtraktimers';
+  assert.equal(await invoke('Show:GetCurrentFile'), '/shows/Main.showtraktimers');
+  assert.deepEqual(await invoke('Show:CheckUpgrade'), [null, null]);
+  assert.equal(await invoke('Show:HasUnsavedData'), true);
+  assert.deepEqual(await invoke('Show:EnsureFileExists'), [null, { Missing: false }]);
+});
+
+test('App:OpenBackupsFolder opens the backups folder', async () => {
+  await invoke('App:OpenBackupsFolder');
+  assert.equal(appData.__callsTo('GetBackupsDirectory').length, 1);
+  assert.equal(appData.__callsTo('OpenFolder').length, 1);
+});
+
+test('no new guarded handler throws, whatever it is sent', async () => {
+  const Guarded = [
+    'Group:Create',
+    'Group:Update',
+    'Group:Delete',
+    'Groups:Reorder',
+    'Timers:ControlMany',
+    'Timers:DeleteMany',
+    'Timers:MoveToGroup',
+    'Timers:Arrange',
+    'Show:ResolveUpgrade',
+  ];
+  const Junk = [undefined, null, NaN, -1, 0, 1.5, '', 'x', [], {}, true, { length: 5 }, [[]], [{}]];
+  for (const Channel of Guarded) {
+    for (const A of Junk) {
+      for (const B of Junk) {
+        const Result = await invoke(Channel, A, B);
+        assert.ok(Array.isArray(Result) && Result.length === 2, `${Channel} returned ${Result}`);
+        if (Result[0] !== null) {
+          assert.equal(typeof Result[0], 'string', `${Channel}(${describe([A, B])})`);
+          assert.equal(Result[1], null, `${Channel}(${describe([A, B])}) returned data`);
+        }
+      }
+    }
+  }
+});
+
+test('validate: TimerIDs, GroupID, GroupRef, GroupIDList and Placements', () => {
+  assert.deepEqual(Validate.TimerIDs([2, '1', 2]), [2, 1]);
+  assert.throws(() => Validate.TimerIDs([]), /Invalid timer list/);
+  assert.throws(() => Validate.TimerIDs(new Array(10001).fill(1)), /Invalid timer list/);
+  assert.equal(Validate.GroupID('4'), 4);
+  for (const Bad of BAD_IDS) assert.throws(() => Validate.GroupID(Bad), /Invalid group ID/);
+  assert.equal(Validate.GroupRef(null), null);
+  assert.equal(Validate.GroupRef(undefined), null);
+  assert.equal(Validate.GroupRef(3), 3);
+  assert.throws(() => Validate.GroupRef(0), /Invalid group ID/);
+  assert.deepEqual(Validate.GroupIDList([]), []);
+  assert.throws(() => Validate.GroupIDList('1'), /Invalid order/);
+  assert.deepEqual(Validate.Placements([{ ID: 1 }]), [{ ID: 1, GroupID: null }]);
+  assert.throws(() => Validate.Placements([5]), /Invalid arrangement/);
 });

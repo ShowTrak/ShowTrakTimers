@@ -17,14 +17,15 @@ export function FormatRoutePath(PathValue: string | undefined): string {
 }
 
 /** The reference section a route belongs to, by its second path segment. */
-export function RouteSection(PathValue: string): 'Control' | 'Timer' | 'All Timers' {
+export function RouteSection(PathValue: string): 'Control' | 'Timer' | 'Groups' | 'All Timers' {
   const Segment =
     String(PathValue || '')
       .split('/')
       .filter(Boolean)[1] || '';
   if (Segment === 'Timer') return 'Timer';
+  if (Segment === 'Group') return 'Groups';
   if (Segment === 'All') return 'All Timers';
   return 'Control';
 }
 
-export const ROUTE_SECTION_ORDER = ['Control', 'Timer', 'All Timers'] as const;
+export const ROUTE_SECTION_ORDER = ['Control', 'Timer', 'Groups', 'All Timers'] as const;

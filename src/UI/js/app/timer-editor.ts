@@ -16,6 +16,26 @@ import { FillSoundSelect, PreviewSoundRef } from './sounds';
 import { HandleNonFatalError, Safe } from './utils';
 import type { TimerPatchView } from '../../../common/api';
 import { EditorFieldVisibility, TypeHint } from './lib/timer-editor-model';
+import { Groups } from './state';
+import { DEFAULT_GROUP_TITLE, EffectiveGroupID } from '../../../common/groups';
+
+// The Group select: every group, then the Default group ('' as its value).
+function FillGroupSelect(GroupID: number | null): void {
+  const Known = new Set(Groups.map((G) => G.GroupID));
+  const Current = EffectiveGroupID(GroupID, Known);
+  $('#TIMER_EDITOR_GROUP')
+    .html(
+      Groups.map((G) => `<option value="${G.GroupID}">${Safe(G.Title)}</option>`).join('') +
+        `<option value="">${Safe(DEFAULT_GROUP_TITLE)}</option>`
+    )
+    .val(Current === null ? '' : String(Current));
+}
+
+// Keep the select's options in step with the groups while the editor is open.
+export function RefreshEditorGroups(): void {
+  if (!Current || !$(`#${MODAL_ID}`).hasClass('show')) return;
+  FillGroupSelect(Current.GroupID);
+}
 
 const MODAL_ID = 'SHOWTRAK_MODAL_TIMER_EDITOR';
 const FIELD_DEBOUNCE_MS = 600;
@@ -106,6 +126,7 @@ function Populate(Timer: TimerView): void {
   $('#TIMER_EDITOR_ID').text(`Timer ID ${Timer.ID} (used in OSC addresses)`);
   $('#TIMER_EDITOR_NAME').val(Timer.Name);
   $('#TIMER_EDITOR_TYPE').val(Timer.Type);
+  FillGroupSelect(Timer.GroupID);
   $('#TIMER_EDITOR_DURATION').val(FormatDurationInput(Timer.Duration)).removeClass('is-invalid');
   $('#TIMER_EDITOR_SHOWONWEB').prop('checked', Timer.ShowOnWeb);
   $('#TIMER_EDITOR_HUNDREDTHS').prop('checked', Timer.ShowHundredths);
@@ -121,6 +142,18 @@ function Populate(Timer: TimerView): void {
   FillSoundSelect($('#TIMER_EDITOR_WARNING_SOUND'), Timer.WarningSound);
   $('#TIMER_EDITOR_WARNING_TOAST').prop('checked', Timer.WarningToast);
   ApplyVisibility();
+}
+
+/**
+ * Another show was loaded: close the editor without saving what is pending,
+ * which belongs to a timer of the old show (the same ID may be another timer now).
+ */
+export function DiscardTimerEditor(): void {
+  for (const Timer of Pending.values()) clearTimeout(Timer);
+  Pending.clear();
+  EditingID = null;
+  Current = null;
+  closeModal(MODAL_ID);
 }
 
 // Re-fill the sound pickers when the Sound Library changes while open.
@@ -162,6 +195,7 @@ export function InitTimerEditor(): void {
   });
   SetTitle = Header.setTitle;
   $('#TIMER_EDITOR_HEADER').empty().append(Header.$el);
+  window.API.OnGroups(() => RefreshEditorGroups());
 
   $(`#${MODAL_ID}`).on('hide.bs.modal', () => FlushPending());
   $(`#${MODAL_ID}`).on('hidden.bs.modal', () => {
@@ -182,6 +216,10 @@ export function InitTimerEditor(): void {
     void Save({ Type }).then(() => {
       if (Current) $('#TIMER_EDITOR_DURATION').val(FormatDurationInput(Current.Duration));
     });
+  });
+  $('#TIMER_EDITOR_GROUP').on('change', function () {
+    const Value = String($(this).val() ?? '');
+    void Save({ GroupID: Value === '' ? null : Number(Value) });
   });
   $('#TIMER_EDITOR_SHOWONWEB').on('change', function () {
     void Save({ ShowOnWeb: $(this).is(':checked') });

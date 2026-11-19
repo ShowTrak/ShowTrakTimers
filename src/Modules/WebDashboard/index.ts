@@ -16,6 +16,8 @@ import { CreateLogger } from '../Logger';
 import { Manager as BroadcastManager } from '../Broadcast';
 import { Manager as AppSettings, type SettingsManagerShape } from '../SettingsManager';
 import { Manager as AppTimers, type TimerManager } from '../TimerManager';
+import { Manager as AppGroups, type GroupManager } from '../GroupManager';
+import { SortGroups, type GroupView } from '../../common/groups';
 import { DEFAULT_WEB_DASHBOARD_PORT } from '../Config/constants';
 import { DIST_ROOT } from '../Config/dist-root';
 import { Config } from '../Config';
@@ -42,6 +44,8 @@ export interface DashboardTimer {
   ElapsedMs: number;
   Warning: boolean;
   ShowHundredths: boolean;
+  /** The timer's group; null for the Default group. */
+  GroupID: number | null;
   State: {
     ElapsedTime: number;
     ElapsedTimeReadable: string;
@@ -68,6 +72,7 @@ export function ToDashboardTimers(Timers: TimerView[]): DashboardTimer[] {
         ElapsedMs: T.ElapsedMs,
         Warning: T.Warning,
         ShowHundredths: T.ShowHundredths === true,
+        GroupID: T.GroupID ?? null,
         State: {
           ElapsedTime: T.ElapsedMs,
           ElapsedTimeReadable: FormatElapsed(T.ElapsedMs),
@@ -79,9 +84,27 @@ export function ToDashboardTimers(Timers: TimerView[]): DashboardTimer[] {
     });
 }
 
+/** A group as sent to dashboard browsers ('groups:update'). */
+export interface DashboardGroup {
+  GroupID: number;
+  Title: string;
+  Weight: number;
+  Colour: number | null;
+}
+
+export function ToDashboardGroups(Groups: GroupView[]): DashboardGroup[] {
+  return SortGroups(Groups).map((G) => ({
+    GroupID: G.GroupID,
+    Title: G.Title,
+    Weight: G.Weight,
+    Colour: G.Colour,
+  }));
+}
+
 export interface WebDashboardOptions {
   Settings?: SettingsManagerShape;
   Timers?: TimerManager;
+  Groups?: GroupManager;
   Broadcast?: {
     emit(Event: string, ...Args: unknown[]): unknown;
     on(Event: string, Handler: (...Args: never[]) => void): unknown;
@@ -152,6 +175,7 @@ const PUSH_COALESCE_MS = 50;
 export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
   const Settings = Options.Settings ?? AppSettings;
   const Timers = Options.Timers ?? AppTimers;
+  const Groups = Options.Groups ?? AppGroups;
   const Broadcast = Options.Broadcast ?? BroadcastManager;
   const StaticRoot = Options.StaticRoot ?? DIST_ROOT;
 
@@ -160,6 +184,7 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
   let Bound: { Host: string; Port: number } | null = null;
   let PushTimer: ReturnType<typeof setTimeout> | null = null;
   let Latest: DashboardTimer[] = [];
+  let LatestGroups: DashboardGroup[] = [];
   const Attempts = new Map<string, LoginAttempts>();
   const Now = Options.Now ?? (() => Date.now());
 
@@ -181,6 +206,11 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
     }, PUSH_COALESCE_MS);
   };
 
+  const OnGroupsUpdated = (Views: GroupView[]) => {
+    LatestGroups = ToDashboardGroups(Array.isArray(Views) ? Views : []);
+    IO?.to(AUTHED_ROOM).emit('groups:update', LatestGroups);
+  };
+
   // The passcode in force, or null when the dashboard is open to anyone.
   async function RequiredPasscode(): Promise<string | null> {
     if (!(await Settings.GetValue('WEB_DASHBOARD_PASSWORD_PROTECTION_ENABLED'))) return null;
@@ -190,6 +220,8 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
 
   function Admit(Client: Socket): void {
     Client.join(AUTHED_ROOM);
+    // Groups first, so the first timers push is drawn in its groups.
+    Client.emit('groups:update', LatestGroups);
     Client.emit('timers:update', Latest);
     AnnounceClientCount();
   }
@@ -299,6 +331,7 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
 
       // The list a browser gets on connecting: ready before anyone can connect.
       Latest = ToDashboardTimers(await Timers.GetAll());
+      LatestGroups = ToDashboardGroups(await Groups.GetAll());
       const Server = http.createServer(BuildApp());
       const Sockets = new SocketServer(Server, {
         cors: { origin: true, methods: ['GET'], credentials: false },
@@ -343,6 +376,7 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
       IO = Sockets;
       Bound = { Host, Port: (Server.address() as { port: number }).port };
       Broadcast.on('TimersUpdated', OnTimersUpdated);
+      Broadcast.on('GroupsUpdated', OnGroupsUpdated);
       Broadcast.on('WebDashboard:AuthChanged', OnAuthChanged);
       Logger.success(`Web Dashboard listening on http://${Host}:${Bound.Port}`);
       AnnounceClientCount();
@@ -351,6 +385,7 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
 
     async Stop(): Promise<[string | null, boolean | null]> {
       Broadcast.off('TimersUpdated', OnTimersUpdated);
+      Broadcast.off('GroupsUpdated', OnGroupsUpdated);
       Broadcast.off('WebDashboard:AuthChanged', OnAuthChanged);
       if (PushTimer) {
         clearTimeout(PushTimer);

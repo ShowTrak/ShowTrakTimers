@@ -20,6 +20,8 @@ export function InitModalHeaders(): void {
   Build('OSC_ROUTE_LIST_HEADER', 'OSC Reference', 'OSC_ROUTE_LIST_MODAL');
   Build('WEB_DASHBOARD_HEADER', 'Web Dashboard', 'SHOWTRAK_MODAL_WEB_DASHBOARD');
   Build('SOUND_LIBRARY_HEADER', 'Sound Library', 'SHOWTRAK_MODAL_SOUND_LIBRARY');
+  Build('GROUP_MANAGER_HEADER', 'Groups', 'SHOWTRAK_MODAL_GROUPMANAGER');
+  Build('GROUP_EDITOR_HEADER', 'Edit Group', 'SHOWTRAK_MODAL_GROUP_EDITOR');
 }
 
 export async function CloseAllModals(): Promise<void> {

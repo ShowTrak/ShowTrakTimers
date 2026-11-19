@@ -3,11 +3,13 @@
 import { Manager as BroadcastManager } from '../Modules/Broadcast';
 import { Manager as SettingsManager } from '../Modules/SettingsManager';
 import { Manager as TimerManager } from '../Modules/TimerManager';
+import { Manager as GroupManager } from '../Modules/GroupManager';
 import { Manager as AudioLibrary } from '../Modules/AudioLibrary';
 import { CreateLogger } from '../Modules/Logger';
 import { PushToRenderers } from './renderer-bus';
 import { ModeManager } from './mode';
 import type { TimerView } from '../common/timers';
+import type { GroupView } from '../common/groups';
 
 const Logger = CreateLogger('Bridge');
 
@@ -37,6 +39,10 @@ export async function PushTimers(Views?: TimerView[]): Promise<void> {
   PushToRenderers('Timers:Updated', Views ?? (await TimerManager.GetAll()));
 }
 
+export async function PushGroups(Views?: GroupView[]): Promise<void> {
+  PushToRenderers('Groups:Updated', Views ?? (await GroupManager.GetAll()));
+}
+
 export function PushSounds(): void {
   PushToRenderers('Sounds:Updated', AudioLibrary.List());
 }
@@ -59,6 +65,9 @@ export function RegisterBroadcastBridge(): void {
 
   BroadcastManager.on('TimersUpdated', (Views: TimerView[]) => {
     PushToRenderers('Timers:Updated', Views);
+  });
+  BroadcastManager.on('GroupsUpdated', (Views: GroupView[]) => {
+    PushToRenderers('Groups:Updated', Views);
   });
   BroadcastManager.on('TimerEvent', (Event: unknown) => {
     PushToRenderers('Timer:Event', Event);

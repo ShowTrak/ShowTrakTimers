@@ -16,6 +16,7 @@ import {
   IsTicking,
   NormalizeDuration,
   NormalizeEndBehaviour,
+  NormalizeGroupID,
   NormalizeTimerType,
   NormalizeWarningMs,
   type TimerConfig,
@@ -49,6 +50,7 @@ interface TimerRow {
   WarningSound: string | null;
   WarningToast: number | boolean | null;
   ShowHundredths: number | boolean | null;
+  GroupID: number | null;
 }
 
 /** Fields a create or update may set. Anything absent is left as it is. */
@@ -65,6 +67,14 @@ export interface TimerPatch {
   WarningSound?: unknown;
   WarningToast?: unknown;
   ShowHundredths?: unknown;
+  /** A group ID, or null for the Default group. Callers check the group exists. */
+  GroupID?: unknown;
+}
+
+/** One timer's place in an arrangement: its group, in display order. */
+export interface TimerPlacement {
+  ID: number;
+  GroupID: number | null;
 }
 
 export type Result<T> = [string | null, T | null];
@@ -103,6 +113,7 @@ function FromRow(Row: TimerRow): TimerConfig {
     WarningSound: NormalizeSoundRef(Row.WarningSound),
     WarningToast: !!Row.WarningToast,
     ShowHundredths: !!Row.ShowHundredths,
+    GroupID: NormalizeGroupID(Row.GroupID),
   };
 }
 
@@ -140,6 +151,7 @@ export function ApplyPatch(Current: TimerConfig, Patch: TimerPatch): TimerConfig
   if (Patch.WarningSound !== undefined) Next.WarningSound = NormalizeSoundRef(Patch.WarningSound);
   if (Patch.WarningToast !== undefined) Next.WarningToast = !!Patch.WarningToast;
   if (Patch.ShowHundredths !== undefined) Next.ShowHundredths = !!Patch.ShowHundredths;
+  if (Patch.GroupID !== undefined) Next.GroupID = NormalizeGroupID(Patch.GroupID);
   return Next;
 }
 
@@ -157,6 +169,7 @@ function DefaultConfig(): Omit<TimerConfig, 'ID' | 'Weight'> {
     WarningSound: null,
     WarningToast: false,
     ShowHundredths: false,
+    GroupID: null,
   };
 }
 
@@ -281,7 +294,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
     const [Err] = await Db.Run(
       `UPDATE Timers SET Type = ?, Name = ?, Description = ?, Duration = ?, ShowOnWeb = ?,
         EndBehaviour = ?, CompletionSound = ?, CompletionToast = ?, WarningMs = ?,
-        WarningSound = ?, WarningToast = ?, ShowHundredths = ? WHERE ID = ?`,
+        WarningSound = ?, WarningToast = ?, ShowHundredths = ?, GroupID = ? WHERE ID = ?`,
       [
         Config.Type,
         Config.Name,
@@ -295,6 +308,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
         Config.WarningSound,
         Config.WarningToast ? 1 : 0,
         Config.ShowHundredths ? 1 : 0,
+        Config.GroupID,
         Config.ID,
       ]
     );
@@ -340,7 +354,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
       const [Err, Res] = await Db.Run(
         `INSERT INTO Timers (Type, Name, Description, Duration, Weight, TextAlert, AudioAlert,
           ShowOnWeb, EndBehaviour, CompletionSound, CompletionToast, WarningMs, WarningSound,
-          WarningToast, ShowHundredths) VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          WarningToast, ShowHundredths, GroupID) VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           Config.Type,
           Config.Name,
@@ -355,6 +369,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
           Config.WarningSound,
           Config.WarningToast ? 1 : 0,
           Config.ShowHundredths ? 1 : 0,
+          Config.GroupID,
         ]
       );
       if (Err || !Res) return [Err?.message || 'Failed to create the timer', null];
@@ -460,6 +475,115 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
       return Count;
     },
 
+    /**
+     * Apply an action to the listed timers (a selection, a group). Returns how
+     * many changed. Start leaves a timer that is already running or paused
+     * alone unless RestartRunning is set (the OSC group routes set it, to mean
+     * what /ShowTrak/All/Start means): starting a selection mid-show must not
+     * throw away the time on the ones already going.
+     */
+    async ControlMany(
+      IDs: readonly number[],
+      Action: ControlAction,
+      { RestartRunning = false }: { RestartRunning?: boolean } = {}
+    ): Promise<number> {
+      await Load();
+      const Wanted = new Set(IDs.map(Number));
+      let Count = 0;
+      for (const T of Timers) {
+        if (!Wanted.has(T.ID)) continue;
+        if (Action === 'Start' && !RestartRunning && !CanStartFresh(T)) continue;
+        if (RunControl(T, Action)) Count++;
+      }
+      if (Count > 0) {
+        Announce();
+        EnsureWatching();
+      }
+      return Count;
+    },
+
+    /**
+     * Put timers into groups and order them in one go: each listed timer takes
+     * the group given and the next weight, so the list is the new display
+     * order (as dragging tiles between groups produces). Timers not listed keep
+     * their group and follow, in their current order.
+     */
+    async Arrange(Layout: readonly TimerPlacement[]): Promise<Result<true>> {
+      await Load();
+      if (!Array.isArray(Layout)) return ['Invalid arrangement', null];
+      const Placements = new Map<number, number | null>();
+      for (const Entry of Layout) {
+        const ID = Number(Entry?.ID);
+        if (!Find(ID) || Placements.has(ID)) continue;
+        Placements.set(ID, NormalizeGroupID(Entry.GroupID));
+      }
+      const Order = [
+        ...Placements.keys(),
+        ...Timers.map((T) => T.ID).filter((ID) => !Placements.has(ID)),
+      ];
+      for (let Index = 0; Index < Order.length; Index++) {
+        // Gone meanwhile (the show was swapped out under a slow arrange).
+        const T = Find(Order[Index]);
+        if (!T) continue;
+        const Weight = Index + 1;
+        const GroupID = Placements.has(T.ID) ? Placements.get(T.ID)! : T.Config.GroupID;
+        if (T.Config.Weight === Weight && T.Config.GroupID === GroupID) continue;
+        const [Err] = await Db.Run('UPDATE Timers SET Weight = ?, GroupID = ? WHERE ID = ?', [
+          Weight,
+          GroupID,
+          T.ID,
+        ]);
+        if (Err) return [Err.message, null];
+        T.Config = { ...T.Config, Weight, GroupID };
+      }
+      Sorted();
+      Announce();
+      return [null, true];
+    },
+
+    /** Move the listed timers to the end of a group (null: the Default group). */
+    async MoveToGroup(IDs: readonly number[], GroupID: number | null): Promise<Result<number>> {
+      await Load();
+      const Moving = new Set(IDs.map(Number).filter((ID) => Find(ID)));
+      if (!Moving.size) return ['No timers to move', null];
+      const Target = NormalizeGroupID(GroupID);
+      const Layout: TimerPlacement[] = [
+        ...Timers.filter((T) => !Moving.has(T.ID)).map((T) => ({
+          ID: T.ID,
+          GroupID: T.Config.GroupID,
+        })),
+        ...Timers.filter((T) => Moving.has(T.ID)).map((T) => ({ ID: T.ID, GroupID: Target })),
+      ];
+      const [Err] = await Manager.Arrange(Layout);
+      return Err ? [Err, null] : [null, Moving.size];
+    },
+
+    /** A group is going: every timer in it moves to the Default group. */
+    async ClearGroup(GroupID: number): Promise<Result<number>> {
+      await Load();
+      const Affected = Timers.filter((T) => T.Config.GroupID === GroupID);
+      if (!Affected.length) return [null, 0];
+      const [Err] = await Db.Run('UPDATE Timers SET GroupID = NULL WHERE GroupID = ?', [GroupID]);
+      if (Err) return [Err.message, null];
+      for (const T of Affected) T.Config = { ...T.Config, GroupID: null };
+      Announce();
+      return [null, Affected.length];
+    },
+
+    /**
+     * Drop everything held in memory and load the timers again (another show
+     * was opened, or a new one started). Run state belongs to the old show, so
+     * nothing carries over.
+     */
+    async Reload(): Promise<void> {
+      StopWatching();
+      if (Loading) await Loading.catch(() => {});
+      Loaded = false;
+      Timers = [];
+      await Load();
+      Announce();
+    },
+
     /** Stop the watch loop (shutdown). */
     Dispose(): void {
       StopWatching();
@@ -468,6 +592,11 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
     /** Run one evaluation pass now (tests drive the loop with this). */
     Tick,
   };
+
+  // Whether Start begins this timer afresh rather than restarting it.
+  function CanStartFresh(T: Timer): boolean {
+    return T.Status === 'STANDBY' || T.Status === 'COMPLETE';
+  }
 
   // Returns whether the action changed anything.
   function RunControl(T: Timer, Action: ControlAction): boolean {

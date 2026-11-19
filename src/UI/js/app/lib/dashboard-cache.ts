@@ -39,7 +39,7 @@ export type DashboardTimerLike = Pick<
   TimerView,
   'ID' | 'Name' | 'Type' | 'Duration' | 'Status' | 'ElapsedMs' | 'Warning' | 'ShowHundredths'
 > &
-  Partial<Pick<TimerView, 'Weight'>>;
+  Partial<Pick<TimerView, 'Weight' | 'GroupID'>>;
 
 export function IsDashboardTimer(Value: unknown): Value is DashboardTimerLike {
   if (!Value || typeof Value !== 'object') return false;
@@ -66,5 +66,9 @@ export function NormalizeDashboardTimer(Value: Record<string, unknown>): Dashboa
     ShowHundredths: Value.ShowHundredths === true,
     // Only when there is one: an absent weight stays absent.
     ...(Value.Weight !== undefined && Number.isFinite(Weight) ? { Weight } : {}),
+    // A host from before groups sends none: every timer is then in the Default group.
+    ...(typeof Value.GroupID === 'number' && Number.isInteger(Value.GroupID) && Value.GroupID > 0
+      ? { GroupID: Value.GroupID }
+      : {}),
   };
 }

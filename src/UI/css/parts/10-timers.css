@@ -277,6 +277,10 @@ body.mode-edit .edit-only {
   display: inline-flex !important;
 }
 
+body.mode-edit li.edit-only {
+  display: list-item !important;
+}
+
 body.mode-edit .timer-tile-id {
   display: inline-block;
 }
@@ -471,4 +475,125 @@ body.web-dashboard .SHOWTRAK_TIMER:hover {
   .timer-grid {
     padding: 0.5rem;
   }
+}
+
+/* --- Groups ---------------------------------------------------------------
+   The groups are ShowTrak Server's: the column grid, the clickable rail and
+   the tinted box (03-layout.css, 05-monitoring.css). Inside a box the timer
+   tiles flow into as many columns as fit, at the timer tile's width. */
+#TIMER_GRID.group-column-grid {
+  padding-bottom: 0.25rem;
+}
+
+/* Set at run time: a group's colour inline on its box, and the Group Colour
+   Saturation preference on the root (timers.ts). These are the fallbacks. */
+:root {
+  --group-tint-scale: 1;
+}
+
+.group-tinted {
+  --group-tint: transparent;
+}
+
+/* The id outranks Server's body:not(.list-mode) .group-drop-zone, which sets
+   its own (client tile) width. */
+#TIMER_GRID .timer-group-zone {
+  --zone-tile-min: min(var(--timer-tile-min-width), 100%);
+  min-height: 3.5rem;
+  /* Lets a tile tell how wide its group is (the narrow layout below), and
+     keeps a narrow group from being stretched by its tiles' content. */
+  container-type: inline-size;
+}
+
+/* A narrow group (a one-column group in a small window): the controls go
+   under the readout instead of beside it, so nothing overlaps. */
+@container (max-width: 380px) {
+  .timer-group-zone .SHOWTRAK_TIMER {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'name'
+      'head'
+      'readout'
+      'controls'
+      'progress';
+  }
+
+  .timer-group-zone .timer-tile-head {
+    justify-self: start;
+  }
+
+  .timer-group-zone .timer-tile-controls {
+    justify-content: flex-start;
+    margin-top: 0.2rem;
+  }
+}
+
+.timer-group-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+/* Selection, as Server's tiles: a white ring. Tiles are clicked to select,
+   so their text is not selectable (a double-click would otherwise highlight
+   it). */
+.SHOWTRAK_TIMER {
+  cursor: pointer;
+  user-select: none;
+}
+
+.SHOWTRAK_TIMER.SELECTED,
+.SHOWTRAK_TIMER.SELECTED:hover {
+  border-color: rgb(255 255 255 / 1);
+}
+
+/* The open show file's name has unsaved changes. */
+#APPLICATION_NAVBAR_FILE.is-unsaved::after {
+  content: ' *';
+}
+
+/* Group Manager: the colour a group tints its box with. */
+.group-manager-colour-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+/* --- Web Dashboard groups ------------------------------------------------
+   With groups, each is a titled box (tinted with its colour); without, the
+   page is the plain grid it always was. */
+.dashboard-groups {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.dashboard-group {
+  border-radius: calc(var(--tile-r) + var(--group-pad));
+  background-color: var(--surface-ghost);
+  padding: var(--group-pad);
+}
+
+.dashboard-group.group-tinted {
+  background-color: color-mix(in srgb, var(--group-tint) 9%, transparent);
+}
+
+.dashboard-group-title {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.1rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: left;
+  padding: 0.15rem 0.35rem 0.4rem;
+}
+
+.dashboard-group .timer-grid {
+  padding: 0;
 }

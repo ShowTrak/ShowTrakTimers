@@ -56,6 +56,7 @@ test('only a leading colon marks a parameter', () => {
 test('routes are grouped by their second path segment', () => {
   assert.equal(RouteSection('/ShowTrak/Timer/:TimerID/Start'), 'Timer');
   assert.equal(RouteSection('/ShowTrak/All/Pause'), 'All Timers');
+  assert.equal(RouteSection('/ShowTrak/Group/:Slug/Start'), 'Groups');
   assert.equal(RouteSection('/ShowTrak/Shutdown'), 'Control');
 });
 
@@ -66,7 +67,7 @@ test('anything unrecognised falls under Control', () => {
 });
 
 test('sections are listed Control, then Timer, then All Timers', () => {
-  assert.deepEqual([...ROUTE_SECTION_ORDER], ['Control', 'Timer', 'All Timers']);
+  assert.deepEqual([...ROUTE_SECTION_ORDER], ['Control', 'Timer', 'Groups', 'All Timers']);
 });
 
 // --- The real route table -----------------------------------------------------

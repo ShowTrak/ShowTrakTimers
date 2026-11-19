@@ -10,6 +10,7 @@ import { DefaultSettings, Groups } from './DefaultSettings';
 import type { SettingDefinition, SettingGroup, SettingValue } from './DefaultSettings';
 import { Manager as BroadcastManager } from '../Broadcast';
 import { Manager as AppDb, type Database } from '../DB';
+import { CreateInstallSettingsStore, type InstallSettingsStore } from './install-settings';
 
 const Logger = CreateLogger('Settings');
 
@@ -33,6 +34,8 @@ export interface Setting {
   Unit: string | null;
   ShowWhen: string[] | null;
   RequiresSave: boolean;
+  /** 'INSTALL' for a machine setting (kept with this installation), else null. */
+  Scope: 'INSTALL' | null;
 }
 
 export interface SettingsManagerShape {
@@ -43,6 +46,12 @@ export interface SettingsManagerShape {
   GetValue(Key: string): Promise<SettingValue | null>;
   Get(Key: string): Promise<Setting | undefined>;
   Set(Key: string, Value: unknown): Promise<[string | null, Setting | null]>;
+  /**
+   * Re-read every setting (another show file was opened). Announces the change,
+   * and fires the OnUpdateEvent of every setting whose value moved, so the
+   * services it drives (OSC, the Web Dashboard) pick up the new show's values.
+   */
+  Reload(): Promise<void>;
 }
 
 function ClampInteger(Def: { Min?: number | null; Max?: number | null }, Value: number): number {
@@ -86,7 +95,8 @@ export function CreateSettingsManager(
   Db: Database,
   Definitions: SettingDefinition[] = DefaultSettings,
   SettingGroups: SettingGroup[] = Groups,
-  Broadcast: { emit(Event: string, ...Args: unknown[]): unknown } = BroadcastManager
+  Broadcast: { emit(Event: string, ...Args: unknown[]): unknown } = BroadcastManager,
+  Install: InstallSettingsStore = CreateInstallSettingsStore()
 ): SettingsManagerShape {
   const Settings = new Map<string, Setting>();
   const DefinitionsByKey = new Map(Definitions.map((Def) => [Def.Key, Def]));
@@ -112,9 +122,27 @@ export function CreateSettingsManager(
         );
         if (Err) throw Err;
         const Saved = new Map((Rows || []).map((Row) => [String(Row.Key), Row.Value]));
+        const InstallValues = Install.ReadAll();
+        // Machine settings the install store has never seen used to live in the
+        // database (every 2.0 beta, and 1.x). Adopt that value once, or the
+        // default, and record it, so opening another show never seeds it again.
+        const Seeds: Record<string, unknown> = {};
         for (const Def of Definitions) {
-          const HasSaved = Saved.has(Def.Key);
-          const Value = HasSaved ? CoerceValue(Def, Saved.get(Def.Key)) : Def.DefaultValue;
+          const IsInstall = Def.Scope === 'INSTALL';
+          let HasSaved: boolean;
+          let Raw: unknown;
+          if (IsInstall && Object.prototype.hasOwnProperty.call(InstallValues, Def.Key)) {
+            HasSaved = true;
+            Raw = InstallValues[Def.Key];
+          } else if (IsInstall) {
+            HasSaved = Saved.has(Def.Key);
+            Raw = Saved.get(Def.Key);
+            Seeds[Def.Key] = HasSaved ? CoerceValue(Def, Raw) : Def.DefaultValue;
+          } else {
+            HasSaved = Saved.has(Def.Key);
+            Raw = Saved.get(Def.Key);
+          }
+          const Value = HasSaved ? CoerceValue(Def, Raw) : Def.DefaultValue;
           Settings.set(Def.Key, {
             Group: Def.Group,
             Key: Def.Key,
@@ -131,7 +159,17 @@ export function CreateSettingsManager(
             Unit: Def.Unit || null,
             ShowWhen: Def.ShowWhen ? [...Def.ShowWhen] : null,
             RequiresSave: !!Def.RequiresSave,
+            Scope: IsInstall ? 'INSTALL' : null,
           });
+        }
+        if (Object.keys(Seeds).length) {
+          const SeedErr = Install.Write(Seeds);
+          if (SeedErr) {
+            Logger.error(
+              `Failed to move ${Object.keys(Seeds).join(', ')} to install settings:`,
+              SeedErr
+            );
+          }
         }
         Manager.Initialized = true;
       })();
@@ -182,11 +220,16 @@ export function CreateSettingsManager(
         if (Problem) return [Problem, null];
       }
 
-      const [Err] = await Db.Run('INSERT OR REPLACE INTO Settings (Key, Value) VALUES (?, ?)', [
-        Key,
-        Next,
-      ]);
-      if (Err) return ['Error updating setting', null];
+      if (Def.Scope === 'INSTALL') {
+        const WriteErr = Install.Write({ [Key]: Next });
+        if (WriteErr) return ['Error updating setting', null];
+      } else {
+        const [Err] = await Db.Run('INSERT OR REPLACE INTO Settings (Key, Value) VALUES (?, ?)', [
+          Key,
+          Next,
+        ]);
+        if (Err) return ['Error updating setting', null];
+      }
 
       S.Value = Next;
       S.isDefault = Next === S.DefaultValue;
@@ -196,6 +239,20 @@ export function CreateSettingsManager(
       Broadcast.emit('SettingsUpdated');
       if (S.OnUpdateEvent) Broadcast.emit(S.OnUpdateEvent);
       return [null, Snapshot(S)];
+    },
+
+    async Reload() {
+      if (Initializing) await Initializing.catch(() => {});
+      const Before = new Map(Array.from(Settings.values(), (S) => [S.Key, S.Value]));
+      Settings.clear();
+      Manager.Initialized = false;
+      await Manager.Init();
+      Broadcast.emit('SettingsUpdated');
+      const Events = new Set<string>();
+      for (const S of Settings.values()) {
+        if (S.OnUpdateEvent && Before.get(S.Key) !== S.Value) Events.add(S.OnUpdateEvent);
+      }
+      for (const Event of Events) Broadcast.emit(Event);
     },
   };
 

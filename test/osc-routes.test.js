@@ -535,3 +535,86 @@ test('arguments sent to a route without parameters are ignored', async () => {
   );
   assert.deepEqual(Context.__callsTo('Control')[0].args, [2, 'Start']);
 });
+
+// --- Group routes --------------------------------------------------------------
+// New in 2.0: a group's timers addressed by the group's slug, as ShowTrak
+// Server addresses groups. "Default" is the Default group.
+
+const GROUP_ROUTES = [
+  ['Start', 'Start', 'started'],
+  ['Stop', 'Stop', 'stopped'],
+  ['Pause', 'Pause', 'paused'],
+  ['Unpause', 'Unpause', 'resumed'],
+  ['Resume', 'Unpause', 'resumed'],
+];
+
+/** A context whose ControlGroup answers with `Result` and records its calls. */
+function groupContext(Result = [null, { Title: 'Stage Left', Count: 2 }]) {
+  return fakeContext({ ControlGroup: async () => Result });
+}
+
+test('every group route is declared and matches by slug', () => {
+  for (const [Verb] of GROUP_ROUTES) {
+    const Path = `/ShowTrak/Group/:Slug/${Verb}`;
+    assert.ok(
+      ROUTES.some((R) => R.Path === Path),
+      `${Path} is not declared`
+    );
+    const Match = MatchRoute(`/ShowTrak/Group/Stage-Left/${Verb}`);
+    assert.ok(Match, Verb);
+    assert.equal(Match.Route.Path, Path);
+    assert.deepEqual(Match.Params, { Slug: 'Stage-Left' });
+  }
+});
+
+test('each group route controls the group with its action (Resume is Unpause)', async () => {
+  for (const [Verb, Action, Past] of GROUP_ROUTES) {
+    const Context = groupContext();
+    const Outcome = await dispatch(`/ShowTrak/Group/Stage-Left/${Verb}`, [], Context);
+    assert.deepEqual(
+      Context.__callsTo('ControlGroup').map((C) => C.args),
+      [['Stage-Left', Action]],
+      Verb
+    );
+    assert.deepEqual(Outcome, Ok(`Stage Left: 2 timers ${Past}`), Verb);
+    // Nothing else is touched.
+    assert.equal(Context.__callsTo('ControlAll').length, 0, Verb);
+    assert.equal(Context.__callsTo('Control').length, 0, Verb);
+  }
+});
+
+test('a group route says "timer" for exactly one', async () => {
+  const Outcome = await dispatch(
+    '/ShowTrak/Group/Default/Pause',
+    [],
+    groupContext([null, { Title: 'Default', Count: 1 }])
+  );
+  assert.deepEqual(Outcome, Ok('Default: 1 timer paused'));
+});
+
+test('a group that does not exist is reported, with the message from the context', async () => {
+  const Outcome = await dispatch(
+    '/ShowTrak/Group/Nope/Start',
+    [],
+    groupContext(['Group "Nope" not found', null])
+  );
+  assert.deepEqual(Outcome, Fail('Group "Nope" not found'));
+  // ...and with a fallback when the context gives no reason.
+  const Silent = await dispatch('/ShowTrak/Group/Nope/Start', [], groupContext([null, null]));
+  assert.deepEqual(Silent, Fail('Group "Nope" not found'));
+});
+
+test('a blank slug is refused before any group is looked up', async () => {
+  const Route = ROUTES.find((R) => R.Path === '/ShowTrak/Group/:Slug/Start');
+  const Context = groupContext();
+  assert.deepEqual(await Route.Handler({ Slug: '   ' }, Context), Fail('Invalid group'));
+  assert.equal(Context.__callsTo('ControlGroup').length, 0);
+  // An empty segment is no segment at all, so the address does not match.
+  assert.equal(MatchRoute('/ShowTrak/Group//Start'), null);
+});
+
+test('the slug sits mid-path, so it can never come from an argument', () => {
+  assert.equal(MatchRoute('/ShowTrak/Group/Start', ['Stage-Left']), null);
+  assert.equal(MatchRoute('/ShowTrak/Group/Stage-Left'), null);
+  assert.equal(MatchRoute('/ShowTrak/Group/Stage-Left/Start/Now'), null);
+});

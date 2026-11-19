@@ -54,7 +54,17 @@ function template() {
     setMode: (Mode) => modes.push(Mode),
   });
   const Timers = Template.find((Item) => Item.label === 'Timers').submenu;
-  return { Template, Timers, sent, modes };
+  const File = Template.find((Item) => Item.label === 'File').submenu;
+  const View = Template.find((Item) => Item.label === 'View').submenu;
+  return { Template, Timers, File, View, sent, modes };
+}
+
+/** Click every item that sends an action (not the mode items or roles). */
+function clickAll(Items) {
+  for (const Item of Items) {
+    if (Item.type === 'separator' || Item.role || /Mode$/.test(Item.label)) continue;
+    Item.click();
+  }
 }
 
 /** Run `fn` with process.platform forced to `platform`, then restore it. */
@@ -68,11 +78,39 @@ function withPlatform(platform, fn) {
   }
 }
 
-test('the menu bar is the app menu, Timers, Edit, View and Window', () => {
+const MENU_BAR = ['appMenu', 'File', 'Timers', 'editMenu', 'View', 'windowMenu'];
+
+test('the menu bar is the app menu, File, Timers, Edit, View and Window', () => {
   const { Template } = template();
   assert.deepEqual(
     Template.map((Item) => Item.role || Item.label),
-    ['appMenu', 'Timers', 'editMenu', 'viewMenu', 'windowMenu']
+    MENU_BAR
+  );
+});
+
+test('the File menu is the show file and its folders, as in ShowTrak Server', () => {
+  const { File } = template();
+  assert.deepEqual(
+    File.map((Item) =>
+      Item.type === 'separator' ? '---' : `${Item.label} ${Item.accelerator ?? ''}`.trim()
+    ),
+    [
+      'New Show CmdOrCtrl+N',
+      'Open... CmdOrCtrl+O',
+      'Save CmdOrCtrl+S',
+      'Save As... CmdOrCtrl+Shift+S',
+      '---',
+      'Open Logs Folder',
+      'Open Backups Folder',
+    ]
+  );
+});
+
+test('the View menu has zoom and full screen, but no reload (Cmd+R is Resume)', () => {
+  const { View } = template();
+  assert.deepEqual(
+    View.map((Item) => Item.role || Item.type),
+    ['resetZoom', 'zoomIn', 'zoomOut', 'separator', 'togglefullscreen']
   );
 });
 
@@ -82,9 +120,17 @@ test('the Timers menu lists its items in order', () => {
     Timers.map((Item) => (Item.type === 'separator' ? '---' : Item.label)),
     [
       'New Timer',
+      'Groups',
       '---',
       'Show Mode',
       'Edit Mode',
+      '---',
+      'Start Selected Timers',
+      'Pause Selected Timers',
+      'Resume Selected Timers',
+      'Stop Selected Timers',
+      'Select All Timers',
+      'Clear Selection',
       '---',
       'Start All Timers',
       'Pause All Timers',
@@ -94,7 +140,6 @@ test('the Timers menu lists its items in order', () => {
       'Sound Library',
       'Web Dashboard',
       'OSC Reference',
-      'Open Logs Folder',
       '---',
       'Keyboard Shortcuts',
       'Check for Updates',
@@ -124,7 +169,8 @@ test('the keyboard accelerators are the documented ones', () => {
     Timers.filter((Item) => Item.accelerator).map((Item) => [Item.label, Item.accelerator])
   );
   assert.deepEqual(Accelerators, {
-    'New Timer': 'CmdOrCtrl+N',
+    'New Timer': 'CmdOrCtrl+Shift+N',
+    Groups: 'CmdOrCtrl+G',
     'Show Mode': 'CmdOrCtrl+1',
     'Edit Mode': 'CmdOrCtrl+2',
     'Keyboard Shortcuts': 'CmdOrCtrl+K',
@@ -133,8 +179,10 @@ test('the keyboard accelerators are the documented ones', () => {
 });
 
 test('no accelerator is used twice or clashes with the standard Edit menu', () => {
-  const { Timers } = template();
-  const Used = Timers.filter((Item) => Item.accelerator).map((Item) => Item.accelerator);
+  const { Timers, File } = template();
+  const Used = [...File, ...Timers]
+    .filter((Item) => Item.accelerator)
+    .map((Item) => Item.accelerator);
   assert.equal(new Set(Used).size, Used.length);
   // editMenu owns these; a duplicate would break copy/paste in text fields.
   for (const Reserved of ['C', 'V', 'X', 'Z', 'A', 'Q', 'W', 'H', 'M']) {
@@ -151,13 +199,24 @@ test('the mode items set the mode directly', () => {
 });
 
 test('every other item sends its action ID to the renderer', () => {
-  const { Timers, sent, modes } = template();
-  for (const Item of Timers) {
-    if (Item.type === 'separator' || /Mode$/.test(Item.label)) continue;
-    Item.click();
-  }
+  const { File, Timers, sent, modes } = template();
+  clickAll(File);
+  clickAll(Timers);
   assert.deepEqual(sent, [
-    'ADD_TIMER_BUTTON',
+    'SHOWTRAK_MENU_NEW_SHOW',
+    'SHOWTRAK_MENU_OPEN_SHOW',
+    'SHOWTRAK_MENU_SAVE_SHOW',
+    'SHOWTRAK_MENU_SAVE_SHOW_AS',
+    'SHOWTRAK_MENU_LOGS_FOLDER',
+    'SHOWTRAK_MENU_BACKUPS_FOLDER',
+    'MENU_NEW_TIMER',
+    'SHOWTRAK_MENU_GROUPS',
+    'MENU_START_SELECTED',
+    'MENU_PAUSE_SELECTED',
+    'MENU_RESUME_SELECTED',
+    'MENU_STOP_SELECTED',
+    'MENU_SELECT_ALL',
+    'MENU_CLEAR_SELECTION',
     'MENU_START_ALL',
     'MENU_PAUSE_ALL',
     'MENU_RESUME_ALL',
@@ -165,7 +224,6 @@ test('every other item sends its action ID to the renderer', () => {
     'SHOWTRAK_MENU_SOUND_LIBRARY',
     'SHOWTRAK_MENU_WEB_DASHBOARD',
     'SHOWTRAK_MENU_OSC_REFERENCE',
-    'SHOWTRAK_MENU_LOGS_FOLDER',
     'SHOWTRAK_MENU_SHORTCUTS',
     'SHOWTRAK_MENU_CHECK_UPDATES',
     'SHOWTRAK_MENU_ABOUT',
@@ -177,10 +235,9 @@ test('every other item sends its action ID to the renderer', () => {
 
 test('every action ID the menu sends is handled by the renderer', () => {
   assert.ok(ACTION_KEYS.size > 0, 'no ACTIONS keys were parsed');
-  const { Timers, sent } = template();
-  for (const Item of Timers) {
-    if (Item.type !== 'separator' && !/Mode$/.test(Item.label)) Item.click();
-  }
+  const { File, Timers, sent } = template();
+  clickAll(File);
+  clickAll(Timers);
   for (const ID of sent) {
     assert.ok(
       ACTION_KEYS.has(ID) || ELEMENT_IDS.has(ID),
@@ -190,18 +247,17 @@ test('every action ID the menu sends is handled by the renderer', () => {
 });
 
 test('every renderer action is reachable from the menu bar', () => {
-  const { Timers, sent } = template();
-  for (const Item of Timers) {
-    if (Item.type !== 'separator' && !/Mode$/.test(Item.label)) Item.click();
-  }
+  const { File, Timers, sent } = template();
+  clickAll(File);
+  clickAll(Timers);
   for (const Key of ACTION_KEYS) {
     assert.ok(sent.includes(Key), `the renderer handles ${Key} but no menu item sends it`);
   }
 });
 
 test('every item has a label, and either a role, a submenu or a click handler', () => {
-  const { Timers } = template();
-  for (const Item of Timers) {
+  const { File, Timers } = template();
+  for (const Item of [...File, ...Timers]) {
     if (Item.type === 'separator') continue;
     assert.equal(typeof Item.label, 'string');
     assert.equal(typeof Item.click, 'function', `${Item.label} does nothing`);
@@ -216,7 +272,7 @@ test('on macOS the template is installed as the application menu', () => {
   assert.equal(built.length, 1);
   assert.deepEqual(
     built[0].map((Item) => Item.role || Item.label),
-    ['appMenu', 'Timers', 'editMenu', 'viewMenu', 'windowMenu']
+    MENU_BAR
   );
   assert.deepEqual(applied, [{ template: built[0] }]);
 });

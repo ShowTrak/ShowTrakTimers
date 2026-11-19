@@ -225,6 +225,21 @@ test('every modal the code opens or closes is a Bootstrap modal in index.html', 
   }
 });
 
+/** A modal that cannot be dismissed (static backdrop, Escape off): an answer is required. */
+function IsPrompt(Tag) {
+  return Tag.Attrs['data-bs-backdrop'] === 'static' && Tag.Attrs['data-bs-keyboard'] === 'false';
+}
+
+test('the only modals that cannot be dismissed are the show-file prompts', () => {
+  assert.deepEqual(
+    modals()
+      .filter((M) => IsPrompt(M.Tag))
+      .map((M) => M.Tag.Attrs.id)
+      .sort(),
+    ['SHOWTRAK_MODAL_MIGRATE', 'SHOWTRAK_MODAL_NO_SHOW', 'SHOWTRAK_MODAL_UPGRADE_SHOW']
+  );
+});
+
 test('every modal has a titlebar placeholder, inside it, that the code fills for that modal', () => {
   const Builders = headerBuilders();
   const Found = modals();
@@ -240,6 +255,10 @@ test('every modal has a titlebar placeholder, inside it, that the code fills for
     const Placeholder = Tag.Attrs['aria-labelledby'];
     assert.ok(Placeholder, `#${ModalId} has no aria-labelledby titlebar`);
     assert.ok(Ids.has(Placeholder), `#${Placeholder} is not inside #${ModalId}`);
+    // The show-file prompts (no show open, upgrade, save existing timers) are
+    // ShowTrak Server's: a question that must be answered, so no close button
+    // and no titlebar, only their own heading.
+    if (IsPrompt(Tag)) continue;
     assert.equal(
       Builders.get(Placeholder),
       ModalId,
@@ -256,11 +275,25 @@ test('every modal has a titlebar placeholder, inside it, that the code fills for
 
 // --- Desktop page: menus and shortcuts ------------------------------------------------
 
-test("every keyboard binding's target exists in index.html", () => {
-  const Targets = [...source('keyboard.ts').matchAll(/Target:\s*'([A-Z_]+)'/g)].map((M) => M[1]);
-  assert.ok(Targets.length >= 5);
+test('every keyboard command that runs a menu action names one menu.ts has', () => {
+  const Block = /const MENU_ACTIONS\b[^\n]*=\s*\{\n([\s\S]*?)\n\};/.exec(source('keyboard.ts'));
+  assert.ok(Block, 'MENU_ACTIONS not found in keyboard.ts');
+  const Targets = [...Block[1].matchAll(/:\s*'([A-Z_]+)'/g)].map((M) => M[1]);
+  assert.ok(Targets.length >= 5, `only ${Targets.length} found`);
+  const Actions = new Set(menuActions());
   assert.deepEqual(
-    Targets.filter((Id) => !DESKTOP_IDS.has(Id)),
+    Targets.filter((Id) => !Actions.has(Id)),
+    []
+  );
+});
+
+test('every element keyboard.ts clicks exists in index.html', () => {
+  const Ids = [...source('keyboard.ts').matchAll(/getElementById\('([A-Z_]+)'\)/g)].map(
+    (M) => M[1]
+  );
+  assert.ok(Ids.length >= 2);
+  assert.deepEqual(
+    Ids.filter((Id) => !DESKTOP_IDS.has(Id)),
     []
   );
 });
@@ -272,11 +305,16 @@ function menuActions() {
   return [...Block[1].matchAll(/^\s*([A-Z_]+):\s*\(\)\s*=>/gm)].map((M) => M[1]);
 }
 
-test('every bottom-bar menu action is wired to a button that exists in index.html', () => {
+test('every menu action is a button in index.html, or is reached from the macOS menu', () => {
+  // The selection's run controls, Select All and New Timer are in the macOS
+  // menu bar (and on the keyboard and the right-click menu), not the page's menus.
   const Actions = menuActions();
   assert.ok(Actions.length >= 10, `only ${Actions.length} actions found`);
+  const FromAppMenu = new Set(
+    [...readText('src', 'main', 'app-menu.ts').matchAll(/Action\('([A-Z_]+)'\)/g)].map((M) => M[1])
+  );
   assert.deepEqual(
-    Actions.filter((Id) => !DESKTOP_IDS.has(Id)),
+    Actions.filter((Id) => !DESKTOP_IDS.has(Id) && !FromAppMenu.has(Id)),
     []
   );
 });

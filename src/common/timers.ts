@@ -49,6 +49,8 @@ export interface TimerConfig {
   WarningToast: boolean;
   /** Show hundredths of a second (mm:ss.cc). */
   ShowHundredths: boolean;
+  /** The group the timer is in; null for the Default group. */
+  GroupID: number | null;
 }
 
 /**
@@ -72,6 +74,13 @@ export function NormalizeTimerType(Value: unknown): TimerType {
 export function NormalizeEndBehaviour(Value: unknown): EndBehaviour {
   const Upper = String(Value || '').toUpperCase();
   return (END_BEHAVIOURS as readonly string[]).includes(Upper) ? (Upper as EndBehaviour) : 'HOLD';
+}
+
+/** A group reference: a positive whole number, or null for the Default group. */
+export function NormalizeGroupID(Value: unknown): number | null {
+  if (Value === null || Value === undefined || Value === '') return null;
+  const Num = Number(Value);
+  return Number.isInteger(Num) && Num > 0 ? Num : null;
 }
 
 /** True for the types that run towards a duration. */

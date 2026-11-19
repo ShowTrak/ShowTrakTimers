@@ -28,11 +28,12 @@
         alt="ShowTrak Logo"
       />
       <span class="no-drag" id="APPLICATION_NAVBAR_TITLE">ShowTrak Timers</span>
+      <span class="no-drag" id="APPLICATION_NAVBAR_FILE"></span>
     </div>
     <div id="APPLICATION_CONTAINER" class="h-100">
       <div id="APPLICATION" class="container-fluid text-center text-light p-0 d-grid">
         <div id="APPLICATION_CONTENT" class="pb-3">
-          <div id="TIMER_GRID" class="timer-grid" aria-live="off"></div>
+          <div id="TIMER_GRID" class="group-column-grid" aria-live="off"></div>
           <div id="EMPTY_STATE" class="timer-empty-state d-none">
             <div class="bg-ghost rounded timer-empty-card text-start">
               <div class="d-flex align-items-center gap-2 mb-2">
@@ -105,11 +106,65 @@
             type="button"
             id="ADD_TIMER_BUTTON"
             class="settings-btn no-drag"
-            title="New Timer (Ctrl/Cmd+N)"
+            title="New Timer (Ctrl/Cmd+Shift+N)"
             aria-label="New Timer"
           >
             <i class="bi bi-plus-lg"></i>
           </button>
+          <div class="dropdown no-drag" id="FILE_MENU_DROPDOWN">
+            <button
+              type="button"
+              id="FILE_MENU_BUTTON"
+              class="settings-btn dropdown-toggle no-drag"
+              title="Show File and Folders"
+              aria-label="Show File and Folders"
+              data-bs-toggle="dropdown"
+              data-bs-offset="0,6"
+              data-bs-auto-close="true"
+              aria-expanded="false"
+            >
+              <i class="bi bi-file-earmark-fill"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" id="FILE_MENU">
+              <li><h6 class="dropdown-header">Show File</h6></li>
+              <li>
+                <button type="button" class="dropdown-item" id="SHOWTRAK_MENU_NEW_SHOW">
+                  <span>New Show File</span>
+                  <span class="menu-shortcut">Ctrl/Cmd+N</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="dropdown-item" id="SHOWTRAK_MENU_OPEN_SHOW">
+                  <span>Open Show File...</span>
+                  <span class="menu-shortcut">Ctrl/Cmd+O</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="dropdown-item" id="SHOWTRAK_MENU_SAVE_SHOW">
+                  <span>Save Show File</span>
+                  <span class="menu-shortcut">Ctrl/Cmd+S</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="dropdown-item" id="SHOWTRAK_MENU_SAVE_SHOW_AS">
+                  <span>Save Show File As...</span>
+                  <span class="menu-shortcut">Ctrl/Cmd+Shift+S</span>
+                </button>
+              </li>
+              <li><hr class="dropdown-divider" /></li>
+              <li><h6 class="dropdown-header">Folders</h6></li>
+              <li>
+                <button type="button" class="dropdown-item" id="SHOWTRAK_MENU_LOGS_FOLDER">
+                  Open Logs Folder
+                </button>
+              </li>
+              <li>
+                <button type="button" class="dropdown-item" id="SHOWTRAK_MENU_BACKUPS_FOLDER">
+                  Open Backups Folder
+                </button>
+              </li>
+            </ul>
+          </div>
           <div class="dropdown no-drag" id="SETTINGS_MENU_DROPDOWN">
             <button
               type="button"
@@ -133,12 +188,14 @@
               </li>
               <li>
                 <button type="button" class="dropdown-item" id="MENU_PAUSE_ALL">
-                  Pause All Timers
+                  <span>Pause All Timers</span>
+                  <span class="menu-shortcut">Ctrl/Cmd+Shift+P</span>
                 </button>
               </li>
               <li>
                 <button type="button" class="dropdown-item" id="MENU_RESUME_ALL">
-                  Resume All Timers
+                  <span>Resume All Timers</span>
+                  <span class="menu-shortcut">Ctrl/Cmd+Shift+R</span>
                 </button>
               </li>
               <li>
@@ -148,6 +205,12 @@
               </li>
               <li><hr class="dropdown-divider" /></li>
               <li><h6 class="dropdown-header">Manage</h6></li>
+              <li class="edit-only">
+                <button type="button" class="dropdown-item" id="SHOWTRAK_MENU_GROUPS">
+                  <span>Groups</span>
+                  <span class="menu-shortcut">Ctrl/Cmd+G</span>
+                </button>
+              </li>
               <li>
                 <button type="button" class="dropdown-item" id="SHOWTRAK_MENU_SOUND_LIBRARY">
                   Sound Library
@@ -161,11 +224,6 @@
               <li>
                 <button type="button" class="dropdown-item" id="SHOWTRAK_MENU_OSC_REFERENCE">
                   OSC Reference
-                </button>
-              </li>
-              <li>
-                <button type="button" class="dropdown-item" id="SHOWTRAK_MENU_LOGS_FOLDER">
-                  Open Logs Folder
                 </button>
               </li>
               <li><hr class="dropdown-divider" /></li>
@@ -202,6 +260,240 @@
       </div>
     </div>
     <!-- End Bottom Bar -->
+
+    <!-- Right-click menu (context-menu.ts) -->
+    <div id="SHOWTRAK_CONTEXT_MENU"></div>
+
+    <!-- No Show Open Prompt (show-file.ts) -->
+    <div
+      class="modal fade"
+      id="SHOWTRAK_MODAL_NO_SHOW"
+      tabindex="-1"
+      data-bs-backdrop="static"
+      data-bs-keyboard="false"
+      aria-labelledby="SHOWTRAK_MODAL_NO_SHOW_Label"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-md modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-body text-center">
+            <strong class="mb-0" id="SHOWTRAK_MODAL_NO_SHOW_Label"> No Show File Open </strong>
+            <p class="text-muted text-sm mb-2 text-break" id="NO_SHOW_MESSAGE">
+              Open an existing show file or create a new one to get started.
+            </p>
+            <div class="d-grid gap-2">
+              <button type="button" class="btn btn-success" id="NO_SHOW_OPEN">
+                Open Show File
+              </button>
+              <button type="button" class="btn btn-light" id="NO_SHOW_NEW">New Show File</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Show File Upgrade Prompt (show-file.ts) -->
+    <div
+      class="modal fade"
+      id="SHOWTRAK_MODAL_UPGRADE_SHOW"
+      tabindex="-1"
+      data-bs-backdrop="static"
+      data-bs-keyboard="false"
+      aria-labelledby="SHOWTRAK_MODAL_UPGRADE_SHOW_Label"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-md modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-body text-center">
+            <strong class="mb-0" id="SHOWTRAK_MODAL_UPGRADE_SHOW_Label">Upgrade Show File?</strong>
+            <p class="text-muted text-sm mb-2 text-break" id="UPGRADE_SHOW_MESSAGE"></p>
+            <p class="text-muted text-sm mb-2">
+              A backup of the original file is saved to the Backups folder before anything changes.
+              Open it any time from Open Backups Folder in the show file menu.
+            </p>
+            <div class="d-grid gap-2">
+              <button type="button" class="btn btn-success" id="UPGRADE_SHOW_ACCEPT">
+                Back Up and Upgrade
+              </button>
+              <button type="button" class="btn btn-light" id="UPGRADE_SHOW_DECLINE">
+                Create a New Show File Instead
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data From Before Show Files (show-file.ts) -->
+    <div
+      class="modal fade"
+      id="SHOWTRAK_MODAL_MIGRATE"
+      tabindex="-1"
+      data-bs-backdrop="static"
+      data-bs-keyboard="false"
+      aria-labelledby="SHOWTRAK_MODAL_MIGRATE_Label"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-md modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-body text-center">
+            <strong class="mb-0" id="SHOWTRAK_MODAL_MIGRATE_Label"
+              >Save Your Existing Timers</strong
+            >
+            <p class="text-muted text-sm mb-2">
+              ShowTrak Timers now keeps your timers, groups and show settings in a show file
+              (.showtraktimers). We found timers from a previous version that are not saved to a
+              show file yet. Choose where to save them now so they are not lost.
+            </p>
+            <div class="d-grid gap-2">
+              <button type="button" class="btn btn-success" id="MIGRATE_SAVE">
+                Save Show File As
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Group Manager (group-manager.ts) -->
+    <div
+      class="modal fade"
+      id="SHOWTRAK_MODAL_GROUPMANAGER"
+      tabindex="-1"
+      aria-labelledby="GROUP_MANAGER_HEADER"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-md modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-body text-center">
+            <div id="GROUP_MANAGER_HEADER" class="mb-2"></div>
+            <div class="d-flex justify-content-end gap-2 mb-2 st-action-row">
+              <button
+                type="button"
+                id="GROUP_MANAGER_NEW_GROUP"
+                class="btn btn-sm script-manager-create-btn"
+                title="Create a new group"
+              >
+                <i class="bi bi-plus-lg"></i> New
+              </button>
+            </div>
+            <div id="GROUP_MANAGER_GROUP_LIST" class="d-grid gap-2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Group Editor (group-manager.ts) -->
+    <div
+      class="modal fade"
+      id="SHOWTRAK_MODAL_GROUP_EDITOR"
+      tabindex="-1"
+      aria-labelledby="GROUP_EDITOR_HEADER"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-md modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-body text-start">
+            <div id="GROUP_EDITOR_HEADER" class="mb-2"></div>
+            <div class="d-flex justify-content-between mb-2 st-action-row">
+              <button type="button" id="GROUP_EDITOR_BACK" class="btn btn-sm btn-light">
+                <i class="bi bi-chevron-left"></i> All Groups
+              </button>
+              <button
+                type="button"
+                id="GROUP_MANAGER_EDITOR_DELETE"
+                class="btn btn-sm btn-delete"
+                title="Delete group"
+              >
+                <i class="bi bi-trash-fill"></i> Delete Group
+              </button>
+            </div>
+
+            <div class="d-grid gap-2">
+              <div class="form-floating">
+                <input
+                  type="text"
+                  id="GROUP_MANAGER_EDITOR_NAME"
+                  class="form-control bg-transparent text-light border-0"
+                  placeholder="Group Name"
+                  autocomplete="off"
+                  maxlength="32"
+                />
+                <label for="GROUP_MANAGER_EDITOR_NAME">Group Name</label>
+              </div>
+
+              <div class="form-floating group-manager-editor-id-field">
+                <input
+                  type="text"
+                  id="GROUP_MANAGER_EDITOR_SLUG"
+                  class="form-control bg-transparent text-light border-0"
+                  placeholder="Slug"
+                  autocomplete="off"
+                  spellcheck="false"
+                  maxlength="64"
+                />
+                <label for="GROUP_MANAGER_EDITOR_SLUG">Slug (OSC address)</label>
+              </div>
+              <div class="text-sm text-muted px-1">
+                Control the group over OSC at
+                <code id="GROUP_MANAGER_EDITOR_OSC" class="text-break"></code> (and Stop, Pause,
+                Resume).
+              </div>
+
+              <div
+                class="bg-ghost p-2 rounded d-flex justify-content-between align-items-center text-start gap-3"
+              >
+                <div class="d-grid">
+                  <span>Width</span>
+                  <span class="text-sm mb-0 text-muted"
+                    >How many layout columns the group spans. Full Width always spans every column.
+                    A group that does not fit on the current row starts a new one.</span
+                  >
+                </div>
+                <select
+                  id="GROUP_MANAGER_EDITOR_WIDTH"
+                  class="form-select form-select-sm bg-transparent text-light border-0 w-auto"
+                ></select>
+              </div>
+
+              <div class="bg-ghost p-2 rounded d-grid gap-2 text-start">
+                <div class="d-grid">
+                  <span>Colour</span>
+                  <span class="text-sm mb-0 text-muted"
+                    >Tints the background of the group's box to help tell groups apart.</span
+                  >
+                </div>
+                <div id="GROUP_MANAGER_EDITOR_COLOUR_SWATCHES" class="d-flex gap-2 flex-wrap"></div>
+              </div>
+
+              <div
+                class="bg-ghost p-2 rounded d-flex justify-content-between align-items-center text-start gap-3"
+              >
+                <div class="d-grid">
+                  <span>Selection Keybind</span>
+                  <span class="text-sm mb-0 text-muted"
+                    >Assign a keyboard or numpad number to toggle this group's selection. Each
+                    keybind can only belong to one group.</span
+                  >
+                </div>
+                <select
+                  id="GROUP_MANAGER_EDITOR_KEYBIND"
+                  class="form-select form-select-sm bg-transparent text-light border-0 w-auto"
+                ></select>
+              </div>
+
+              <div class="bg-ghost p-2 rounded d-grid gap-2">
+                <span class="text-start">Timers</span>
+                <div
+                  id="GROUP_MANAGER_EDITOR_MEMBER_LIST"
+                  class="group-manager-member-list d-grid gap-2"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Keyboard Shortcuts Modal -->
     <div
@@ -548,6 +840,21 @@ Loading licence...</pre>
                     <option value="COUNTDOWN">Countdown</option>
                     <option value="STOPWATCH">Stopwatch</option>
                   </select>
+                </div>
+              </div>
+
+              <div class="bg-ghost p-2 rounded setting-inline text-start">
+                <div class="d-grid setting-inline-label">
+                  <span>Group</span>
+                  <span class="text-sm mb-0 text-muted"
+                    >Where the timer is shown, and which group's OSC addresses control it.</span
+                  >
+                </div>
+                <div class="setting-inline-control">
+                  <select
+                    id="TIMER_EDITOR_GROUP"
+                    class="form-select form-select-sm bg-ghost-light text-light border-0"
+                  ></select>
                 </div>
               </div>
 

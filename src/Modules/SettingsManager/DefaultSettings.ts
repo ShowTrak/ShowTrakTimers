@@ -2,6 +2,10 @@
 // meanings match ShowTrak Server's DefaultSettings (Type, Options, Min/Max, Unit,
 // ShowWhen, OnUpdateEvent), and so does the Preferences modal that renders them.
 //
+// Machine settings (Scope: 'INSTALL') are stored with this installation, not in
+// the show file, so opening someone else's show never changes how this machine
+// updates, starts or closes. Everything else travels with the show file.
+//
 // Keys kept from 1.x keep their stored values. Two changed in 2.0 (see the DB
 // migration "Settings renamed in 2.0"): SYSTEM_AUTO_UPDATE is now
 // SYSTEM_AUTO_UPDATE_ENABLED, and SYSTEM_PREVENT_DISPLAY_SLEEP is gone because
@@ -39,6 +43,9 @@ export interface SettingDefinition {
   // network settings, where every intermediate keystroke would rebind a socket.
   RequiresSave?: boolean;
   Validate?: SettingValidator;
+  // 'INSTALL' keeps the value with this installation (install-settings.ts)
+  // instead of in the open show file. Omitted means per show file.
+  Scope?: 'INSTALL';
 }
 
 export interface SettingGroup {
@@ -54,6 +61,7 @@ export const DefaultSettings: SettingDefinition[] = [
     Description: 'Open ShowTrak Timers maximised. Takes effect the next time it starts.',
     Type: 'BOOLEAN',
     DefaultValue: false,
+    Scope: 'INSTALL',
   },
   {
     Group: 'Machine',
@@ -62,6 +70,7 @@ export const DefaultSettings: SettingDefinition[] = [
     Description: 'Ask for confirmation before quitting ShowTrak Timers.',
     Type: 'BOOLEAN',
     DefaultValue: true,
+    Scope: 'INSTALL',
   },
   {
     Group: 'Machine',
@@ -72,6 +81,7 @@ export const DefaultSettings: SettingDefinition[] = [
     Type: 'BOOLEAN',
     DefaultValue: false,
     OnUpdateEvent: 'AutoUpdateSettingsChanged',
+    Scope: 'INSTALL',
   },
   {
     Group: 'Machine',
@@ -83,6 +93,62 @@ export const DefaultSettings: SettingDefinition[] = [
     DefaultValue: 'Stable',
     Options: ['Stable', 'Beta'],
     OnUpdateEvent: 'AutoUpdateSettingsChanged',
+    Scope: 'INSTALL',
+  },
+  {
+    Group: 'Machine',
+    Key: 'SYSTEM_AUTOSAVE_ENABLED',
+    Title: 'Enable Autosave',
+    Description:
+      'Save the open show file automatically while it has unsaved changes, and on closing.',
+    Type: 'BOOLEAN',
+    DefaultValue: true,
+    OnUpdateEvent: 'AutosaveSettingsChanged',
+    Scope: 'INSTALL',
+  },
+  {
+    Group: 'Machine',
+    Key: 'SYSTEM_AUTOSAVE_INTERVAL_MINUTES',
+    Title: 'Autosave Interval',
+    Description: 'How often the show file is saved while it has unsaved changes.',
+    Type: 'INTEGER',
+    DefaultValue: 5,
+    Min: 1,
+    Max: 120,
+    Unit: 'minutes',
+    ShowWhen: ['SYSTEM_AUTOSAVE_ENABLED'],
+    OnUpdateEvent: 'AutosaveSettingsChanged',
+    Scope: 'INSTALL',
+  },
+  {
+    Group: 'Layout',
+    Key: 'UI_GROUP_COLUMN_COUNT',
+    Title: 'Group Columns',
+    Description:
+      'Full Width groups span every column. Other groups use their own width, capped at this count.',
+    Type: 'INTEGER',
+    DefaultValue: 2,
+    Min: 2,
+    Max: 6,
+  },
+  {
+    Group: 'Layout',
+    Key: 'UI_GROUP_COLOUR_SATURATION',
+    Title: 'Group Colour Saturation',
+    Description: 'How strongly group colours tint their groups. 0% turns the colours off.',
+    Type: 'SLIDER',
+    DefaultValue: 100,
+    Min: 0,
+    Max: 100,
+    Unit: '%',
+  },
+  {
+    Group: 'Layout',
+    Key: 'UI_CLEAR_SELECTION_AFTER_ACTION',
+    Title: 'Clear Selection After Actions',
+    Description: 'Deselect timers after running an action on them from the right-click menu.',
+    Type: 'BOOLEAN',
+    DefaultValue: false,
   },
   {
     Group: 'Alerts',
@@ -210,6 +276,7 @@ export const DefaultSettings: SettingDefinition[] = [
 
 export const Groups: SettingGroup[] = [
   { Name: 'Machine', Title: 'Machine Settings' },
+  { Name: 'Layout', Title: 'Layout' },
   { Name: 'Alerts', Title: 'Alerts' },
   { Name: 'Web', Title: 'Web Dashboard' },
   { Name: 'OSC', Title: 'OSC' },

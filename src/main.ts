@@ -33,6 +33,7 @@ import {
   PRELOADER_SHOW_DELAY_MS,
 } from './Modules/Config/constants';
 import { Manager as TimerManager } from './Modules/TimerManager';
+import { Manager as GroupManager } from './Modules/GroupManager';
 import { Manager as SettingsManager } from './Modules/SettingsManager';
 import { Manager as DB } from './Modules/DB';
 import { Manager as BroadcastManager } from './Modules/Broadcast';
@@ -48,12 +49,15 @@ import { CLOSE_DIALOG_OPTIONS, CreateShutdownCoordinator } from './main/shutdown
 import { ModeManager } from './main/mode';
 import { RegisterAllHandlers } from './main/registrars';
 import {
+  PushGroups,
   PushMode,
   PushSettings,
   PushSounds,
   PushTimers,
   RegisterBroadcastBridge,
 } from './main/broadcast-bridge';
+import { PushShowFile, RegisterShowLifecycle } from './main/show-lifecycle';
+import { SaveIfAutosaving, ScheduleAutosave, StopAutosave } from './main/autosave';
 import { GetServicesStatus, StartServices, StopServices } from './main/services';
 import { initLiveSettings } from './main/live-settings';
 
@@ -104,6 +108,10 @@ const Shutdown = CreateShutdownCoordinator({
   },
   async Cleanup() {
     TimerManager.Dispose();
+    StopAutosave();
+    // With autosave on, the show is saved on the way out (as ShowTrak Server).
+    // With it off, unsaved changes stay in the working copy for next time.
+    await SaveIfAutosaving('closing');
     await StopServices();
     await DB.Close();
   },
@@ -121,7 +129,9 @@ async function DeliverInitialState(): Promise<void> {
     await PushSettings();
     PushMode();
     PushSounds();
+    PushShowFile();
     PushToRenderers('Services:Status', await GetServicesStatus());
+    await PushGroups();
     await PushTimers();
   } finally {
     markInitialStateDelivered();
@@ -129,6 +139,10 @@ async function DeliverInitialState(): Promise<void> {
 }
 
 RegisterBroadcastBridge();
+RegisterShowLifecycle();
+BroadcastManager.on('AutosaveSettingsChanged', () => {
+  ScheduleAutosave().catch((Err) => Logger.error('Failed to schedule autosave:', Err));
+});
 // A remote shutdown (OSC /ShowTrak/Shutdown) needs no confirmation.
 BroadcastManager.on('Shutdown', () => Shutdown.RequestShutdown(true));
 RegisterAllHandlers({
@@ -151,7 +165,9 @@ app.whenReady().then(async () => {
     PowerSaveBlocker: powerSaveBlocker,
   }).catch((Err) => Logger.error('Failed to apply live settings:', Err));
 
+  GroupManager.Init().catch((Err) => Logger.error('Failed to load groups:', Err));
   TimerManager.Init().catch((Err) => Logger.error('Failed to load timers:', Err));
+  ScheduleAutosave().catch((Err) => Logger.error('Failed to schedule autosave:', Err));
   StartServices().catch((Err) => Logger.error('Failed to start services:', Err));
 
   // Splash: only shown if the main window is not ready shortly after it is, and

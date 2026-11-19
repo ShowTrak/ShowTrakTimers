@@ -12,6 +12,9 @@ import { InitTimers } from './timers';
 import { InitTimerEditor, RefreshEditorSounds } from './timer-editor';
 import { InitServices } from './web-dashboard-info';
 import { InitKeyboard } from './keyboard';
+import { InitGroupManager } from './group-manager';
+import { InitShowFile, RunShowFileChecks } from './show-file';
+import { InitContextMenu } from './context-menu';
 import { InitMenu } from './menu';
 import { wireAppUpdates } from './wire-app-updates';
 import { Notify } from './lib/toasts';
@@ -27,6 +30,7 @@ async function Init(): Promise<void> {
     HandleNonFatalError('Init:Config', Err);
   }
   await window.API.Loaded();
+  await RunShowFileChecks();
 }
 
 InitModalHeaders();
@@ -36,6 +40,9 @@ InitSettings();
 InitSounds();
 InitTimers();
 InitTimerEditor();
+InitGroupManager();
+InitShowFile();
+InitContextMenu();
 InitServices();
 InitKeyboard();
 InitMenu();

@@ -33,6 +33,18 @@ const TIMER_COLUMNS = [
   'WarningSound',
   'WarningToast',
   'ShowHundredths',
+  'GroupID',
+];
+
+const GROUP_COLUMNS = [
+  'GroupID',
+  'Title',
+  'Weight',
+  'FullWidth',
+  'ColumnSpan',
+  'Colour',
+  'KeyBind',
+  'Slug',
 ];
 
 // The 1.0.0 Timers table (no Description, no ShowOnWeb), as 1.0.0 created it.
@@ -107,6 +119,11 @@ test('a fresh database gets every table and column and reaches the latest versio
   assert.deepEqual(await Columns(FilePath, 'Timers'), TIMER_COLUMNS);
   assert.deepEqual(await Columns(FilePath, 'Settings'), ['Key', 'Value']);
   assert.deepEqual(await RawAll(FilePath, 'SELECT * FROM Settings'), []);
+  assert.deepEqual(await Columns(FilePath, 'Groups'), GROUP_COLUMNS);
+  assert.deepEqual(await Columns(FilePath, 'ShowFileInfo'), ['Key', 'Value']);
+  // Tagged as a Timers database, so a show file can be told from anything else.
+  const [IdRow] = await RawAll(FilePath, 'PRAGMA application_id');
+  assert.equal(IdRow.application_id, 0x5354544d);
 });
 
 test('reopening a database is idempotent', async (t) => {

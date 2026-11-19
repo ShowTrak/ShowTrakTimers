@@ -511,7 +511,8 @@ body.is-web #APPLICATION {
    re-run the sync, rather than editing these by hand. */
 
 /* Settings (cog) and show file buttons */
-#NAVBAR_CORE_BUTTON.settings-btn {
+#NAVBAR_CORE_BUTTON.settings-btn,
+#FILE_MENU_BUTTON.settings-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -527,11 +528,13 @@ body.is-web #APPLICATION {
     transform 120ms ease;
 }
 
-#SETTINGS_MENU_DROPDOWN .dropdown-toggle::after {
+#SETTINGS_MENU_DROPDOWN .dropdown-toggle::after,
+#FILE_MENU_DROPDOWN .dropdown-toggle::after {
   display: none;
 }
 
-#SETTINGS_MENU.dropdown-menu {
+#SETTINGS_MENU.dropdown-menu,
+#FILE_MENU.dropdown-menu {
   --ctl-r: var(--menu-item-r);
   min-width: 240px;
   border: 0;
@@ -546,21 +549,24 @@ body.is-web #APPLICATION {
   overflow-y: auto;
 }
 
-#SETTINGS_MENU .dropdown-item {
+#SETTINGS_MENU .dropdown-item,
+#FILE_MENU .dropdown-item {
   color: var(--text-strong);
   border-radius: var(--menu-item-r);
   font-size: var(--fs-md);
   padding: 0.45rem 0.6rem;
 }
 
-#SETTINGS_MENU .dropdown-item {
+#SETTINGS_MENU .dropdown-item,
+#FILE_MENU .dropdown-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.8rem;
 }
 
-#SETTINGS_MENU .dropdown-item .menu-shortcut {
+#SETTINGS_MENU .dropdown-item .menu-shortcut,
+#FILE_MENU .dropdown-item .menu-shortcut {
   margin-left: auto;
   color: var(--text-muted);
   font-size: var(--fs-xs);
@@ -569,12 +575,15 @@ body.is-web #APPLICATION {
 }
 
 #SETTINGS_MENU .dropdown-item:hover,
-#SETTINGS_MENU .dropdown-item:focus {
+#SETTINGS_MENU .dropdown-item:focus,
+#FILE_MENU .dropdown-item:hover,
+#FILE_MENU .dropdown-item:focus {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
 
-#SETTINGS_MENU .dropdown-header {
+#SETTINGS_MENU .dropdown-header,
+#FILE_MENU .dropdown-header {
   color: var(--text-subtle);
   font-size: var(--fs-xs);
   text-transform: uppercase;
@@ -582,7 +591,8 @@ body.is-web #APPLICATION {
   padding: 0.35rem 0.6rem 0.15rem;
 }
 
-#SETTINGS_MENU .dropdown-divider {
+#SETTINGS_MENU .dropdown-divider,
+#FILE_MENU .dropdown-divider {
   border-top-color: var(--border-default);
   margin: 0.3rem 0.2rem;
 }
@@ -597,11 +607,13 @@ body.is-web #APPLICATION {
   color: var(--danger-text-hover) !important;
 }
 
-#NAVBAR_CORE_BUTTON.settings-btn:hover {
+#NAVBAR_CORE_BUTTON.settings-btn:hover,
+#FILE_MENU_BUTTON.settings-btn:hover {
   color: #fff;
 }
 
-#NAVBAR_CORE_BUTTON.settings-btn .bi {
+#NAVBAR_CORE_BUTTON.settings-btn .bi,
+#FILE_MENU_BUTTON.settings-btn .bi {
   font-size: 16px;
   line-height: 1;
 }
@@ -1211,9 +1223,82 @@ input[type='number']::-webkit-inner-spin-button {
 .settings-content .settings-section.is-inactive-tab {
   display: none !important;
 }
+
+.GROUP_TITLE {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-weight: 700;
+  letter-spacing: 0.1rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: uppercase;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  text-align: center;
+}
 /* Extracted from ShowTrak Server's src/UI/css/parts/03-layout.css: only the rules
    the Timers markup uses (scripts/sync-server-css.js). Edit Server's copy and
    re-run the sync, rather than editing these by hand. */
+
+/* Group column layout: groups flow left-to-right across a fixed column grid.
+   Full-width groups span every column; narrow groups take a single column.
+   Default (non-dense) auto-flow keeps groups in strict order and leaves a blank
+   slot when a wide group cannot fit in the columns left on the current row.
+
+   The inter-column gap is driven by the grid so it matches the 1rem gap between
+   a group's name button and its client container (the group title's `m-3`
+   left/container's `m-3` right margins are removed and replaced by grid
+   column-gap + side padding so the spacing is not doubled between columns). */
+.group-column-grid {
+  display: grid;
+  align-items: stretch;
+  column-gap: 1rem;
+  padding-inline: 1rem;
+}
+
+.group-column-item {
+  min-width: 0;
+}
+
+.group-column-item > .GROUP_TITLE_CLICKABLE {
+  margin-left: 0 !important;
+}
+
+.group-column-item > .group-drop-zone {
+  margin-right: 0 !important;
+}
+
+.GROUP_TITLE_CLICKABLE {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  cursor: pointer !important;
+  width: 26px;
+  min-width: 26px;
+  max-width: 26px;
+  flex: 0 0 38px;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+}
+
+.GROUP_TITLE_CLICKABLE > div {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+}
+
+.GROUP_TITLE_CLICKABLE:hover {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.text-bold {
+  font-weight: 600 !important;
+}
 
 .progress {
   height: 3px !important;
@@ -1226,6 +1311,143 @@ input[type='number']::-webkit-inner-spin-button {
   100% {
     transform: rotate(360deg);
   }
+}
+
+#APPLICATION_NAVBAR_FILE {
+  color: var(--text-soft);
+  font-weight: 600;
+}
+
+/* Hide entirely when no file is open so the flex gap does not leave a space. */
+#APPLICATION_NAVBAR_FILE:empty {
+  display: none;
+}
+
+#APPLICATION_NAVBAR_FILE:not(:empty)::before {
+  content: '•';
+  margin-right: 0.75rem;
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+#SHOWTRAK_CONTEXT_MENU {
+  display: none;
+  position: fixed;
+  z-index: var(--z-context-menu);
+  background: var(--menu-bg) !important;
+  color: white;
+  border: 0 !important;
+  border-radius: var(--menu-r);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  padding: var(--menu-pad);
+  max-height: min(70vh, 460px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+#SHOWTRAK_CONTEXT_MENU::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* Flat rows (no per-item card/background); only hover/focus lift them,
+   matching a minimal filter-menu look rather than a stack of buttons. */
+#SHOWTRAK_CONTEXT_MENU a.SHOWTRAK_CONTEXTMENU_BUTTON {
+  color: var(--text-soft);
+  text-decoration: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background-color: transparent;
+  border-radius: var(--menu-item-r);
+  padding: 0.4rem 0.6rem;
+  font-size: var(--fs-xl);
+}
+
+#SHOWTRAK_CONTEXT_MENU a.SHOWTRAK_CONTEXTMENU_BUTTON[aria-disabled='true'] {
+  color: var(--text-subtle);
+}
+
+#SHOWTRAK_CONTEXT_MENU a.SHOWTRAK_CONTEXTMENU_BUTTON:hover {
+  background-color: rgb(var(--accent-rgb) / 0.16) !important;
+}
+
+#SHOWTRAK_CONTEXT_MENU a.SHOWTRAK_CONTEXTMENU_BUTTON:focus {
+  outline: none;
+  background-color: rgb(var(--accent-rgb) / 0.24) !important;
+}
+
+.SHOWTRAK_CONTEXTMENU_BUTTON {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+/* Right-aligned shortcut hint in context menu */
+#SHOWTRAK_CONTEXT_MENU .context-title {
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#SHOWTRAK_CONTEXT_MENU .context-shortcut {
+  flex: 0 0 auto;
+  color: var(--text-subtle);
+  font-size: 0.8em;
+  margin-left: 1rem;
+}
+
+/* Thin, muted divider between flat rows. Bootstrap paints <hr> via its
+   background-color (currentColor) with opacity, not a border, so we override
+   the background directly and neutralise the border/opacity to hit the exact
+   colour. */
+#SHOWTRAK_CONTEXT_MENU hr {
+  margin: 0.3rem 0.2rem;
+  height: 1px;
+  border: 0;
+  background-color: rgba(255, 255, 255, 0.06);
+  color: transparent;
+  opacity: 1;
+}
+
+/* Names the kind of client the rows below it act on (ShowTrak Clients,
+   Monitors, FreeKiosk, etc.). Not a menu item, so keyboard navigation skips it. */
+#SHOWTRAK_CONTEXT_MENU .context-section-header {
+  padding: 0.35rem 0.6rem 0.15rem;
+  color: var(--text-subtle);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Info icon on an action that will skip part of the selection; hovering it
+   opens #SHOWTRAK_CONTEXT_UNSUPPORTED_POPOVER (wire-context-menu.ts). It sits
+   flush right, mirroring the leading .context-icon slot: its centre is the
+   same distance from the right edge as the icon's is from the left (the
+   negative margins let the hover square grow past the 1.1rem slot without
+   moving that centre or the title's gap). */
+#SHOWTRAK_CONTEXT_MENU .context-shortcut:empty {
+  display: none;
+}
+
+/* Close button header only appears in the mobile action-sheet layout. */
+#SHOWTRAK_CONTEXT_MENU .context-menu-header {
+  display: none;
 }
 
 #APPLICATION_NAVBAR_LOGO {
@@ -2020,6 +2242,242 @@ button.btn:focus {
   );
 }
 
+.group-drop-zone {
+  /* A group is a panel of tiles: its corners are a tile's plus the padding
+     they sit in. */
+  padding: var(--group-pad);
+  gap: var(--group-pad);
+  border-radius: calc(var(--tile-r) + var(--group-pad)) !important;
+  /* Groups in the column grid stretch to the tallest group on the row, so the
+     single wrapped line of a short group would otherwise stretch with it and
+     `align-items: center` would float the tiles down to the middle. Packing the
+     lines to the top keeps every group's tiles anchored at the top left. */
+  align-content: flex-start;
+  transition:
+    padding 180ms ease,
+    gap 180ms ease,
+    margin 180ms ease;
+}
+
+.GROUP_TITLE_CLICKABLE {
+  transition: margin 180ms ease;
+  /* The rail stands beside its group's panel rather than inside it, so it is
+     free of the panel's corners; a tile's keep it a rounded bar, not a
+     capsule. */
+  border-radius: var(--tile-r) !important;
+}
+
+/* Grid and Compact views: tiles fill their group's row. Fixed-width tiles
+   left whatever did not divide into whole tiles as a gap at the end of every
+   group; instead the group lays its tiles on as many columns of at least a
+   tile's width (--zone-tile-min, per view) as fit and shares the spare width
+   out among them. auto-fill (not auto-fit) keeps the empty columns, so a
+   short last row, or a group with one or two tiles, lines up under full
+   columns rather than stretching across the panel, and a tile can never grow
+   past the next column count's width. List keeps its own layout. (Drag and
+   drop sizes its ghost and spacer from the real tile, so they follow the
+   stretched width.) */
+body:not(.list-mode) .group-drop-zone {
+  --zone-tile-min: var(--tile-expanded-width);
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(var(--zone-tile-min), 1fr));
+}
+
+/* Optional per-group background tint. A low-strength mix of the palette colour
+   keeps it muted enough that tile status colours still read clearly on top.
+   No outline: the tint alone marks the group, as in ShowTrak Portal.
+   --group-tint-scale is the Group Colour Saturation preference (1 = 100%),
+   set on the root by settings.ts. */
+.group-drop-zone.group-tinted {
+  background-color: color-mix(
+    in srgb,
+    var(--group-tint) calc(9% * var(--group-tint-scale, 1)),
+    transparent
+  ) !important;
+}
+
+/* Drag-and-drop visuals */
+.group-drop-zone.dnd-over {
+  outline: 2px dashed rgba(255, 255, 255, 0.18);
+  outline-offset: -6px;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* No standalone #MODE_SWITCH positioning; switch sits in bottom bar */
+/* removed old toggle styles (.mode-switch ...) */
+/* ------------------------------------------------------------------ */
+/* Group Manager modal                                                */
+/* ------------------------------------------------------------------ */
+.GROUP_MANAGER_GROUP_ITEM {
+  transition: background-color 140ms ease;
+}
+
+.GROUP_MANAGER_GROUP_ITEM[draggable='true'] {
+  cursor: pointer;
+}
+
+.GROUP_MANAGER_GROUP_ITEM.dragging {
+  opacity: 0.5;
+}
+
+.GROUP_MANAGER_GROUP_ITEM:hover {
+  background-color: rgba(255, 255, 255, 0.09) !important;
+}
+
+.GROUP_MANAGER_GROUP_OPEN {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+.group-manager-grip {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-subtle);
+  cursor: grab;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.group-manager-grip i {
+  pointer-events: none;
+}
+
+.group-manager-chevron {
+  font-size: var(--fs-lg);
+  color: var(--text-faint);
+  transition: transform 140ms ease;
+}
+
+.group-manager-member-list {
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.group-manager-member-row {
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-ghost);
+}
+
+.group-manager-member-remove {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  transition:
+    color 140ms ease,
+    background 140ms ease;
+}
+
+.group-manager-member-remove:hover {
+  color: var(--danger);
+  background: rgb(var(--danger-rgb) / 0.12);
+}
+
+.GROUP_MANAGER_GROUP_ITEM_DEFAULT {
+  cursor: default;
+}
+
+.group-manager-keybind-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.9rem;
+  height: 1.35rem;
+  padding: 0 0.45rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-strong);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.group-manager-editor-id-field {
+  position: relative;
+}
+
+/* Tinted at rest so the button stands off the modal surface without a border;
+   hover deepens the same tint. */
+.script-manager-create-btn {
+  background: rgb(var(--success-text-rgb) / 0.1);
+  border: none;
+  color: rgb(var(--success-text-rgb) / 0.9);
+  font-size: 1rem;
+  padding: 4px 8px;
+  border-radius: var(--ctl-r);
+  transition:
+    color 150ms ease,
+    background 150ms ease;
+}
+
+.script-manager-create-btn:hover {
+  color: var(--success-text);
+  background: rgb(var(--success-text-rgb) / 0.2);
+}
+
+/* Colour swatch picker */
+.script-manager-swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  flex: 0 0 30px;
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease;
+}
+
+.script-manager-swatch:hover {
+  transform: scale(1.15);
+}
+
+.script-manager-swatch.selected {
+  border-color: #fff;
+  transform: scale(1.1);
+}
+
+/* "No colour" swatch: an empty ring crossed by a diagonal slash. */
+.script-manager-swatch.group-colour-none {
+  background:
+    linear-gradient(
+      to top right,
+      transparent calc(50% - 1px),
+      rgba(255, 255, 255, 0.45) calc(50% - 1px),
+      rgba(255, 255, 255, 0.45) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    ),
+    rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
+/* Leading icon slot in context menu rows. Fixed width so every title starts at
+   the same x-position no matter how wide the glyph is; the icon itself is
+   centred within the slot so differently-sized icons stay visually aligned. */
+.context-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 1.1rem;
+  width: 1.1rem;
+  margin-right: 4px;
+  font-size: 1rem;
+  line-height: 1;
+  text-align: center;
+}
+
+.context-icon > i {
+  display: inline-block;
+  line-height: 1;
+}
+
 /* ------------------------------------------------------------------------- */
 /* Web UI capability chrome                                                   */
 /* The shared renderer runs on both the Electron desktop app and the browser  */
@@ -2045,7 +2503,8 @@ html:has(body.is-web) {
 /* Desktop-only chrome hidden on the web: navbar/dragbar, the cogs (settings)
    menu and the show file menu. Mode/alerts toggles stay visible as read-only state. */
 body.is-web .dragbar,
-body.is-web #SETTINGS_MENU_DROPDOWN {
+body.is-web #SETTINGS_MENU_DROPDOWN,
+body.is-web #FILE_MENU_DROPDOWN {
   display: none !important;
 }
 
@@ -2537,6 +2996,10 @@ body.mode-edit .edit-only {
   display: inline-flex !important;
 }
 
+body.mode-edit li.edit-only {
+  display: list-item !important;
+}
+
 body.mode-edit .timer-tile-id {
   display: inline-block;
 }
@@ -2731,4 +3194,125 @@ body.web-dashboard .SHOWTRAK_TIMER:hover {
   .timer-grid {
     padding: 0.5rem;
   }
+}
+
+/* --- Groups ---------------------------------------------------------------
+   The groups are ShowTrak Server's: the column grid, the clickable rail and
+   the tinted box (03-layout.css, 05-monitoring.css). Inside a box the timer
+   tiles flow into as many columns as fit, at the timer tile's width. */
+#TIMER_GRID.group-column-grid {
+  padding-bottom: 0.25rem;
+}
+
+/* Set at run time: a group's colour inline on its box, and the Group Colour
+   Saturation preference on the root (timers.ts). These are the fallbacks. */
+:root {
+  --group-tint-scale: 1;
+}
+
+.group-tinted {
+  --group-tint: transparent;
+}
+
+/* The id outranks Server's body:not(.list-mode) .group-drop-zone, which sets
+   its own (client tile) width. */
+#TIMER_GRID .timer-group-zone {
+  --zone-tile-min: min(var(--timer-tile-min-width), 100%);
+  min-height: 3.5rem;
+  /* Lets a tile tell how wide its group is (the narrow layout below), and
+     keeps a narrow group from being stretched by its tiles' content. */
+  container-type: inline-size;
+}
+
+/* A narrow group (a one-column group in a small window): the controls go
+   under the readout instead of beside it, so nothing overlaps. */
+@container (max-width: 380px) {
+  .timer-group-zone .SHOWTRAK_TIMER {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'name'
+      'head'
+      'readout'
+      'controls'
+      'progress';
+  }
+
+  .timer-group-zone .timer-tile-head {
+    justify-self: start;
+  }
+
+  .timer-group-zone .timer-tile-controls {
+    justify-content: flex-start;
+    margin-top: 0.2rem;
+  }
+}
+
+.timer-group-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+/* Selection, as Server's tiles: a white ring. Tiles are clicked to select,
+   so their text is not selectable (a double-click would otherwise highlight
+   it). */
+.SHOWTRAK_TIMER {
+  cursor: pointer;
+  user-select: none;
+}
+
+.SHOWTRAK_TIMER.SELECTED,
+.SHOWTRAK_TIMER.SELECTED:hover {
+  border-color: rgb(255 255 255 / 1);
+}
+
+/* The open show file's name has unsaved changes. */
+#APPLICATION_NAVBAR_FILE.is-unsaved::after {
+  content: ' *';
+}
+
+/* Group Manager: the colour a group tints its box with. */
+.group-manager-colour-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+/* --- Web Dashboard groups ------------------------------------------------
+   With groups, each is a titled box (tinted with its colour); without, the
+   page is the plain grid it always was. */
+.dashboard-groups {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.dashboard-group {
+  border-radius: calc(var(--tile-r) + var(--group-pad));
+  background-color: var(--surface-ghost);
+  padding: var(--group-pad);
+}
+
+.dashboard-group.group-tinted {
+  background-color: color-mix(in srgb, var(--group-tint) 9%, transparent);
+}
+
+.dashboard-group-title {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.1rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: left;
+  padding: 0.15rem 0.35rem 0.4rem;
+}
+
+.dashboard-group .timer-grid {
+  padding: 0;
 }

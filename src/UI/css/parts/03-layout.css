@@ -2,6 +2,60 @@
    the Timers markup uses (scripts/sync-server-css.js). Edit Server's copy and
    re-run the sync, rather than editing these by hand. */
 
+/* Group column layout: groups flow left-to-right across a fixed column grid.
+   Full-width groups span every column; narrow groups take a single column.
+   Default (non-dense) auto-flow keeps groups in strict order and leaves a blank
+   slot when a wide group cannot fit in the columns left on the current row.
+
+   The inter-column gap is driven by the grid so it matches the 1rem gap between
+   a group's name button and its client container (the group title's `m-3`
+   left/container's `m-3` right margins are removed and replaced by grid
+   column-gap + side padding so the spacing is not doubled between columns). */
+.group-column-grid {
+  display: grid;
+  align-items: stretch;
+  column-gap: 1rem;
+  padding-inline: 1rem;
+}
+
+.group-column-item {
+  min-width: 0;
+}
+
+.group-column-item > .GROUP_TITLE_CLICKABLE {
+  margin-left: 0 !important;
+}
+
+.group-column-item > .group-drop-zone {
+  margin-right: 0 !important;
+}
+
+.GROUP_TITLE_CLICKABLE {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  cursor: pointer !important;
+  width: 26px;
+  min-width: 26px;
+  max-width: 26px;
+  flex: 0 0 38px;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+}
+
+.GROUP_TITLE_CLICKABLE > div {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+}
+
+.GROUP_TITLE_CLICKABLE:hover {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.text-bold {
+  font-weight: 600 !important;
+}
+
 .progress {
   height: 3px !important;
   border-radius: var(--radius-xs);
@@ -13,6 +67,143 @@
   100% {
     transform: rotate(360deg);
   }
+}
+
+#APPLICATION_NAVBAR_FILE {
+  color: var(--text-soft);
+  font-weight: 600;
+}
+
+/* Hide entirely when no file is open so the flex gap does not leave a space. */
+#APPLICATION_NAVBAR_FILE:empty {
+  display: none;
+}
+
+#APPLICATION_NAVBAR_FILE:not(:empty)::before {
+  content: '•';
+  margin-right: 0.75rem;
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+#SHOWTRAK_CONTEXT_MENU {
+  display: none;
+  position: fixed;
+  z-index: var(--z-context-menu);
+  background: var(--menu-bg) !important;
+  color: white;
+  border: 0 !important;
+  border-radius: var(--menu-r);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  padding: var(--menu-pad);
+  max-height: min(70vh, 460px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+#SHOWTRAK_CONTEXT_MENU::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* Flat rows (no per-item card/background); only hover/focus lift them,
+   matching a minimal filter-menu look rather than a stack of buttons. */
+#SHOWTRAK_CONTEXT_MENU a.SHOWTRAK_CONTEXTMENU_BUTTON {
+  color: var(--text-soft);
+  text-decoration: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background-color: transparent;
+  border-radius: var(--menu-item-r);
+  padding: 0.4rem 0.6rem;
+  font-size: var(--fs-xl);
+}
+
+#SHOWTRAK_CONTEXT_MENU a.SHOWTRAK_CONTEXTMENU_BUTTON[aria-disabled='true'] {
+  color: var(--text-subtle);
+}
+
+#SHOWTRAK_CONTEXT_MENU a.SHOWTRAK_CONTEXTMENU_BUTTON:hover {
+  background-color: rgb(var(--accent-rgb) / 0.16) !important;
+}
+
+#SHOWTRAK_CONTEXT_MENU a.SHOWTRAK_CONTEXTMENU_BUTTON:focus {
+  outline: none;
+  background-color: rgb(var(--accent-rgb) / 0.24) !important;
+}
+
+.SHOWTRAK_CONTEXTMENU_BUTTON {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+/* Right-aligned shortcut hint in context menu */
+#SHOWTRAK_CONTEXT_MENU .context-title {
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#SHOWTRAK_CONTEXT_MENU .context-shortcut {
+  flex: 0 0 auto;
+  color: var(--text-subtle);
+  font-size: 0.8em;
+  margin-left: 1rem;
+}
+
+/* Thin, muted divider between flat rows. Bootstrap paints <hr> via its
+   background-color (currentColor) with opacity, not a border, so we override
+   the background directly and neutralise the border/opacity to hit the exact
+   colour. */
+#SHOWTRAK_CONTEXT_MENU hr {
+  margin: 0.3rem 0.2rem;
+  height: 1px;
+  border: 0;
+  background-color: rgba(255, 255, 255, 0.06);
+  color: transparent;
+  opacity: 1;
+}
+
+/* Names the kind of client the rows below it act on (ShowTrak Clients,
+   Monitors, FreeKiosk, etc.). Not a menu item, so keyboard navigation skips it. */
+#SHOWTRAK_CONTEXT_MENU .context-section-header {
+  padding: 0.35rem 0.6rem 0.15rem;
+  color: var(--text-subtle);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Info icon on an action that will skip part of the selection; hovering it
+   opens #SHOWTRAK_CONTEXT_UNSUPPORTED_POPOVER (wire-context-menu.ts). It sits
+   flush right, mirroring the leading .context-icon slot: its centre is the
+   same distance from the right edge as the icon's is from the left (the
+   negative margins let the hover square grow past the 1.1rem slot without
+   moving that centre or the title's gap). */
+#SHOWTRAK_CONTEXT_MENU .context-shortcut:empty {
+  display: none;
+}
+
+/* Close button header only appears in the mobile action-sheet layout. */
+#SHOWTRAK_CONTEXT_MENU .context-menu-header {
+  display: none;
 }
 
 #APPLICATION_NAVBAR_LOGO {

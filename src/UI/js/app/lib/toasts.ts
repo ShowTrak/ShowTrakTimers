@@ -143,6 +143,11 @@ export interface ConfirmationDialogOptions {
    * "Run Script"). Required so no dialog falls back to a vague "Confirm".
    */
   ConfirmLabel: string;
+  /**
+   * A second, non-destructive choice between Cancel and Confirm ("Don't
+   * Save"). Chosen, the dialog resolves to 'alt' rather than true or false.
+   */
+  AltLabel?: string;
 }
 
 export async function ConfirmationDialog(Message: unknown, Options: ConfirmationDialogOptions) {
@@ -163,6 +168,11 @@ export async function ConfirmationDialog(Message: unknown, Options: Confirmation
 					<div class="confirm-toast-msg">${Safe(Message)}</div>
 					<div class="confirm-toast-actions">
 						<button type="button" class="btn btn-sm btn-secondary" id="CONFIRM_TOAST_CANCEL" tabindex="0">Cancel</button>
+						${
+              Options.AltLabel
+                ? `<button type="button" class="btn btn-sm btn-secondary" id="CONFIRM_TOAST_ALT" tabindex="0">${Safe(Options.AltLabel)}</button>`
+                : ''
+            }
 						<button type="button" class="btn btn-sm btn-danger" id="CONFIRM_TOAST_CONFIRM" tabindex="0">${Safe(
               Options.ConfirmLabel
             )}</button>
@@ -174,6 +184,7 @@ export async function ConfirmationDialog(Message: unknown, Options: Confirmation
     const $toast = $('#SHOWTRAK_CONFIRM_TOAST');
     const $btnCancel = $('#CONFIRM_TOAST_CANCEL');
     const $btnConfirm = $('#CONFIRM_TOAST_CONFIRM');
+    const $btnAlt = $('#CONFIRM_TOAST_ALT');
 
     setConfirmDialogActive(true);
 
@@ -181,6 +192,7 @@ export async function ConfirmationDialog(Message: unknown, Options: Confirmation
       $(document).off('keydown.confirmToast');
       $btnCancel.off('click.confirmToast');
       $btnConfirm.off('click.confirmToast');
+      $btnAlt.off('click.confirmToast');
       try {
         $toast.remove();
       } catch (err) {
@@ -197,6 +209,10 @@ export async function ConfirmationDialog(Message: unknown, Options: Confirmation
       cleanup();
       resolve(true);
     });
+    $btnAlt.on('click.confirmToast', () => {
+      cleanup();
+      resolve('alt');
+    });
 
     // Keyboard controls while toast is visible
     $(document).on('keydown.confirmToast', function (e) {
@@ -206,6 +222,7 @@ export async function ConfirmationDialog(Message: unknown, Options: Confirmation
         const active = document.activeElement;
         if (active === $btnConfirm.get(0)) return $btnConfirm.trigger('click');
         if (active === $btnCancel.get(0)) return $btnCancel.trigger('click');
+        if ($btnAlt.length && active === $btnAlt.get(0)) return $btnAlt.trigger('click');
         // default to confirm if focus is elsewhere
         return $btnConfirm.trigger('click');
       }

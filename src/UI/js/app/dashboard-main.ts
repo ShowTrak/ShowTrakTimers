@@ -1,6 +1,6 @@
 // Web Dashboard entry point (bundled into WebDashboard/dashboard.js): a
-// read-only grid of timers, drawn with the same tile model as the desktop app
-// and animated locally between pushes.
+// read-only grid of timers in their groups, drawn with the same tile model as
+// the desktop app and animated locally between pushes.
 import { Anchor, ElapsedAt, PaintInterval, type AnchoredTimer } from './lib/anchor';
 import { BuildTileModel } from './lib/timer-tile';
 import {
@@ -10,11 +10,16 @@ import {
   type DashboardTimerLike,
 } from './lib/dashboard-cache';
 import type { TimerView } from '../../../common/timers';
+import { GroupTintHex } from '../../../common/groups';
+import { BuildGroupSections, SectionsKey, type GroupLike } from './lib/group-layout';
 
 let Anchored: AnchoredTimer<DashboardTimerLike>[] = [];
 let Online = false;
 let LastPaint = 0;
 let FrameRequested = false;
+let Groups: GroupLike[] = [];
+let LastTimers: DashboardTimerLike[] = [];
+let RenderedKey = '';
 
 const Grid = document.getElementById('TIMER_GRID');
 const Status = document.getElementById('CONNECTION_STATUS');
@@ -92,13 +97,47 @@ function RequestFrame(): void {
 
 function Render(Timers: DashboardTimerLike[]): void {
   const At = performance.now();
+  LastTimers = Timers;
   Anchored = Timers.map((T) => Anchor(T, At));
   if (!Grid) return;
-  const Wanted = new Set(Timers.map((T) => `TIMER_${T.ID}`));
-  for (const Child of Array.from(Grid.children)) if (!Wanted.has(Child.id)) Child.remove();
-  for (const Timer of Timers) {
-    const El = document.getElementById(`TIMER_${Timer.ID}`) ?? TileElement(Timer);
-    Grid.appendChild(El);
+  // With no groups (or a host from before groups) this is one plain grid, as
+  // before; otherwise one titled section per group that has timers on show.
+  const Sections = BuildGroupSections(Groups, Timers, { IncludeEmptyGroups: false });
+  const Plain = Sections.length <= 1 && Sections.every((S) => S.GroupID === null);
+  const Key = Plain ? `plain:${Timers.map((T) => T.ID).join(',')}` : SectionsKey(Sections);
+  if (Key !== RenderedKey) {
+    RenderedKey = Key;
+    const Existing = new Map<string, HTMLElement>();
+    for (const El of Array.from(Grid.querySelectorAll<HTMLElement>('.SHOWTRAK_TIMER'))) {
+      Existing.set(El.id, El);
+    }
+    const Tile = (Timer: DashboardTimerLike) =>
+      Existing.get(`TIMER_${Timer.ID}`) ?? TileElement(Timer);
+    const Fragment = document.createDocumentFragment();
+    if (Plain) {
+      Grid.className = 'timer-grid';
+      for (const Timer of Timers) Fragment.appendChild(Tile(Timer));
+    } else {
+      Grid.className = 'dashboard-groups';
+      for (const Section of Sections) {
+        const El = document.createElement('section');
+        El.className = 'dashboard-group';
+        const Tint = GroupTintHex(Section.Group);
+        if (Tint) {
+          El.classList.add('group-tinted');
+          El.style.setProperty('--group-tint', Tint);
+        }
+        const Title = document.createElement('div');
+        Title.className = 'dashboard-group-title';
+        Title.textContent = Section.Title;
+        const Tiles = document.createElement('div');
+        Tiles.className = 'timer-grid';
+        for (const Timer of Section.Timers) Tiles.appendChild(Tile(Timer));
+        El.append(Title, Tiles);
+        Fragment.appendChild(El);
+      }
+    }
+    Grid.replaceChildren(Fragment);
   }
   Empty?.classList.toggle('d-none', Timers.length > 0);
   Paint();
@@ -277,6 +316,20 @@ if (typeof io === 'function') {
   Socket.on('disconnect', () => SetOnline(false));
   Socket.on('connect_error', () => SetOnline(false));
   Socket.on('hello', (Hello: { PasswordProtection?: boolean; Authed?: boolean }) => OnHello(Hello));
+  Socket.on('groups:update', (Payload: unknown) => {
+    Groups = Array.isArray(Payload)
+      ? Payload.filter(
+          (G): G is GroupLike =>
+            !!G && typeof G === 'object' && typeof (G as GroupLike).GroupID === 'number'
+        ).map((G) => ({
+          GroupID: G.GroupID,
+          Title: String(G.Title ?? ''),
+          Weight: Number(G.Weight) || 0,
+          Colour: typeof G.Colour === 'number' ? G.Colour : null,
+        }))
+      : [];
+    Render(LastTimers);
+  });
   Socket.on('timers:update', (Payload: unknown) => {
     const List = Array.isArray(Payload)
       ? Payload.filter((T) => T && typeof T === 'object').map((T) =>

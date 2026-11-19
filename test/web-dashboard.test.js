@@ -27,6 +27,7 @@ test.after(() => restore());
 const {
   CreateWebDashboard,
   ToDashboardTimers,
+  ToDashboardGroups,
   DASHBOARD_CSP,
 } = require('../dist/Modules/WebDashboard');
 const { io } = require('socket.io-client');
@@ -97,6 +98,7 @@ test('a timer carries every 1.x field, plus the 2.0 additions, and nothing inter
       ElapsedMs: 61500,
       Warning: true,
       ShowHundredths: true,
+      GroupID: 7,
     }),
   ]);
   assert.deepEqual(Sent, {
@@ -112,6 +114,7 @@ test('a timer carries every 1.x field, plus the 2.0 additions, and nothing inter
     ElapsedMs: 61500,
     Warning: true,
     ShowHundredths: true,
+    GroupID: 7,
     State: {
       ElapsedTime: 61500,
       ElapsedTimeReadable: '01:01',
@@ -223,10 +226,11 @@ const DEFAULT_TIMERS = [
 
 async function startDashboard(
   t,
-  { Port, Enabled = true, Timers = DEFAULT_TIMERS, Bus = recordingBus() } = {}
+  { Port, Enabled = true, Timers = DEFAULT_TIMERS, Groups = [], Bus = recordingBus() } = {}
 ) {
   const UsePort = Port ?? (await freeTcpPort());
   const TimerManager = recordingManager({ GetAll: async () => Timers });
+  const GroupManager = recordingManager({ GetAll: async () => Groups });
   const Dashboard = CreateWebDashboard({
     Settings: fakeSettings({
       WEB_ENABLE_DASHBOARD: Enabled,
@@ -234,6 +238,7 @@ async function startDashboard(
       WEB_DASHBOARD_BIND: LOOPBACK,
     }),
     Timers: TimerManager,
+    Groups: GroupManager,
     Broadcast: Bus,
     StaticRoot,
   });
@@ -251,8 +256,15 @@ function connect(t, Port) {
     reconnection: false,
     forceNew: true,
   });
-  const Client = { Socket, updates: [], counts: [], disconnected: false };
-  Socket.on('timers:update', (List) => Client.updates.push(List));
+  const Client = { Socket, updates: [], groups: [], order: [], counts: [], disconnected: false };
+  Socket.on('timers:update', (List) => {
+    Client.updates.push(List);
+    Client.order.push('timers');
+  });
+  Socket.on('groups:update', (List) => {
+    Client.groups.push(List);
+    Client.order.push('groups');
+  });
   Socket.on('clients:count', (Payload) => Client.counts.push(Payload));
   Socket.on('disconnect', () => (Client.disconnected = true));
   t.after(() => Socket.close());
@@ -655,4 +667,69 @@ test('a timer read that fails leaves nothing listening', async (t) => {
   assert.equal(Bus.listenerCount('TimersUpdated'), 0);
   const Holder = await holdTcpPort(Port);
   await Holder.close();
+});
+
+// --- Groups -------------------------------------------------------------------
+// The dashboard draws timers in their groups. Groups come as their own
+// 'groups:update' (title, order and colour only), sent before the first timers
+// push so the page never draws ungrouped and then jumps.
+
+const GROUPS = [
+  {
+    GroupID: 4,
+    Title: 'FOH',
+    Slug: 'FOH',
+    Weight: 20,
+    isFullWidth: true,
+    ColumnSpan: 1,
+    Colour: 1,
+    KeyBind: 'Digit1',
+  },
+  {
+    GroupID: 2,
+    Title: 'Stage',
+    Slug: 'Stage',
+    Weight: 10,
+    isFullWidth: false,
+    ColumnSpan: 2,
+    Colour: null,
+    KeyBind: null,
+  },
+];
+
+test('groups go out in display order with only what the page draws', () => {
+  assert.deepEqual(ToDashboardGroups(GROUPS), [
+    { GroupID: 2, Title: 'Stage', Weight: 10, Colour: null },
+    { GroupID: 4, Title: 'FOH', Weight: 20, Colour: 1 },
+  ]);
+});
+
+test('a browser gets the groups, then the timers, on connecting', async (t) => {
+  const { Port } = await startDashboard(t, { Groups: GROUPS });
+  const Client = connect(t, Port);
+  await waitFor(() => Client.updates.length > 0);
+  assert.deepEqual(Client.order.slice(0, 2), ['groups', 'timers']);
+  assert.deepEqual(
+    Client.groups[0].map((G) => G.GroupID),
+    [2, 4]
+  );
+});
+
+test('a group change is pushed straight away', async (t) => {
+  const { Port, Bus } = await startDashboard(t, { Groups: GROUPS });
+  const Client = connect(t, Port);
+  await waitFor(() => Client.groups.length > 0);
+  Bus.emit('GroupsUpdated', [{ ...GROUPS[0], Title: 'Front of House' }]);
+  await waitFor(() => Client.groups.length > 1);
+  assert.deepEqual(Client.groups[1], [
+    { GroupID: 4, Title: 'Front of House', Weight: 20, Colour: 1 },
+  ]);
+});
+
+test('every timer says which group it is in (null for the Default group)', () => {
+  const Sent = ToDashboardTimers([view(1, { GroupID: 4 }), view(2)]);
+  assert.deepEqual(
+    Sent.map((T) => T.GroupID),
+    [4, null]
+  );
 });

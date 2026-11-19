@@ -7,7 +7,9 @@ import type {
   ServicesStatusView,
   SettingGroupView,
   SettingView,
+  ShowFileStateView,
 } from '../../../common/api';
+import type { GroupView } from '../../../common/groups';
 
 export let Config: AppConfigView | null = null;
 export let Settings: SettingView[] = [];
@@ -16,6 +18,8 @@ export let Mode: AppMode = 'SHOW';
 export let Sounds: LibrarySoundView[] = [];
 export let Services: ServicesStatusView | null = null;
 export let ConfirmDialogActive = false;
+export let Groups: GroupView[] = [];
+export let ShowFile: ShowFileStateView = { FilePath: null, Unsaved: false, Generation: 0 };
 // Pending debounced settings saves, keyed by setting key.
 export const SettingDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -39,6 +43,13 @@ export function setServices(Value: ServicesStatusView | null): void {
 }
 export function setConfirmDialogActive(Value: boolean): void {
   ConfirmDialogActive = Value;
+}
+export function setGroups(Value: GroupView[]): void {
+  Groups = Array.isArray(Value) ? Value : [];
+}
+export function setShowFile(Value: ShowFileStateView | null): void {
+  ShowFile =
+    Value && typeof Value === 'object' ? Value : { FilePath: null, Unsaved: false, Generation: 0 };
 }
 
 export function SettingValue(Key: string): SettingView['Value'] | null {

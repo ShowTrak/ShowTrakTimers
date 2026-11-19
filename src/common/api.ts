@@ -6,6 +6,7 @@
 // preload (src/bridge_main.ts) inlines the same lists, checked against these
 // types at compile time and by test/ipc-channels.test.js at runtime.
 import type { EndBehaviour, TimerStatus, TimerType, TimerView } from './timers';
+import type { GroupPatchView, GroupView } from './groups';
 
 export const INVOKE_CHANNELS = [
   'Config:Get',
@@ -24,6 +25,25 @@ export const INVOKE_CHANNELS = [
   'Timer:Control',
   'Timer:JumpTo',
   'Timers:ControlAll',
+  'Timers:ControlMany',
+  'Timers:DeleteMany',
+  'Timers:MoveToGroup',
+  'Timers:Arrange',
+  'Groups:List',
+  'Group:Create',
+  'Group:Update',
+  'Group:Delete',
+  'Groups:Reorder',
+  'Show:GetCurrentFile',
+  'Show:New',
+  'Show:Open',
+  'Show:Save',
+  'Show:SaveAs',
+  'Show:CheckUpgrade',
+  'Show:ResolveUpgrade',
+  'Show:HasUnsavedData',
+  'Show:EnsureFileExists',
+  'App:OpenBackupsFolder',
   'Sounds:List',
   'Sounds:Import',
   'Sounds:Update',
@@ -43,6 +63,8 @@ export const INVOKE_CHANNELS = [
 export const PUSH_CHANNELS = [
   'Timers:Updated',
   'Timer:Event',
+  'Groups:Updated',
+  'ShowFile:Updated',
   'Settings:Updated',
   'Mode:Updated',
   'Notify',
@@ -91,6 +113,8 @@ export interface SettingView {
   Unit: string | null;
   ShowWhen: string[] | null;
   RequiresSave: boolean;
+  /** 'INSTALL' for a machine setting (kept with this installation, not the show file). */
+  Scope: 'INSTALL' | null;
 }
 
 export interface SettingGroupView {
@@ -112,6 +136,33 @@ export interface TimerPatchView {
   WarningSound?: string | null;
   WarningToast?: boolean;
   ShowHundredths?: boolean;
+  /** A group ID, or null for the Default group. */
+  GroupID?: number | null;
+}
+
+/** A show file an older version saved, waiting on the operator to agree to upgrade it. */
+export interface ShowFileUpgradeView {
+  FilePath: string;
+  FileName: string;
+  FileVersion: string | null;
+  CurrentVersion: string;
+}
+
+export type ShowOpenOutcome =
+  | { Status: 'Opened'; FilePath: string }
+  | { Status: 'UpgradeRequired'; Upgrade: ShowFileUpgradeView };
+
+/** What the title bar shows about the open show file. */
+export interface ShowFileStateView {
+  FilePath: string | null;
+  Unsaved: boolean;
+  /** Goes up each time another show is loaded (open, new, a declined upgrade). */
+  Generation: number;
+}
+
+export interface TimerPlacementView {
+  ID: number;
+  GroupID: number | null;
 }
 
 export interface TimerEventView {
@@ -217,8 +268,31 @@ export interface TimersAPI {
   ControlTimer(ID: number, Action: ControlAction): Promise<ResultTuple<TimerView>>;
   JumpTimer(ID: number, Ms: number): Promise<ResultTuple<TimerView>>;
   ControlAllTimers(Action: ControlAction): Promise<ResultTuple<number>>;
+  ControlTimers(IDs: number[], Action: ControlAction): Promise<ResultTuple<number>>;
+  DeleteTimers(IDs: number[]): Promise<ResultTuple<number>>;
+  MoveTimersToGroup(IDs: number[], GroupID: number | null): Promise<ResultTuple<number>>;
+  ArrangeTimers(Layout: TimerPlacementView[]): Promise<ResultTuple<true>>;
   OnTimers(Callback: (Timers: TimerView[]) => void): Unsubscribe;
   OnTimerEvent(Callback: (Event: TimerEventView) => void): Unsubscribe;
+
+  ListGroups(): Promise<GroupView[]>;
+  CreateGroup(Patch: GroupPatchView): Promise<ResultTuple<GroupView>>;
+  UpdateGroup(ID: number, Patch: GroupPatchView): Promise<ResultTuple<GroupView>>;
+  DeleteGroup(ID: number): Promise<ResultTuple<true>>;
+  ReorderGroups(IDs: number[]): Promise<ResultTuple<true>>;
+  OnGroups(Callback: (Groups: GroupView[]) => void): Unsubscribe;
+
+  GetCurrentShowFile(): Promise<string | null>;
+  NewShow(): Promise<ResultTuple<string>>;
+  OpenShow(): Promise<ResultTuple<ShowOpenOutcome>>;
+  SaveShow(): Promise<ResultTuple<string>>;
+  SaveShowAs(): Promise<ResultTuple<string>>;
+  CheckShowFileUpgrade(): Promise<ResultTuple<ShowFileUpgradeView | null>>;
+  ResolveShowFileUpgrade(Accept: boolean): Promise<ResultTuple<unknown>>;
+  HasUnsavedShowData(): Promise<boolean>;
+  EnsureShowFileExists(): Promise<ResultTuple<{ Missing: boolean; FilePath?: string }>>;
+  OnShowFile(Callback: (State: ShowFileStateView) => void): Unsubscribe;
+  OpenBackupsFolder(): Promise<void>;
 
   ListSounds(): Promise<LibrarySoundView[]>;
   ImportSound(): Promise<ResultTuple<LibrarySoundView>>;
@@ -250,4 +324,4 @@ export interface TimersAPI {
   Shutdown(Confirmed?: boolean): Promise<void>;
 }
 
-export type { TimerView, TimerStatus, TimerType, EndBehaviour };
+export type { TimerView, TimerStatus, TimerType, EndBehaviour, GroupView, GroupPatchView };

@@ -8,6 +8,8 @@ import { CreateLogger } from '../Logger';
 import { Manager as BroadcastManager } from '../Broadcast';
 import { Manager as AppSettings, type SettingsManagerShape } from '../SettingsManager';
 import { Manager as AppTimers, type TimerManager } from '../TimerManager';
+import { Manager as AppGroups, type GroupManager } from '../GroupManager';
+import { DEFAULT_GROUP_SLUG, DEFAULT_GROUP_TITLE, EffectiveGroupID } from '../../common/groups';
 import { DEFAULT_OSC_PORT } from '../Config/constants';
 import { DescribeError, IsTransientNetworkError } from '@showtrak/protocol/runtime';
 import { MatchRoute, ROUTES, type OscRouteContext } from './routes';
@@ -37,6 +39,7 @@ type OscServerConstructor = new (Port: number, Host: string, Ready?: () => void)
 export interface OscOptions {
   Settings?: SettingsManagerShape;
   Timers?: TimerManager;
+  Groups?: GroupManager;
   Broadcast?: { emit(Event: string, ...Args: unknown[]): unknown };
   ServerClass?: OscServerConstructor;
   Quit?: () => void;
@@ -51,6 +54,7 @@ export interface OscRouteInfo {
 export function CreateOSC(Options: OscOptions = {}) {
   const Settings = Options.Settings ?? AppSettings;
   const Timers = Options.Timers ?? AppTimers;
+  const Groups = Options.Groups ?? AppGroups;
   const Broadcast = Options.Broadcast ?? BroadcastManager;
   // /ShowTrak/Shutdown is a deliberate remote command, so (as in 1.x) it closes
   // the app without the "are you sure" prompt, which nobody at the OSC sender
@@ -92,6 +96,19 @@ export function CreateOSC(Options: OscOptions = {}) {
     },
     async CountWithStatus(Status) {
       return (await Timers.GetAll()).filter((T) => T.Status === Status).length;
+    },
+    async ControlGroup(Slug, Action) {
+      const IsDefault = Slug.toLowerCase() === DEFAULT_GROUP_SLUG.toLowerCase();
+      const Group = IsDefault ? null : await Groups.GetBySlug(Slug);
+      if (!IsDefault && !Group) return [`Group "${Slug}" not found`, null];
+      const Known = new Set((await Groups.GetAll()).map((G) => G.GroupID));
+      const Target = Group ? Group.GroupID : null;
+      const IDs = (await Timers.GetAll())
+        .filter((T) => EffectiveGroupID(T.GroupID, Known) === Target)
+        .map((T) => T.ID);
+      // Start means what /ShowTrak/All/Start means: every timer from zero.
+      const Count = await Timers.ControlMany(IDs, Action, { RestartRunning: true });
+      return [null, { Title: Group ? Group.Title : DEFAULT_GROUP_TITLE, Count }];
     },
     Quit,
   };

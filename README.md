@@ -44,6 +44,57 @@ flow and design tokens.
   the show.
 - Optional hundredths of a second per timer (`00:00.00`).
 
+### Groups
+
+Groups work as in ShowTrak Server. Each group has a name, a colour that tints
+its box, a width on the group column grid (Full Width, or a number of the
+columns set in Preferences, Layout), an OSC slug, and an optional number key
+(number row or numpad) that selects it. Timers not in a group are in the
+**Default** group, which is always last and cannot be edited. Groups are
+managed from the menu, **Groups** (EDIT mode, `Ctrl/Cmd+G`); timers are moved
+by dragging them between groups, from the right-click menu, or in the timer
+editor. The Web Dashboard shows the same groups.
+
+### Selection, the Right-Click Menu and Shortcuts
+
+Click a timer to select it, or a group's side rail (or its number key) to
+select the whole group. Right-click for the actions on the selection: start,
+pause, resume and stop, and in EDIT mode edit, move to a group or delete.
+
+| Keys                              | Action                                 |
+| --------------------------------- | -------------------------------------- |
+| `Ctrl/Cmd+Enter`                  | Start the selected timers              |
+| `Ctrl/Cmd+P`                      | Pause the selected timers              |
+| `Ctrl/Cmd+R`                      | Resume the selected timers             |
+| `Ctrl/Cmd+.`                      | Stop the selected timers               |
+| `Ctrl/Cmd+A`                      | Select all timers                      |
+| `Ctrl/Cmd+D` or `Escape`          | Clear the selection                    |
+| A group's number key              | Select or deselect that group          |
+| `Ctrl/Cmd+Shift+M` or `Shift+F10` | Open the right-click menu              |
+| `Ctrl/Cmd+Shift+P` / `R`          | Pause / resume all timers (asks first) |
+| `Ctrl/Cmd+N` / `O` / `S`          | New / open / save the show file        |
+| `Ctrl/Cmd+Shift+S`                | Save the show file as                  |
+| `Ctrl/Cmd+Shift+N`                | New timer (EDIT mode)                  |
+| `Ctrl/Cmd+1` / `2`                | SHOW / EDIT mode                       |
+
+Starting a selection only starts the timers that are not already running or
+paused, so running timers are never restarted by accident. The full list is in
+the app under **Keyboard Shortcuts** (`Ctrl/Cmd+K`).
+
+### Show Files
+
+As in ShowTrak Server, a show (its timers, groups and show settings) is kept in
+a show file, here with the extension `.showtraktimers`. New, Open, Save and Save
+As are in the show file menu (the file icon in the bottom bar) and the macOS File
+menu. Autosave (Preferences, Machine Settings) saves the open file every few
+minutes while it has changes, and when the app closes. A show file saved by an
+older version is backed up to the `Backups` folder before it is upgraded. The
+first time 2.0 starts after an earlier version, it asks where to save your
+existing timers.
+
+Machine settings (updates, Auto Maximise, Stop Accidental Shutdowns, Autosave)
+stay with the computer, so opening someone else's show never changes them.
+
 ### Per-Timer Endings and Warnings
 
 Each Timer or Countdown can be set to:
@@ -73,25 +124,31 @@ addresses with a QR code.
 
 UDP port 3333 by default. Timer IDs are shown on each tile in EDIT mode.
 
-| Address                                       | Action                                      |
-| --------------------------------------------- | ------------------------------------------- |
-| `/ShowTrak/Timer/<ID>/Start`                  | Start a timer from zero                     |
-| `/ShowTrak/Timer/<ID>/Stop`                   | Stop a timer and reset it                   |
-| `/ShowTrak/Timer/<ID>/Pause`                  | Pause a running timer                       |
-| `/ShowTrak/Timer/<ID>/Unpause` (or `/Resume`) | Resume a paused timer                       |
-| `/ShowTrak/Timer/<ID>/SetLabel/<Name>`        | Rename a timer                              |
-| `/ShowTrak/Timer/<ID>/SetDuration/<ms>`       | Set the duration, in milliseconds           |
-| `/ShowTrak/Timer/<ID>/JumpToTime/<ms>`        | Jump to a point in the run, in milliseconds |
-| `/ShowTrak/All/Start`                         | Start every timer                           |
-| `/ShowTrak/All/Stop`                          | Stop every timer                            |
-| `/ShowTrak/All/Pause`                         | Pause every running timer                   |
-| `/ShowTrak/All/Unpause` (or `/Resume`)        | Resume every paused timer                   |
-| `/ShowTrak/Shutdown`                          | Close ShowTrak Timers                       |
+| Address                                         | Action                                      |
+| ----------------------------------------------- | ------------------------------------------- |
+| `/ShowTrak/Timer/<ID>/Start`                    | Start a timer from zero                     |
+| `/ShowTrak/Timer/<ID>/Stop`                     | Stop a timer and reset it                   |
+| `/ShowTrak/Timer/<ID>/Pause`                    | Pause a running timer                       |
+| `/ShowTrak/Timer/<ID>/Unpause` (or `/Resume`)   | Resume a paused timer                       |
+| `/ShowTrak/Timer/<ID>/SetLabel/<Name>`          | Rename a timer                              |
+| `/ShowTrak/Timer/<ID>/SetDuration/<ms>`         | Set the duration, in milliseconds           |
+| `/ShowTrak/Timer/<ID>/JumpToTime/<ms>`          | Jump to a point in the run, in milliseconds |
+| `/ShowTrak/Group/<Slug>/Start`                  | Start every timer in a group from zero      |
+| `/ShowTrak/Group/<Slug>/Stop`                   | Stop every timer in a group                 |
+| `/ShowTrak/Group/<Slug>/Pause`                  | Pause every running timer in a group        |
+| `/ShowTrak/Group/<Slug>/Unpause` (or `/Resume`) | Resume every paused timer in a group        |
+| `/ShowTrak/All/Start`                           | Start every timer                           |
+| `/ShowTrak/All/Stop`                            | Stop every timer                            |
+| `/ShowTrak/All/Pause`                           | Pause every running timer                   |
+| `/ShowTrak/All/Unpause` (or `/Resume`)          | Resume every paused timer                   |
+| `/ShowTrak/Shutdown`                            | Close ShowTrak Timers                       |
 
 A trailing value can also be sent as the message's first argument instead of
 a path segment (for example `/ShowTrak/Timer/3/SetLabel` with the string
-`Walk In`), which is the only way to send a name with spaces. The full list is
-in the app under the menu, **OSC Reference**.
+`Walk In`), which is the only way to send a name with spaces. A group's slug is
+set in its editor and matched in any case; `Default` is the Default group. The
+full list, with every group's slug, is in the app under the menu, **OSC
+Reference**.
 
 ### Updates
 
@@ -186,8 +243,14 @@ Application data root:
 Inside app data:
 
 - `Logs/` (one file per day)
-- `Storage/DB.sqlite` (timers and settings)
+- `Storage/DB.sqlite` (the working copy of the open show; 1.x kept everything
+  here, and 2.0 offers to save it to a show file)
+- `Storage/state.json` (which show file is open, and whether it has unsaved changes)
+- `Storage/install-settings.json` (the machine settings)
+- `Backups/` (show files copied before an upgrade overwrote them)
 - `Audio/` (the Sound Library and its manifest)
+
+Show files (`.showtraktimers`) live wherever you save them.
 
 ## Security Model (Desktop)
 

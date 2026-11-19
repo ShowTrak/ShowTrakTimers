@@ -17,6 +17,15 @@ export interface OscRouteContext {
   JumpTo(ID: number, Ms: number): Promise<string | null>;
   TimerStatus(ID: number): Promise<string | null>;
   CountWithStatus(Status: string): Promise<number>;
+  /**
+   * Apply an action to every timer in the group with this slug ("Default" for
+   * the Default group). Resolves the group's title and how many timers changed,
+   * or an error when there is no such group.
+   */
+  ControlGroup(
+    Slug: string,
+    Action: ControlAction
+  ): Promise<[string | null, { Title: string; Count: number } | null]>;
   Quit(): void;
 }
 
@@ -63,6 +72,17 @@ function AllAction(Action: ControlAction, Verb: string): OscRoute['Handler'] {
   return async (_Params, Context) => {
     const Count = await Context.ControlAll(Action);
     return Ok(`${Count} timer${Count === 1 ? '' : 's'} ${Verb}`);
+  };
+}
+
+function GroupAction(Action: ControlAction, Verb: string): OscRoute['Handler'] {
+  return async (Params, Context) => {
+    const Slug = String(Params.Slug ?? '').trim();
+    if (!Slug) return Fail('Invalid group');
+    const [Err, Result] = await Context.ControlGroup(Slug, Action);
+    if (Err || !Result) return Fail(Err || `Group "${Slug}" not found`);
+    const { Title, Count } = Result;
+    return Ok(`${Title}: ${Count} timer${Count === 1 ? '' : 's'} ${Verb}`);
   };
 }
 
@@ -171,6 +191,32 @@ export const ROUTES: OscRoute[] = [
     Path: '/ShowTrak/All/Unpause',
     Title: 'Resume every paused timer',
     Handler: AllAction('Unpause', 'resumed'),
+  },
+  {
+    Path: '/ShowTrak/Group/:Slug/Start',
+    Title:
+      "Start every timer in a group from zero (by the group's slug; Default for the Default group)",
+    Handler: GroupAction('Start', 'started'),
+  },
+  {
+    Path: '/ShowTrak/Group/:Slug/Stop',
+    Title: 'Stop every timer in a group and reset it to zero',
+    Handler: GroupAction('Stop', 'stopped'),
+  },
+  {
+    Path: '/ShowTrak/Group/:Slug/Pause',
+    Title: 'Pause every running timer in a group',
+    Handler: GroupAction('Pause', 'paused'),
+  },
+  {
+    Path: '/ShowTrak/Group/:Slug/Unpause',
+    Title: 'Resume every paused timer in a group',
+    Handler: GroupAction('Unpause', 'resumed'),
+  },
+  {
+    Path: '/ShowTrak/Group/:Slug/Resume',
+    Title: 'Resume every paused timer in a group (same as Unpause)',
+    Handler: GroupAction('Unpause', 'resumed'),
   },
   {
     Path: '/ShowTrak/All/Resume',

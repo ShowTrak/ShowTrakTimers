@@ -46,6 +46,242 @@
   );
 }
 
+.group-drop-zone {
+  /* A group is a panel of tiles: its corners are a tile's plus the padding
+     they sit in. */
+  padding: var(--group-pad);
+  gap: var(--group-pad);
+  border-radius: calc(var(--tile-r) + var(--group-pad)) !important;
+  /* Groups in the column grid stretch to the tallest group on the row, so the
+     single wrapped line of a short group would otherwise stretch with it and
+     `align-items: center` would float the tiles down to the middle. Packing the
+     lines to the top keeps every group's tiles anchored at the top left. */
+  align-content: flex-start;
+  transition:
+    padding 180ms ease,
+    gap 180ms ease,
+    margin 180ms ease;
+}
+
+.GROUP_TITLE_CLICKABLE {
+  transition: margin 180ms ease;
+  /* The rail stands beside its group's panel rather than inside it, so it is
+     free of the panel's corners; a tile's keep it a rounded bar, not a
+     capsule. */
+  border-radius: var(--tile-r) !important;
+}
+
+/* Grid and Compact views: tiles fill their group's row. Fixed-width tiles
+   left whatever did not divide into whole tiles as a gap at the end of every
+   group; instead the group lays its tiles on as many columns of at least a
+   tile's width (--zone-tile-min, per view) as fit and shares the spare width
+   out among them. auto-fill (not auto-fit) keeps the empty columns, so a
+   short last row, or a group with one or two tiles, lines up under full
+   columns rather than stretching across the panel, and a tile can never grow
+   past the next column count's width. List keeps its own layout. (Drag and
+   drop sizes its ghost and spacer from the real tile, so they follow the
+   stretched width.) */
+body:not(.list-mode) .group-drop-zone {
+  --zone-tile-min: var(--tile-expanded-width);
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(var(--zone-tile-min), 1fr));
+}
+
+/* Optional per-group background tint. A low-strength mix of the palette colour
+   keeps it muted enough that tile status colours still read clearly on top.
+   No outline: the tint alone marks the group, as in ShowTrak Portal.
+   --group-tint-scale is the Group Colour Saturation preference (1 = 100%),
+   set on the root by settings.ts. */
+.group-drop-zone.group-tinted {
+  background-color: color-mix(
+    in srgb,
+    var(--group-tint) calc(9% * var(--group-tint-scale, 1)),
+    transparent
+  ) !important;
+}
+
+/* Drag-and-drop visuals */
+.group-drop-zone.dnd-over {
+  outline: 2px dashed rgba(255, 255, 255, 0.18);
+  outline-offset: -6px;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* No standalone #MODE_SWITCH positioning; switch sits in bottom bar */
+/* removed old toggle styles (.mode-switch ...) */
+/* ------------------------------------------------------------------ */
+/* Group Manager modal                                                */
+/* ------------------------------------------------------------------ */
+.GROUP_MANAGER_GROUP_ITEM {
+  transition: background-color 140ms ease;
+}
+
+.GROUP_MANAGER_GROUP_ITEM[draggable='true'] {
+  cursor: pointer;
+}
+
+.GROUP_MANAGER_GROUP_ITEM.dragging {
+  opacity: 0.5;
+}
+
+.GROUP_MANAGER_GROUP_ITEM:hover {
+  background-color: rgba(255, 255, 255, 0.09) !important;
+}
+
+.GROUP_MANAGER_GROUP_OPEN {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+.group-manager-grip {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-subtle);
+  cursor: grab;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.group-manager-grip i {
+  pointer-events: none;
+}
+
+.group-manager-chevron {
+  font-size: var(--fs-lg);
+  color: var(--text-faint);
+  transition: transform 140ms ease;
+}
+
+.group-manager-member-list {
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.group-manager-member-row {
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-ghost);
+}
+
+.group-manager-member-remove {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  transition:
+    color 140ms ease,
+    background 140ms ease;
+}
+
+.group-manager-member-remove:hover {
+  color: var(--danger);
+  background: rgb(var(--danger-rgb) / 0.12);
+}
+
+.GROUP_MANAGER_GROUP_ITEM_DEFAULT {
+  cursor: default;
+}
+
+.group-manager-keybind-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.9rem;
+  height: 1.35rem;
+  padding: 0 0.45rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-strong);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.group-manager-editor-id-field {
+  position: relative;
+}
+
+/* Tinted at rest so the button stands off the modal surface without a border;
+   hover deepens the same tint. */
+.script-manager-create-btn {
+  background: rgb(var(--success-text-rgb) / 0.1);
+  border: none;
+  color: rgb(var(--success-text-rgb) / 0.9);
+  font-size: 1rem;
+  padding: 4px 8px;
+  border-radius: var(--ctl-r);
+  transition:
+    color 150ms ease,
+    background 150ms ease;
+}
+
+.script-manager-create-btn:hover {
+  color: var(--success-text);
+  background: rgb(var(--success-text-rgb) / 0.2);
+}
+
+/* Colour swatch picker */
+.script-manager-swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  flex: 0 0 30px;
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease;
+}
+
+.script-manager-swatch:hover {
+  transform: scale(1.15);
+}
+
+.script-manager-swatch.selected {
+  border-color: #fff;
+  transform: scale(1.1);
+}
+
+/* "No colour" swatch: an empty ring crossed by a diagonal slash. */
+.script-manager-swatch.group-colour-none {
+  background:
+    linear-gradient(
+      to top right,
+      transparent calc(50% - 1px),
+      rgba(255, 255, 255, 0.45) calc(50% - 1px),
+      rgba(255, 255, 255, 0.45) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    ),
+    rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
+/* Leading icon slot in context menu rows. Fixed width so every title starts at
+   the same x-position no matter how wide the glyph is; the icon itself is
+   centred within the slot so differently-sized icons stay visually aligned. */
+.context-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 1.1rem;
+  width: 1.1rem;
+  margin-right: 4px;
+  font-size: 1rem;
+  line-height: 1;
+  text-align: center;
+}
+
+.context-icon > i {
+  display: inline-block;
+  line-height: 1;
+}
+
 /* ------------------------------------------------------------------------- */
 /* Web UI capability chrome                                                   */
 /* The shared renderer runs on both the Electron desktop app and the browser  */
@@ -71,7 +307,8 @@ html:has(body.is-web) {
 /* Desktop-only chrome hidden on the web: navbar/dragbar, the cogs (settings)
    menu and the show file menu. Mode/alerts toggles stay visible as read-only state. */
 body.is-web .dragbar,
-body.is-web #SETTINGS_MENU_DROPDOWN {
+body.is-web #SETTINGS_MENU_DROPDOWN,
+body.is-web #FILE_MENU_DROPDOWN {
   display: none !important;
 }
 

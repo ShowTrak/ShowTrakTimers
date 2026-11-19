@@ -728,3 +728,107 @@ test('an injected Quit replaces the Shutdown broadcast', async () => {
   assert.equal(Quits, 1);
   assert.equal(Broadcasts, 0);
 });
+
+// --- Group commands ------------------------------------------------------------
+// /ShowTrak/Group/<Slug>/<Action> runs on the group's timers through
+// ControlMany. Start restarts timers already going, as /ShowTrak/All/Start does
+// (RestartRunning), so an OSC cue means the same whether it names a group or all.
+
+const GROUP_LIST = [
+  { GroupID: 1, Title: 'Stage Left', Slug: 'Stage-Left', Weight: 10 },
+  { GroupID: 2, Title: 'FOH', Slug: 'FOH', Weight: 20 },
+];
+
+/** Timers spread over the two groups, the Default group and a deleted group. */
+function groupedTimers() {
+  const List = [
+    timer(1, { GroupID: 1 }),
+    timer(2, { GroupID: 2 }),
+    timer(3, { GroupID: null }),
+    timer(4, { GroupID: 1 }),
+    timer(5, { GroupID: 77 }),
+  ];
+  return recordingManager({
+    GetAll: async () => List,
+    ControlMany: async (IDs) => IDs.length,
+  });
+}
+
+function fakeGroups(List = GROUP_LIST) {
+  return recordingManager({
+    GetAll: async () => List,
+    GetBySlug: async (Slug) =>
+      List.find((G) => G.Slug.toLowerCase() === String(Slug).toLowerCase()) ?? null,
+  });
+}
+
+test("a group command runs on that group's timers, restarting ones already going", async () => {
+  const Timers = groupedTimers();
+  const Groups = fakeGroups();
+  const { OSC, Bus } = withFake({}, {}, { Timers, Groups });
+  await OSC.HandleMessage(['/ShowTrak/Group/Stage-Left/Start']);
+  assert.deepEqual(
+    Timers.__callsTo('ControlMany').map((C) => C.args),
+    [[[1, 4], 'Start', { RestartRunning: true }]]
+  );
+  assert.deepEqual(Bus.notes, [['OSC: Stage Left: 2 timers started', 'success', 1500, OSC_DEBUG]]);
+});
+
+test('a slug is matched whatever its case', async () => {
+  const Timers = groupedTimers();
+  const { OSC } = withFake({}, {}, { Timers, Groups: fakeGroups() });
+  await OSC.HandleMessage(['/ShowTrak/Group/foh/Pause']);
+  assert.deepEqual(
+    Timers.__callsTo('ControlMany').map((C) => C.args),
+    [[[2], 'Pause', { RestartRunning: true }]]
+  );
+});
+
+test('"Default" is the Default group: timers in no group, or in one that is gone', async () => {
+  for (const Slug of ['Default', 'default', 'DEFAULT']) {
+    const Timers = groupedTimers();
+    const Groups = fakeGroups();
+    const { OSC, Bus } = withFake({}, {}, { Timers, Groups });
+    await OSC.HandleMessage([`/ShowTrak/Group/${Slug}/Resume`]);
+    assert.deepEqual(
+      Timers.__callsTo('ControlMany').map((C) => C.args),
+      [[[3, 5], 'Unpause', { RestartRunning: true }]],
+      Slug
+    );
+    assert.equal(
+      Groups.__callsTo('GetBySlug').length,
+      0,
+      `${Slug}: no lookup for the Default group`
+    );
+    assert.deepEqual(
+      Bus.notes,
+      [['OSC: Default: 2 timers resumed', 'success', 1500, OSC_DEBUG]],
+      Slug
+    );
+  }
+});
+
+test('an unknown group is reported and no timer is touched', async () => {
+  const Timers = groupedTimers();
+  const { OSC, Bus } = withFake({}, {}, { Timers, Groups: fakeGroups() });
+  await OSC.HandleMessage(['/ShowTrak/Group/Backstage/Stop']);
+  assert.equal(Timers.__callsTo('ControlMany').length, 0);
+  assert.deepEqual(Bus.notes, [
+    ['OSC: Group "Backstage" not found', 'error', undefined, OSC_DEBUG],
+  ]);
+});
+
+test('an empty group still answers, with nothing changed', async () => {
+  const Timers = groupedTimers();
+  const Groups = fakeGroups([
+    ...GROUP_LIST,
+    { GroupID: 3, Title: 'Empty', Slug: 'Empty', Weight: 30 },
+  ]);
+  const { OSC, Bus } = withFake({}, {}, { Timers, Groups });
+  await OSC.HandleMessage(['/ShowTrak/Group/Empty/Stop']);
+  assert.deepEqual(
+    Timers.__callsTo('ControlMany').map((C) => C.args),
+    [[[], 'Stop', { RestartRunning: true }]]
+  );
+  assert.deepEqual(Bus.notes, [['OSC: Empty: 0 timers stopped', 'success', 1500, OSC_DEBUG]]);
+});

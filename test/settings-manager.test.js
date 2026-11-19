@@ -7,7 +7,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { QuietLogs, RecordingBus, CountingDb, RawExec } = require('./helpers/data-helpers');
+const { QuietLogs, RecordingBus, CountingDb, RawExec, RawAll } = require('./helpers/data-helpers');
 QuietLogs();
 
 const { CreateSettingsManager, CoerceValue } = require('../dist/Modules/SettingsManager');
@@ -70,14 +70,35 @@ function Definitions(Extra = {}) {
   ].filter((Def) => Def.Key);
 }
 
-async function Setup(t, { Defs = Definitions(), Wrap } = {}) {
+// The install-settings store in memory (the real one is a JSON file in the app
+// data folder). Writes is every Write() call, in order.
+function MemoryInstallStore(Initial = {}) {
+  const Values = { ...Initial };
+  const Writes = [];
+  return {
+    Values,
+    Writes,
+    Fail: null,
+    ReadAll() {
+      return { ...Values };
+    },
+    Write(Next) {
+      if (this.Fail) return this.Fail;
+      Writes.push({ ...Next });
+      Object.assign(Values, Next);
+      return null;
+    },
+  };
+}
+
+async function Setup(t, { Defs = Definitions(), Wrap, Install = MemoryInstallStore() } = {}) {
   const Temp = TempDatabase();
   t.after(() => Temp.cleanup());
   await Temp.Db.Ready();
   const Db = Wrap ? Wrap(Temp.Db) : Temp.Db;
   const Bus = RecordingBus();
-  const Manager = CreateSettingsManager(Db, Defs, [{ Name: 'G', Title: 'Group' }], Bus);
-  return { Manager, Bus, Db, Temp, Defs };
+  const Manager = CreateSettingsManager(Db, Defs, [{ Name: 'G', Title: 'Group' }], Bus, Install);
+  return { Manager, Bus, Db, Temp, Defs, Install };
 }
 
 const Events = (Bus) => Bus.Emitted.map(([Name]) => Name);
@@ -181,6 +202,7 @@ test('each setting carries its metadata, with null for what it does not declare'
     Unit: null,
     ShowWhen: null,
     RequiresSave: true,
+    Scope: null,
   });
   const Text = await Manager.Get('TEXT');
   assert.deepEqual(Text.ShowWhen, ['FLAG']);
@@ -193,7 +215,13 @@ test('each setting carries its metadata, with null for what it does not declare'
 test('settings sent to the renderer carry no functions (they must survive IPC cloning)', async (t) => {
   const Temp = TempDatabase();
   t.after(() => Temp.cleanup());
-  const Manager = CreateSettingsManager(Temp.Db, DefaultSettings, Groups, RecordingBus());
+  const Manager = CreateSettingsManager(
+    Temp.Db,
+    DefaultSettings,
+    Groups,
+    RecordingBus(),
+    MemoryInstallStore()
+  );
   const All = await Manager.GetAll();
   assert.equal(All.length, DefaultSettings.length);
   for (const Setting of All) {
@@ -510,4 +538,116 @@ test('the Web Dashboard passcode never reaches the log file', async (t) => {
     .join('\n');
   assert.match(Text, /WEB_DASHBOARD_PASSWORD updated to \(hidden\)/);
   assert.doesNotMatch(Text, /4821/);
+});
+
+// --- Install-scoped (machine) settings ------------------------------------------
+// Machine settings live with the installation, not in the show file, so opening
+// someone else's show never changes how this machine updates or closes.
+
+function InstallDefinitions() {
+  return [
+    ...Definitions(),
+    {
+      Group: 'Machine',
+      Key: 'MACHINE_FLAG',
+      Title: 'Machine flag',
+      Description: '',
+      Type: 'BOOLEAN',
+      DefaultValue: false,
+      Scope: 'INSTALL',
+      OnUpdateEvent: 'MachineChanged',
+    },
+    {
+      Group: 'Machine',
+      Key: 'MACHINE_CHANNEL',
+      Title: 'Channel',
+      Description: '',
+      Type: 'OPTION',
+      DefaultValue: 'Stable',
+      Options: ['Stable', 'Beta'],
+      Scope: 'INSTALL',
+    },
+  ];
+}
+
+test('an install setting reads from the install store, and reports its scope', async (t) => {
+  const Install = MemoryInstallStore({ MACHINE_FLAG: true, MACHINE_CHANNEL: 'Beta' });
+  const { Manager } = await Setup(t, { Defs: InstallDefinitions(), Install });
+  assert.equal(await Manager.GetValue('MACHINE_FLAG'), true);
+  assert.equal(await Manager.GetValue('MACHINE_CHANNEL'), 'Beta');
+  assert.equal((await Manager.Get('MACHINE_FLAG')).Scope, 'INSTALL');
+  assert.equal((await Manager.Get('FLAG')).Scope, null);
+  assert.deepEqual(Install.Writes, [], 'nothing to adopt: nothing written');
+});
+
+test('saving an install setting writes the install store, never the show database', async (t) => {
+  const Install = MemoryInstallStore({ MACHINE_FLAG: false, MACHINE_CHANNEL: 'Stable' });
+  const { Manager, Temp, Bus } = await Setup(t, { Defs: InstallDefinitions(), Install });
+  const [Err, Saved] = await Manager.Set('MACHINE_FLAG', true);
+  assert.equal(Err, null);
+  assert.equal(Saved.Value, true);
+  assert.deepEqual(Install.Writes, [{ MACHINE_FLAG: true }]);
+  const Rows = await RawAll(Temp.FilePath, "SELECT * FROM Settings WHERE Key = 'MACHINE_FLAG'");
+  assert.deepEqual(Rows, []);
+  assert.ok(Events(Bus).includes('MachineChanged'));
+});
+
+test('a failed install-store write is reported and the value is kept', async (t) => {
+  const Install = MemoryInstallStore({ MACHINE_FLAG: false, MACHINE_CHANNEL: 'Stable' });
+  const { Manager } = await Setup(t, { Defs: InstallDefinitions(), Install });
+  Install.Fail = 'disk full';
+  const [Err] = await Manager.Set('MACHINE_FLAG', true);
+  assert.equal(Err, 'Error updating setting');
+  assert.equal(await Manager.GetValue('MACHINE_FLAG'), false);
+});
+
+test('a machine setting still in the database (2.0 betas, 1.x) is adopted once', async (t) => {
+  const Install = MemoryInstallStore();
+  const { Manager } = await Setup(t, {
+    Defs: InstallDefinitions(),
+    Install,
+    Wrap: (Db) => Db,
+  });
+  // Written as an older version would have, before the manager first loads.
+  const Temp2 = TempDatabase();
+  t.after(() => Temp2.cleanup());
+  await Temp2.Db.Ready();
+  await Temp2.Db.Run('INSERT INTO Settings (Key, Value) VALUES (?, ?)', [
+    'MACHINE_CHANNEL',
+    'Beta',
+  ]);
+  const Adopting = CreateSettingsManager(
+    Temp2.Db,
+    InstallDefinitions(),
+    [{ Name: 'G', Title: 'Group' }],
+    RecordingBus(),
+    Install
+  );
+  assert.equal(await Adopting.GetValue('MACHINE_CHANNEL'), 'Beta');
+  // The one never stored takes its default, and both are recorded together.
+  assert.equal(await Adopting.GetValue('MACHINE_FLAG'), false);
+  assert.deepEqual(Install.Writes, [{ MACHINE_FLAG: false, MACHINE_CHANNEL: 'Beta' }]);
+  // From now on the install store wins, whatever a show file says.
+  assert.equal(await Manager.GetValue('MACHINE_CHANNEL'), 'Beta');
+});
+
+test('Reload re-reads show settings, keeps install ones, and fires what changed', async (t) => {
+  const Install = MemoryInstallStore({ MACHINE_FLAG: true, MACHINE_CHANNEL: 'Stable' });
+  const { Manager, Temp, Bus } = await Setup(t, { Defs: InstallDefinitions(), Install });
+  assert.equal(await Manager.GetValue('FLAG'), true);
+  // Another show is swapped in underneath: FLAG differs, COUNT does not.
+  await Temp.Db.Run('INSERT OR REPLACE INTO Settings (Key, Value) VALUES (?, ?)', ['FLAG', 0]);
+  await Temp.Db.Run('INSERT OR REPLACE INTO Settings (Key, Value) VALUES (?, ?)', [
+    'MACHINE_FLAG',
+    0,
+  ]);
+  Bus.Clear();
+  await Manager.Reload();
+  assert.equal(await Manager.GetValue('FLAG'), false);
+  assert.equal(
+    await Manager.GetValue('MACHINE_FLAG'),
+    true,
+    'a show file never sets a machine setting'
+  );
+  assert.deepEqual(Events(Bus), ['SettingsUpdated', 'FlagChanged']);
 });

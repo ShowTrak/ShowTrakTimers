@@ -1,4 +1,5 @@
-// Application data folders (logs, the database, imported sounds).
+// Application data folders (logs, the working database, imported sounds, show
+// file backups).
 //
 // Same layout as ShowTrak Server: %APPDATA% on Windows, Application Support on
 // macOS, XDG_DATA_HOME (or ~/.local/share) on Linux, each with a ShowTrakTimers
@@ -14,7 +15,7 @@ import os from 'os';
 import { spawn } from 'child_process';
 
 const FOLDER_NAME = 'ShowTrakTimers';
-const SUB_FOLDERS = ['Logs', 'Storage', 'Audio'];
+const SUB_FOLDERS = ['Logs', 'Storage', 'Audio', 'Backups'];
 
 function HomeDirectory(): string {
   return process.env.HOME || os.homedir();
@@ -77,6 +78,17 @@ export const Manager = {
 
   GetStorageDirectory(): string {
     return path.join(AppDataPath, 'Storage');
+  },
+
+  // Copies of show files taken before an upgrade overwrites them (ShowFile).
+  GetBackupsDirectory(): string {
+    return path.join(AppDataPath, 'Backups');
+  },
+
+  // Which show file is open, kept outside the swappable working database so it
+  // is still known after a relaunch (as ShowTrak Server's state file).
+  GetStateFilePath(): string {
+    return path.join(AppDataPath, 'Storage', 'state.json');
   },
 
   // Sounds imported for timer alerts, plus their manifest (see AudioLibrary).

@@ -1,6 +1,6 @@
-// Offline shell for the Web Dashboard. Bumped to v2 with the 2.0 page, so a
+// Offline shell for the Web Dashboard. Bumped with each page change (v4: groups), so a
 // browser holding the 1.x shell drops it on its next visit.
-const STATIC_CACHE = 'showtrak-dashboard-static-v3';
+const STATIC_CACHE = 'showtrak-dashboard-static-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

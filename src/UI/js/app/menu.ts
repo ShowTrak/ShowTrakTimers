@@ -1,5 +1,5 @@
 // The bottom-bar menu (and the macOS app menu, which sends the same IDs).
-import { openModal } from './lib/modal';
+import { openModal, PromptOpen } from './lib/modal';
 import { ConfirmationDialog, Notify } from './lib/toasts';
 import { CloseAllModals, OpenAboutModal } from './modals';
 import { OpenAppUpdateModal } from './wire-app-updates';
@@ -7,7 +7,10 @@ import { OpenOscReference } from './osc-reference';
 import { OpenWebDashboardInfo } from './web-dashboard-info';
 import { OpenSoundLibrary } from './sounds';
 import { ShowShortcutsModal } from './keyboard';
-import { ControlAll } from './timers';
+import { ControlAll, ControlTimers, CreateTimerAndEdit } from './timers';
+import { NewShow, OpenShow, SaveShow, SaveShowAs } from './show-file';
+import { OpenGroupManager } from './group-manager';
+import { ClearSelection, SelectAll, SelectedIDs } from './selection';
 import { Mode, SettingValue } from './state';
 import { HandleNonFatalError } from './utils';
 
@@ -39,9 +42,12 @@ export const ALL_TIMER_CONFIRMATIONS = {
   Stop: { Message: 'Stop and reset every timer?', ConfirmLabel: 'Stop All Timers' },
 } as const;
 
-async function ConfirmedAll(Action: keyof typeof ALL_TIMER_CONFIRMATIONS): Promise<void> {
+/** An "all timers" action, after asking. Resolves false when cancelled. */
+export async function ConfirmedAll(Action: keyof typeof ALL_TIMER_CONFIRMATIONS): Promise<boolean> {
   const { Message, ConfirmLabel } = ALL_TIMER_CONFIRMATIONS[Action];
-  if (await ConfirmationDialog(Message, { ConfirmLabel })) await ControlAll(Action);
+  if (!(await ConfirmationDialog(Message, { ConfirmLabel }))) return false;
+  await ControlAll(Action);
+  return true;
 }
 
 const ACTIONS: Record<string, () => unknown> = {
@@ -49,6 +55,19 @@ const ACTIONS: Record<string, () => unknown> = {
   MENU_PAUSE_ALL: () => ConfirmedAll('Pause'),
   MENU_RESUME_ALL: () => ConfirmedAll('Unpause'),
   MENU_STOP_ALL: () => ConfirmedAll('Stop'),
+  MENU_START_SELECTED: () => ControlTimers(SelectedIDs(), 'Start'),
+  MENU_PAUSE_SELECTED: () => ControlTimers(SelectedIDs(), 'Pause'),
+  MENU_RESUME_SELECTED: () => ControlTimers(SelectedIDs(), 'Unpause'),
+  MENU_STOP_SELECTED: () => ControlTimers(SelectedIDs(), 'Stop'),
+  MENU_SELECT_ALL: () => SelectAll(),
+  MENU_CLEAR_SELECTION: () => ClearSelection(),
+  MENU_NEW_TIMER: () => CreateTimerAndEdit(),
+  SHOWTRAK_MENU_GROUPS: () => OpenGroupManager(),
+  SHOWTRAK_MENU_NEW_SHOW: () => NewShow(),
+  SHOWTRAK_MENU_OPEN_SHOW: () => OpenShow(),
+  SHOWTRAK_MENU_SAVE_SHOW: () => SaveShow(),
+  SHOWTRAK_MENU_SAVE_SHOW_AS: () => SaveShowAs(),
+  SHOWTRAK_MENU_BACKUPS_FOLDER: () => window.API.OpenBackupsFolder(),
   SHOWTRAK_MENU_SOUND_LIBRARY: () => OpenSoundLibrary(),
   SHOWTRAK_MENU_WEB_DASHBOARD: () => OpenWebDashboardInfo(),
   SHOWTRAK_MENU_OSC_REFERENCE: () => OpenOscReference(),
@@ -60,7 +79,11 @@ const ACTIONS: Record<string, () => unknown> = {
   SHOWTRAK_MENU_SHUTDOWN: () => RequestShutdown(),
 };
 
-async function Run(ID: string): Promise<void> {
+export async function RunMenuAction(ID: string): Promise<void> {
+  // A show-file prompt is waiting for its answer (the macOS menu bar is still
+  // live behind it): opening another show now could lose the timers it is
+  // asking about.
+  if (PromptOpen()) return;
   const Action = ACTIONS[ID];
   if (Action) {
     try {
@@ -77,9 +100,9 @@ async function Run(ID: string): Promise<void> {
 
 export function InitMenu(): void {
   for (const ID of Object.keys(ACTIONS)) {
-    $('#' + ID).on('click', () => void Run(ID));
+    $('#' + ID).on('click', () => void RunMenuAction(ID));
   }
   $('#EMPTY_SETTINGS_BUTTON').on('click', () => void OpenPreferences());
-  window.API.OnAppMenuAction((ID) => void Run(ID));
+  window.API.OnAppMenuAction((ID) => void RunMenuAction(ID));
   window.API.OnShutdownRequested(() => void RequestShutdown());
 }

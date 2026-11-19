@@ -81,6 +81,7 @@ test('Create with nothing set makes a five-minute TIMER with the documented defa
     WarningSound: null,
     WarningToast: false,
     ShowHundredths: false,
+    GroupID: null,
     Status: 'STANDBY',
     ElapsedMs: 0,
     Warning: false,

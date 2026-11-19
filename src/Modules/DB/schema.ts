@@ -96,6 +96,35 @@ export const Migrations: Migration[] = [
       await Db.AddColumnIfMissing('Timers', 'ShowHundredths', 'BOOLEAN NOT NULL DEFAULT 0');
     },
   },
+  {
+    Version: 5,
+    Name: 'Groups and show files',
+    async Up(Db) {
+      // Groups, with the same columns as ShowTrak Server's (see common/groups.ts).
+      // Slugs are unique whatever their case, so OSC addressing is never ambiguous.
+      await Db.Run(`CREATE TABLE IF NOT EXISTS \`Groups\` (
+        GroupID INTEGER PRIMARY KEY AUTOINCREMENT,
+        Title TEXT,
+        Weight INTEGER,
+        FullWidth INTEGER NOT NULL DEFAULT 1,
+        ColumnSpan INTEGER NOT NULL DEFAULT 1,
+        Colour INTEGER,
+        KeyBind TEXT,
+        Slug TEXT
+      )`);
+      await Db.Run(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_groups_slug ON `Groups` (Slug COLLATE NOCASE)'
+      );
+      // NULL is the Default group, so every existing timer starts there.
+      await Db.AddColumnIfMissing('Timers', 'GroupID', 'INTEGER');
+      // Facts about the show file itself (the versions that created and last
+      // saved it), as in Server. Never part of what makes a show unsaved.
+      await Db.Run(`CREATE TABLE IF NOT EXISTS ShowFileInfo (
+        Key TEXT PRIMARY KEY,
+        Value TEXT
+      )`);
+    },
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = Migrations[Migrations.length - 1]!.Version;
