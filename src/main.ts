@@ -120,6 +120,16 @@ const WINDOW_CHROME_OPTIONS =
       }
     : { frame: true, titleBarStyle: 'hidden' as const };
 
+// As ShowTrak Server: the page hides its drag bar in native full screen, where
+// there are no traffic lights to make room for and nothing to drag.
+function SendMainWindowFullscreenChanged(IsFullscreen: boolean): void {
+  try {
+    if (hasMainWindow()) PushToRenderers('MainWindowFullscreenChanged', Boolean(IsFullscreen));
+  } catch {
+    // Non-critical UI sync; ignore transient teardown errors.
+  }
+}
+
 function WindowIconPath(): string {
   return path.join(__dirname, 'images', process.platform === 'win32' ? 'icon.ico' : 'icon.png');
 }
@@ -250,6 +260,7 @@ app.whenReady().then(async () => {
 
   MainWindow.loadFile(path.join(__dirname, 'UI', 'index.html')).then(async () => {
     Logger.log('Main window finished loading');
+    SendMainWindowFullscreenChanged(MainWindow.isFullScreen());
     await whenInitialStateDelivered(MAIN_WINDOW_READY_TIMEOUT_MS);
     if (PreloaderShownAt !== null) {
       await Wait(Math.max(0, PRELOADER_MIN_DISPLAY_MS - (Date.now() - PreloaderShownAt)));
@@ -275,6 +286,8 @@ app.whenReady().then(async () => {
   applyWindowZoomShortcuts(MainWindow);
   MainWindow.on('close', (Event) => void Shutdown.HandleWindowClose(MainWindow, Event));
   MainWindow.on('closed', () => setMainWindow(null));
+  MainWindow.on('enter-full-screen', () => SendMainWindowFullscreenChanged(true));
+  MainWindow.on('leave-full-screen', () => SendMainWindowFullscreenChanged(false));
 });
 
 // A second launch focuses the running window instead of doing nothing, and

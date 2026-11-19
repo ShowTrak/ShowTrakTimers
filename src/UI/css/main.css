@@ -259,6 +259,18 @@ code,
   font-weight: 700;
 }
 
+body.macos-native-fullscreen .dragbar {
+  display: none !important;
+}
+
+body.macos-native-fullscreen #APPLICATION_CONTAINER {
+  height: 100% !important;
+}
+
+body.macos-native-fullscreen #APPLICATION {
+  padding-top: 0 !important;
+}
+
 /* No dragbar on the web surface, so drop the space reserved for it */
 body.is-web #APPLICATION {
   padding-top: 0 !important;
@@ -3374,22 +3386,37 @@ body.web-dashboard .SHOWTRAK_TIMER:hover {
 }
 
 /* --- Web Dashboard groups ------------------------------------------------
-   With groups, each is a titled box (tinted with its colour); without, the
-   page is the plain grid it always was. */
+   With groups, each is a titled box (tinted with its colour) on the desktop's
+   group column grid: the column count and each group's span are set inline
+   (dashboard-main.ts). Without groups, the page is the plain grid it always
+   was. */
 .dashboard-groups {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.75rem;
   padding: 0.75rem;
 }
 
 .dashboard-group {
+  min-width: 0;
   border-radius: calc(var(--tile-r) + var(--group-pad));
   background-color: var(--surface-ghost);
   padding: var(--group-pad);
 }
 
 .dashboard-group.group-tinted {
-  background-color: color-mix(in srgb, var(--group-tint) 9%, transparent);
+  background-color: color-mix(
+    in srgb,
+    var(--group-tint) calc(9% * var(--group-tint-scale, 1)),
+    transparent
+  );
+}
+
+/* A small screen (a phone): every group goes full width, as on the desktop. */
+@media (max-width: 991px) {
+  .dashboard-groups > .dashboard-group {
+    grid-column: 1 / -1 !important;
+  }
 }
 
 .dashboard-group-title {

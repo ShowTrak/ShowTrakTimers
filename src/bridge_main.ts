@@ -84,6 +84,7 @@ const PUSH_CHANNEL_LIST = [
   'AppUpdate:Status',
   'AppMenuAction',
   'ShutdownRequested',
+  'MainWindowFullscreenChanged',
 ] as const satisfies readonly PushChannel[];
 type _MissingPushChannels = AssertAllChannelsListed<
   Exclude<PushChannel, (typeof PUSH_CHANNEL_LIST)[number]>
@@ -184,6 +185,7 @@ const API: TimersAPI = {
   OnNotify: (Callback) => subscribe('Notify', Callback),
   OnAppMenuAction: (Callback) => subscribe('AppMenuAction', Callback),
   OnShutdownRequested: (Callback) => subscribe('ShutdownRequested', Callback),
+  OnWindowFullscreenChanged: (Callback) => subscribe('MainWindowFullscreenChanged', Callback),
   Shutdown: (Confirmed = false) => invoke('Shutdown', Confirmed),
 };
 

@@ -1,6 +1,7 @@
-// Offline shell for the Web Dashboard. Bumped with each page change (v4: groups), so a
-// browser holding the 1.x shell drops it on its next visit.
-const STATIC_CACHE = 'showtrak-dashboard-static-v4';
+// Offline shell for the Web Dashboard. Bumped with each change to how this
+// worker caches (v5: network first), so a browser drops the older shell on its
+// next visit.
+const STATIC_CACHE = 'showtrak-dashboard-static-v5';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -47,22 +48,22 @@ self.addEventListener('fetch', (event) => {
   // The live data comes over Socket.IO; never cache its transport.
   if (new URL(request.url).pathname.startsWith('/socket.io/')) return;
 
+  // Network first, the cache only when the host cannot be reached: a browser
+  // that has seen an older version is never shown its stale page code (cache
+  // first left a returning browser on the old dashboard.js until a second
+  // reload, which is how the groups went missing after an update).
   event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      const fetchPromise = fetch(request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.ok && networkResponse.type === 'basic') {
-            const cloned = networkResponse.clone();
-            caches
-              .open(STATIC_CACHE)
-              .then((cache) => cache.put(request, cloned))
-              .catch(() => {});
-          }
-          return networkResponse;
-        })
-        .catch(() => cachedResponse);
-
-      return cachedResponse || fetchPromise;
-    })
+    fetch(request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.ok && networkResponse.type === 'basic') {
+          const cloned = networkResponse.clone();
+          caches
+            .open(STATIC_CACHE)
+            .then((cache) => cache.put(request, cloned))
+            .catch(() => {});
+        }
+        return networkResponse;
+      })
+      .catch(() => caches.match(request).then((cached) => cached || Response.error()))
   );
 });

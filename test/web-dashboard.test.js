@@ -28,6 +28,7 @@ const {
   CreateWebDashboard,
   ToDashboardTimers,
   ToDashboardGroups,
+  ReadDashboardLayout,
   DASHBOARD_CSP,
 } = require('../dist/Modules/WebDashboard');
 const { io } = require('socket.io-client');
@@ -226,17 +227,27 @@ const DEFAULT_TIMERS = [
 
 async function startDashboard(
   t,
-  { Port, Enabled = true, Timers = DEFAULT_TIMERS, Groups = [], Bus = recordingBus() } = {}
+  {
+    Port,
+    Enabled = true,
+    Timers = DEFAULT_TIMERS,
+    Groups = [],
+    Layout = {},
+    Bus = recordingBus(),
+  } = {}
 ) {
   const UsePort = Port ?? (await freeTcpPort());
   const TimerManager = recordingManager({ GetAll: async () => Timers });
   const GroupManager = recordingManager({ GetAll: async () => Groups });
+  // Read at call time, so a test can change a setting and emit SettingsUpdated.
+  const SettingValues = {
+    WEB_ENABLE_DASHBOARD: Enabled,
+    WEB_DASHBOARD_PORT: UsePort,
+    WEB_DASHBOARD_BIND: LOOPBACK,
+    ...Layout,
+  };
   const Dashboard = CreateWebDashboard({
-    Settings: fakeSettings({
-      WEB_ENABLE_DASHBOARD: Enabled,
-      WEB_DASHBOARD_PORT: UsePort,
-      WEB_DASHBOARD_BIND: LOOPBACK,
-    }),
+    Settings: fakeSettings(SettingValues),
     Timers: TimerManager,
     Groups: GroupManager,
     Broadcast: Bus,
@@ -244,7 +255,7 @@ async function startDashboard(
   });
   t.after(() => Dashboard.Stop());
   const Started = await Dashboard.Start();
-  return { Dashboard, Port: UsePort, Bus, TimerManager, Started };
+  return { Dashboard, Port: UsePort, Bus, TimerManager, Started, SettingValues };
 }
 
 const url = (Port, Path) => `http://${LOOPBACK}:${Port}${Path}`;
@@ -256,7 +267,19 @@ function connect(t, Port) {
     reconnection: false,
     forceNew: true,
   });
-  const Client = { Socket, updates: [], groups: [], order: [], counts: [], disconnected: false };
+  const Client = {
+    Socket,
+    updates: [],
+    groups: [],
+    layouts: [],
+    order: [],
+    counts: [],
+    disconnected: false,
+  };
+  Socket.on('layout:update', (Layout) => {
+    Client.layouts.push(Layout);
+    Client.order.push('layout');
+  });
   Socket.on('timers:update', (List) => {
     Client.updates.push(List);
     Client.order.push('timers');
@@ -671,8 +694,9 @@ test('a timer read that fails leaves nothing listening', async (t) => {
 
 // --- Groups -------------------------------------------------------------------
 // The dashboard draws timers in their groups. Groups come as their own
-// 'groups:update' (title, order and colour only), sent before the first timers
-// push so the page never draws ungrouped and then jumps.
+// 'groups:update' (title, order, colour and width), with the desktop's group
+// layout settings as 'layout:update', both sent before the first timers push so
+// the page never draws ungrouped and then jumps.
 
 const GROUPS = [
   {
@@ -699,16 +723,42 @@ const GROUPS = [
 
 test('groups go out in display order with only what the page draws', () => {
   assert.deepEqual(ToDashboardGroups(GROUPS), [
-    { GroupID: 2, Title: 'Stage', Weight: 10, Colour: null },
-    { GroupID: 4, Title: 'FOH', Weight: 20, Colour: 1 },
+    { GroupID: 2, Title: 'Stage', Weight: 10, Colour: null, isFullWidth: false, ColumnSpan: 2 },
+    { GroupID: 4, Title: 'FOH', Weight: 20, Colour: 1, isFullWidth: true, ColumnSpan: 1 },
   ]);
 });
 
-test('a browser gets the groups, then the timers, on connecting', async (t) => {
-  const { Port } = await startDashboard(t, { Groups: GROUPS });
+test('a group with no width stored goes out full width', () => {
+  const [Sent] = ToDashboardGroups([
+    { GroupID: 1, Title: 'A', Weight: 1, Colour: null, ColumnSpan: 0 },
+  ]);
+  assert.equal(Sent.isFullWidth, true);
+  assert.equal(Sent.ColumnSpan, 1);
+});
+
+test("the layout is the desktop's group columns and colour saturation, clamped", async () => {
+  const Read = (Values) =>
+    ReadDashboardLayout({ GetValue: async (Key) => (Key in Values ? Values[Key] : null) });
+  assert.deepEqual(await Read({}), { GroupColumns: 2, GroupColourSaturation: 100 });
+  assert.deepEqual(await Read({ UI_GROUP_COLUMN_COUNT: 4, UI_GROUP_COLOUR_SATURATION: 35 }), {
+    GroupColumns: 4,
+    GroupColourSaturation: 35,
+  });
+  assert.deepEqual(await Read({ UI_GROUP_COLUMN_COUNT: 99, UI_GROUP_COLOUR_SATURATION: 400 }), {
+    GroupColumns: 6,
+    GroupColourSaturation: 100,
+  });
+});
+
+test('a browser gets the layout and groups, then the timers, on connecting', async (t) => {
+  const { Port } = await startDashboard(t, {
+    Groups: GROUPS,
+    Layout: { UI_GROUP_COLUMN_COUNT: 3, UI_GROUP_COLOUR_SATURATION: 50 },
+  });
   const Client = connect(t, Port);
   await waitFor(() => Client.updates.length > 0);
-  assert.deepEqual(Client.order.slice(0, 2), ['groups', 'timers']);
+  assert.deepEqual(Client.order.slice(0, 3), ['layout', 'groups', 'timers']);
+  assert.deepEqual(Client.layouts[0], { GroupColumns: 3, GroupColourSaturation: 50 });
   assert.deepEqual(
     Client.groups[0].map((G) => G.GroupID),
     [2, 4]
@@ -722,8 +772,40 @@ test('a group change is pushed straight away', async (t) => {
   Bus.emit('GroupsUpdated', [{ ...GROUPS[0], Title: 'Front of House' }]);
   await waitFor(() => Client.groups.length > 1);
   assert.deepEqual(Client.groups[1], [
-    { GroupID: 4, Title: 'Front of House', Weight: 20, Colour: 1 },
+    {
+      GroupID: 4,
+      Title: 'Front of House',
+      Weight: 20,
+      Colour: 1,
+      isFullWidth: true,
+      ColumnSpan: 1,
+    },
   ]);
+});
+
+test('a layout change is pushed, and a settings change that leaves it alone is not', async (t) => {
+  const { Port, Bus, SettingValues } = await startDashboard(t, {
+    Groups: GROUPS,
+    Layout: { UI_GROUP_COLUMN_COUNT: 2 },
+  });
+  const Client = connect(t, Port);
+  await waitFor(() => Client.layouts.length > 0);
+  SettingValues.UI_GROUP_COLUMN_COUNT = 3;
+  Bus.emit('SettingsUpdated');
+  await waitFor(() => Client.layouts.length > 1);
+  assert.deepEqual(Client.layouts[1], { GroupColumns: 3, GroupColourSaturation: 100 });
+  // Something else changed: no push.
+  SettingValues.WEB_DASHBOARD_BIND = LOOPBACK;
+  Bus.emit('SettingsUpdated');
+  await sleep(100);
+  assert.equal(Client.layouts.length, 2);
+});
+
+test('a stopped dashboard stops listening for settings changes', async (t) => {
+  const { Dashboard, Bus } = await startDashboard(t);
+  assert.equal(Bus.listenerCount('SettingsUpdated'), 1);
+  await Dashboard.Stop();
+  assert.equal(Bus.listenerCount('SettingsUpdated'), 0);
 });
 
 test('every timer says which group it is in (null for the Default group)', () => {

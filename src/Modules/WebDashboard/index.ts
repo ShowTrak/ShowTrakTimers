@@ -17,7 +17,12 @@ import { Manager as BroadcastManager } from '../Broadcast';
 import { Manager as AppSettings, type SettingsManagerShape } from '../SettingsManager';
 import { Manager as AppTimers, type TimerManager } from '../TimerManager';
 import { Manager as AppGroups, type GroupManager } from '../GroupManager';
-import { SortGroups, type GroupView } from '../../common/groups';
+import {
+  NormalizeColumnSpan,
+  ParseGroupColumnCount,
+  SortGroups,
+  type GroupView,
+} from '../../common/groups';
 import { DEFAULT_WEB_DASHBOARD_PORT } from '../Config/constants';
 import { DIST_ROOT } from '../Config/dist-root';
 import { Config } from '../Config';
@@ -90,6 +95,9 @@ export interface DashboardGroup {
   Title: string;
   Weight: number;
   Colour: number | null;
+  /** The group's width on the column grid, as the desktop lays it out. */
+  isFullWidth: boolean;
+  ColumnSpan: number;
 }
 
 export function ToDashboardGroups(Groups: GroupView[]): DashboardGroup[] {
@@ -98,7 +106,32 @@ export function ToDashboardGroups(Groups: GroupView[]): DashboardGroup[] {
     Title: G.Title,
     Weight: G.Weight,
     Colour: G.Colour,
+    isFullWidth: G.isFullWidth !== false,
+    ColumnSpan: NormalizeColumnSpan(G.ColumnSpan),
   }));
+}
+
+/**
+ * The desktop's group layout settings ('layout:update'), so the dashboard lays
+ * its groups out the same way: the column count, and how strongly group
+ * colours tint (0-100).
+ */
+export interface DashboardLayout {
+  GroupColumns: number;
+  GroupColourSaturation: number;
+}
+
+export async function ReadDashboardLayout(
+  Settings: Pick<SettingsManagerShape, 'GetValue'>
+): Promise<DashboardLayout> {
+  const Raw = await Settings.GetValue('UI_GROUP_COLOUR_SATURATION');
+  const Saturation = Raw === null || Raw === undefined || Raw === '' ? NaN : Number(Raw);
+  return {
+    GroupColumns: ParseGroupColumnCount(await Settings.GetValue('UI_GROUP_COLUMN_COUNT')),
+    GroupColourSaturation: Number.isFinite(Saturation)
+      ? Math.min(100, Math.max(0, Math.round(Saturation)))
+      : 100,
+  };
 }
 
 export interface WebDashboardOptions {
@@ -185,6 +218,7 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
   let PushTimer: ReturnType<typeof setTimeout> | null = null;
   let Latest: DashboardTimer[] = [];
   let LatestGroups: DashboardGroup[] = [];
+  let LatestLayout: DashboardLayout = { GroupColumns: 2, GroupColourSaturation: 100 };
   const Attempts = new Map<string, LoginAttempts>();
   const Now = Options.Now ?? (() => Date.now());
 
@@ -211,6 +245,22 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
     IO?.to(AUTHED_ROOM).emit('groups:update', LatestGroups);
   };
 
+  // Settings changed: push the layout only when it actually moved.
+  const OnSettingsUpdated = () => {
+    ReadDashboardLayout(Settings)
+      .then((Layout) => {
+        if (
+          Layout.GroupColumns === LatestLayout.GroupColumns &&
+          Layout.GroupColourSaturation === LatestLayout.GroupColourSaturation
+        ) {
+          return;
+        }
+        LatestLayout = Layout;
+        IO?.to(AUTHED_ROOM).emit('layout:update', LatestLayout);
+      })
+      .catch((Err) => Logger.error('Web Dashboard: reading the layout failed', Err));
+  };
+
   // The passcode in force, or null when the dashboard is open to anyone.
   async function RequiredPasscode(): Promise<string | null> {
     if (!(await Settings.GetValue('WEB_DASHBOARD_PASSWORD_PROTECTION_ENABLED'))) return null;
@@ -220,7 +270,8 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
 
   function Admit(Client: Socket): void {
     Client.join(AUTHED_ROOM);
-    // Groups first, so the first timers push is drawn in its groups.
+    // Layout and groups first, so the first timers push is drawn in its groups.
+    Client.emit('layout:update', LatestLayout);
     Client.emit('groups:update', LatestGroups);
     Client.emit('timers:update', Latest);
     AnnounceClientCount();
@@ -332,6 +383,7 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
       // The list a browser gets on connecting: ready before anyone can connect.
       Latest = ToDashboardTimers(await Timers.GetAll());
       LatestGroups = ToDashboardGroups(await Groups.GetAll());
+      LatestLayout = await ReadDashboardLayout(Settings);
       const Server = http.createServer(BuildApp());
       const Sockets = new SocketServer(Server, {
         cors: { origin: true, methods: ['GET'], credentials: false },
@@ -377,6 +429,7 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
       Bound = { Host, Port: (Server.address() as { port: number }).port };
       Broadcast.on('TimersUpdated', OnTimersUpdated);
       Broadcast.on('GroupsUpdated', OnGroupsUpdated);
+      Broadcast.on('SettingsUpdated', OnSettingsUpdated);
       Broadcast.on('WebDashboard:AuthChanged', OnAuthChanged);
       Logger.success(`Web Dashboard listening on http://${Host}:${Bound.Port}`);
       AnnounceClientCount();
@@ -386,6 +439,7 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
     async Stop(): Promise<[string | null, boolean | null]> {
       Broadcast.off('TimersUpdated', OnTimersUpdated);
       Broadcast.off('GroupsUpdated', OnGroupsUpdated);
+      Broadcast.off('SettingsUpdated', OnSettingsUpdated);
       Broadcast.off('WebDashboard:AuthChanged', OnAuthChanged);
       if (PushTimer) {
         clearTimeout(PushTimer);

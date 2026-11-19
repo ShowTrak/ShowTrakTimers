@@ -13,9 +13,17 @@ const assert = require('node:assert/strict');
 // Loaded from dist-test/ (see test/renderer-timer-tile.test.js for why).
 const {
   DASHBOARD_CACHE_KEY,
+  DASHBOARD_GROUPS_CACHE_KEY,
+  DASHBOARD_LAYOUT_CACHE_KEY,
   IsDashboardTimer,
+  NormalizeDashboardGroups,
+  NormalizeDashboardLayout,
   NormalizeDashboardTimer,
+  ReadCachedGroups,
+  ReadCachedLayout,
   ReadCachedTimers,
+  WriteCachedGroups,
+  WriteCachedLayout,
   WriteCachedTimers,
 } = require('../dist-test/UI/js/app/lib/dashboard-cache.js');
 const { BuildTileModel } = require('../dist-test/UI/js/app/lib/timer-tile.js');
@@ -290,4 +298,79 @@ test('a normalised 1.x payload draws the same tile as the equivalent 2.0 payload
   const New = NormalizeDashboardTimer(v2Payload({ Warning: false }));
   assert.deepEqual(BuildTileModel(Old, Old.ElapsedMs), BuildTileModel(New, New.ElapsedMs));
   assert.equal(BuildTileModel(Old, Old.ElapsedMs).Primary, '03:30');
+});
+
+// --- Groups and layout -----------------------------------------------------------
+// Cached too, so an offline reload still draws the timers in their groups.
+
+test('groups are normalised; a host from before group widths gets full-width groups', () => {
+  assert.deepEqual(
+    NormalizeDashboardGroups([
+      { GroupID: 2, Title: 'Stage', Weight: 10, Colour: null, isFullWidth: false, ColumnSpan: 2 },
+      { GroupID: 4, Title: 'FOH', Weight: 20, Colour: 1 },
+      { GroupID: 'x', Title: 'Bad' },
+      null,
+      'junk',
+    ]),
+    [
+      { GroupID: 2, Title: 'Stage', Weight: 10, Colour: null, isFullWidth: false, ColumnSpan: 2 },
+      { GroupID: 4, Title: 'FOH', Weight: 20, Colour: 1, isFullWidth: true, ColumnSpan: 1 },
+    ]
+  );
+  assert.deepEqual(NormalizeDashboardGroups(null), []);
+  assert.deepEqual(NormalizeDashboardGroups({ GroupID: 1 }), []);
+});
+
+test('a layout is clamped to what the desktop allows, and defaulted when missing', () => {
+  assert.deepEqual(NormalizeDashboardLayout(undefined), {
+    GroupColumns: 2,
+    GroupColourSaturation: 100,
+  });
+  assert.deepEqual(NormalizeDashboardLayout({ GroupColumns: 4, GroupColourSaturation: 0 }), {
+    GroupColumns: 4,
+    GroupColourSaturation: 0,
+  });
+  assert.deepEqual(NormalizeDashboardLayout({ GroupColumns: 40, GroupColourSaturation: -5 }), {
+    GroupColumns: 6,
+    GroupColourSaturation: 0,
+  });
+  assert.deepEqual(NormalizeDashboardLayout({ GroupColumns: 'two', GroupColourSaturation: null }), {
+    GroupColumns: 2,
+    GroupColourSaturation: 100,
+  });
+});
+
+test('groups and layout round-trip through the cache', () => {
+  const Storage = fakeStorage();
+  const Groups = NormalizeDashboardGroups([{ GroupID: 7, Title: 'Band', Weight: 1, Colour: 3 }]);
+  WriteCachedGroups(Storage, Groups);
+  WriteCachedLayout(Storage, { GroupColumns: 3, GroupColourSaturation: 40 });
+  assert.ok(Storage.Items.has(DASHBOARD_GROUPS_CACHE_KEY));
+  assert.ok(Storage.Items.has(DASHBOARD_LAYOUT_CACHE_KEY));
+  assert.deepEqual(ReadCachedGroups(Storage), Groups);
+  assert.deepEqual(ReadCachedLayout(Storage), { GroupColumns: 3, GroupColourSaturation: 40 });
+});
+
+test('a missing, corrupt or blocked groups cache degrades to no groups and the default layout', () => {
+  const Throwing = {
+    getItem: () => {
+      throw new Error('blocked');
+    },
+    setItem: () => {
+      throw new Error('full');
+    },
+  };
+  for (const Storage of [
+    null,
+    fakeStorage(),
+    fakeStorage({ [DASHBOARD_GROUPS_CACHE_KEY]: '{nope', [DASHBOARD_LAYOUT_CACHE_KEY]: '[' }),
+    Throwing,
+  ]) {
+    assert.deepEqual(ReadCachedGroups(Storage), []);
+    assert.deepEqual(ReadCachedLayout(Storage), { GroupColumns: 2, GroupColourSaturation: 100 });
+    assert.doesNotThrow(() => WriteCachedGroups(Storage, []));
+    assert.doesNotThrow(() =>
+      WriteCachedLayout(Storage, { GroupColumns: 2, GroupColourSaturation: 1 })
+    );
+  }
 });

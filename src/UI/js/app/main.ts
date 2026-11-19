@@ -20,6 +20,18 @@ import { wireAppUpdates } from './wire-app-updates';
 import { Notify } from './lib/toasts';
 import { HandleNonFatalError } from './utils';
 
+// As ShowTrak Server: on macOS the drag bar goes away in native full screen.
+// Subscribed before anything is awaited, so the state pushed when the window
+// finishes loading is never missed.
+const IsMacOS =
+  (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ===
+    'macOS' || /Mac/i.test(navigator.platform || '');
+if (IsMacOS) {
+  window.API.OnWindowFullscreenChanged((IsFullscreen) => {
+    document.body.classList.toggle('macos-native-fullscreen', Boolean(IsFullscreen));
+  });
+}
+
 async function Init(): Promise<void> {
   try {
     const Config = await window.API.GetConfig();

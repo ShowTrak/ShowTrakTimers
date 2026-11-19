@@ -6,18 +6,25 @@ import { PaintTileElement } from './lib/tile-dom';
 import { CreatePaintLoop } from './lib/paint-loop';
 import { BuildTileModel } from './lib/timer-tile';
 import {
+  NormalizeDashboardGroups,
+  NormalizeDashboardLayout,
   NormalizeDashboardTimer,
+  ReadCachedGroups,
+  ReadCachedLayout,
   ReadCachedTimers,
+  WriteCachedGroups,
+  WriteCachedLayout,
   WriteCachedTimers,
+  type DashboardGroupLike,
+  type DashboardLayoutLike,
   type DashboardTimerLike,
 } from './lib/dashboard-cache';
 import { IsTicking, type TimerView } from '../../../common/timers';
-import { GroupTintHex } from '../../../common/groups';
-import { BuildGroupSections, SectionsKey, type GroupLike } from './lib/group-layout';
+import { GetGroupSpan, GroupTintHex } from '../../../common/groups';
+import { BuildGroupSections, SectionsKey } from './lib/group-layout';
 
 let Anchored: AnchoredTimer<DashboardTimerLike>[] = [];
 let Online = false;
-let Groups: GroupLike[] = [];
 let LastTimers: DashboardTimerLike[] = [];
 let RenderedKey = '';
 
@@ -31,6 +38,18 @@ const Storage = (() => {
     return null;
   }
 })();
+
+// The last groups and layout seen, so an offline reload still draws the groups.
+let Groups: DashboardGroupLike[] = ReadCachedGroups(Storage);
+let Layout: DashboardLayoutLike = ReadCachedLayout(Storage);
+
+// The desktop's Group Colour Saturation, as its grid applies it.
+function ApplyLayout(): void {
+  document.documentElement.style.setProperty(
+    '--group-tint-scale',
+    String(Layout.GroupColourSaturation / 100)
+  );
+}
 
 function TileElement(Timer: DashboardTimerLike): HTMLElement {
   const El = document.createElement('div');
@@ -86,7 +105,10 @@ function Render(Timers: DashboardTimerLike[]): void {
   // before; otherwise one titled section per group that has timers on show.
   const Sections = BuildGroupSections(Groups, Timers, { IncludeEmptyGroups: false });
   const Plain = Sections.length <= 1 && Sections.every((S) => S.GroupID === null);
-  const Key = Plain ? `plain:${Timers.map((T) => T.ID).join(',')}` : SectionsKey(Sections);
+  const Columns = Layout.GroupColumns;
+  const Key = Plain
+    ? `plain:${Timers.map((T) => T.ID).join(',')}`
+    : `${Columns}|${SectionsKey(Sections)}`;
   if (Key !== RenderedKey) {
     RenderedKey = Key;
     const Existing = new Map<string, HTMLElement>();
@@ -98,12 +120,16 @@ function Render(Timers: DashboardTimerLike[]): void {
     const Fragment = document.createDocumentFragment();
     if (Plain) {
       Grid.className = 'timer-grid';
+      Grid.style.removeProperty('grid-template-columns');
       for (const Timer of Timers) Fragment.appendChild(Tile(Timer));
     } else {
+      // The desktop's group column grid: each group spans its own width.
       Grid.className = 'dashboard-groups';
+      Grid.style.gridTemplateColumns = `repeat(${Columns}, minmax(0, 1fr))`;
       for (const Section of Sections) {
         const El = document.createElement('section');
         El.className = 'dashboard-group';
+        El.style.gridColumn = `span ${GetGroupSpan(Section.Group as DashboardGroupLike | null, Columns)}`;
         const Tint = GroupTintHex(Section.Group);
         if (Tint) {
           El.classList.add('group-tinted');
@@ -137,6 +163,7 @@ function SetOnline(Value: boolean): void {
   SchedulePaint();
 }
 
+ApplyLayout();
 Render(ReadCachedTimers(Storage));
 SetOnline(false);
 
@@ -298,18 +325,15 @@ if (typeof io === 'function') {
   Socket.on('disconnect', () => SetOnline(false));
   Socket.on('connect_error', () => SetOnline(false));
   Socket.on('hello', (Hello: { PasswordProtection?: boolean; Authed?: boolean }) => OnHello(Hello));
+  Socket.on('layout:update', (Payload: unknown) => {
+    Layout = NormalizeDashboardLayout(Payload);
+    WriteCachedLayout(Storage, Layout);
+    ApplyLayout();
+    Render(LastTimers);
+  });
   Socket.on('groups:update', (Payload: unknown) => {
-    Groups = Array.isArray(Payload)
-      ? Payload.filter(
-          (G): G is GroupLike =>
-            !!G && typeof G === 'object' && typeof (G as GroupLike).GroupID === 'number'
-        ).map((G) => ({
-          GroupID: G.GroupID,
-          Title: String(G.Title ?? ''),
-          Weight: Number(G.Weight) || 0,
-          Colour: typeof G.Colour === 'number' ? G.Colour : null,
-        }))
-      : [];
+    Groups = NormalizeDashboardGroups(Payload);
+    WriteCachedGroups(Storage, Groups);
     Render(LastTimers);
   });
   Socket.on('timers:update', (Payload: unknown) => {

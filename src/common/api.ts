@@ -77,6 +77,7 @@ export const PUSH_CHANNELS = [
   'AppUpdate:Status',
   'AppMenuAction',
   'ShutdownRequested',
+  'MainWindowFullscreenChanged',
 ] as const;
 
 export type InvokeChannel = (typeof INVOKE_CHANNELS)[number];
@@ -337,6 +338,8 @@ export interface TimersAPI {
   OnNotify(Callback: (Message: string, Type: string, Duration: number | null) => void): Unsubscribe;
   OnAppMenuAction(Callback: (Action: string) => void): Unsubscribe;
   OnShutdownRequested(Callback: () => void): Unsubscribe;
+  /** The main window entered or left native full screen (and once on load). */
+  OnWindowFullscreenChanged(Callback: (IsFullscreen: boolean) => void): Unsubscribe;
   Shutdown(Confirmed?: boolean): Promise<void>;
 }
 
