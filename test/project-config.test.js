@@ -172,6 +172,7 @@ test('sources, tests and build tooling stay out of the package', () => {
     '/eslint.config.mjs',
     '/package-lock.json',
     '/README.md',
+    '/DEVELOPMENT.md',
     // The per-file main-process build is for the tests; the app runs the bundle.
     '/dist/main.js',
     '/dist/entry.js',
