@@ -59,7 +59,7 @@
     "vitest": "^3.0.4"
   },
   "dependencies": {
-    "bootstrap-icons": "^1.11.3",
+    "bootstrap-icons": "^1.13.2",
     "colors": "^1.4.0",
     "electron-squirrel-startup": "^1.0.1",
     "express": "^5.1.0",
