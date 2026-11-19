@@ -21,14 +21,36 @@ const {
 
 const VERSION = '2.1.0';
 
+// Every database a test opened is closed before any of its folders is removed:
+// a test that relaunches over the same folder has two open, and Windows will
+// not delete a file SQLite still holds (EPERM).
+const Workspaces = new WeakMap();
+
+function Workspace(t) {
+  let Entry = Workspaces.get(t);
+  if (!Entry) {
+    Entry = { Dbs: [], Temps: [] };
+    Workspaces.set(t, Entry);
+    t.after(async () => {
+      for (const Db of Entry.Dbs) await WithinMs(Db.Close(), 2000);
+      for (const Temp of Entry.Temps) Temp.cleanup();
+    });
+  }
+  return Entry;
+}
+
 function Setup(t, { Version = VERSION, Dir: ExistingDir } = {}) {
-  const Temp = ExistingDir ? { Dir: ExistingDir, cleanup() {} } : TempDir('st-timers-show-');
+  const Entry = Workspace(t);
+  const Temp = ExistingDir ? null : TempDir('st-timers-show-');
+  if (Temp) Entry.Temps.push(Temp);
+  const Dir = ExistingDir ?? Temp.Dir;
   const Paths = {
-    Working: path.join(Temp.Dir, 'Storage', 'DB.sqlite'),
-    State: path.join(Temp.Dir, 'Storage', 'state.json'),
-    Backups: path.join(Temp.Dir, 'Backups'),
+    Working: path.join(Dir, 'Storage', 'DB.sqlite'),
+    State: path.join(Dir, 'Storage', 'state.json'),
+    Backups: path.join(Dir, 'Backups'),
   };
   const Db = CreateWorkingDatabase(() => Paths.Working);
+  Entry.Dbs.push(Db);
   const Bus = RecordingBus();
   const Manager = CreateShowFileManager({
     Db,
@@ -37,11 +59,7 @@ function Setup(t, { Version = VERSION, Dir: ExistingDir } = {}) {
     StateFilePath: () => Paths.State,
     BackupsDirectory: () => Paths.Backups,
   });
-  t.after(async () => {
-    await WithinMs(Db.Close(), 2000);
-    Temp.cleanup();
-  });
-  return { Manager, Db, Bus, Dir: Temp.Dir, Paths, Show: (Name) => path.join(Temp.Dir, Name) };
+  return { Manager, Db, Bus, Dir, Paths, Show: (Name) => path.join(Dir, Name) };
 }
 
 async function AddTimer(Db, Name) {
