@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
+## [2.0.0-beta.6] - 2026-11-19
+
+### Added
+
+- On macOS the title bar hides while the window is in full screen, as in
+  ShowTrak Server.
+
+### Changed
+
+- The Web Dashboard lays groups out as the desktop does: each group's width on
+  the Group Columns grid, and the Group Colour Saturation setting. On a phone
+  every group is full width.
+- The Web Dashboard remembers the groups too, so a reload while the host is
+  unreachable still shows the timers in their groups.
+
+### Fixed
+
+- A browser that had opened the Web Dashboard before an update was shown the
+  old page code (without groups) until a second reload. The page now always
+  loads the current version when the host is reachable.
+
 ## [2.0.0-beta.5] - 2026-11-19
 
 ### Added
@@ -218,6 +239,7 @@ test, lint and release tooling, the same update system, and the same look.
 - Data storage:
   - SQLite-backed persistence layer and DB module foundation.
 
+[2.0.0-beta.6]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.5...v2.0.0-beta.6
 [2.0.0-beta.5]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.4...v2.0.0-beta.5
 [2.0.0-beta.4]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.3...v2.0.0-beta.4
 [2.0.0-beta.3]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.2...v2.0.0-beta.3
