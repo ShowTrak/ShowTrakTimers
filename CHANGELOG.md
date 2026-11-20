@@ -6,12 +6,25 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.0.2-beta.1] - 2026-11-20
+
+### Changed
+
+- Show files saved by this version cannot be opened by 2.0.1 or earlier, which
+  asks to update instead.
+
 ### Added
 
 - A new **World Clock** type: the host computer's time of day, in 12 or 24
   hour time, with optional hundredths. It is always running and has no run
   controls. The Web Dashboard shows the host's time rather than the browser's,
   so every screen shows the same clock.
+
+### Fixed
+
+- A long readout on the Web Dashboard (hundredths on a timer of an hour or
+  more) could run out of its tile in a narrow window or when zoomed in. It is
+  now sized to fit.
 
 ## [2.0.1] - 2026-11-19
 
@@ -350,7 +363,8 @@ test, lint and release tooling, the same update system, and the same look.
 - Data storage:
   - SQLite-backed persistence layer and DB module foundation.
 
-[Unreleased]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.2-beta.1...HEAD
+[2.0.2-beta.1]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.1...v2.0.2-beta.1
 [2.0.1]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/ShowTrak/ShowTrakTimers/compare/v1.2.0...v2.0.0
 [2.0.0-beta.7]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0-beta.6...v2.0.0-beta.7
