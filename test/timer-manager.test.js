@@ -81,6 +81,7 @@ test('Create with nothing set makes a five-minute TIMER with the documented defa
     WarningSound: null,
     WarningToast: false,
     ShowHundredths: false,
+    ClockFormat: '24H',
     GroupID: null,
     Status: 'STANDBY',
     ElapsedMs: 0,
@@ -468,6 +469,7 @@ test('ApplyPatch returns a new configuration and never changes the one it is giv
     WarningSound: null,
     WarningToast: false,
     ShowHundredths: false,
+    ClockFormat: '24H',
   });
   const Next = ApplyPatch(Current, { Name: 'B', Duration: 2000 });
   assert.notEqual(Next, Current);
@@ -1019,4 +1021,70 @@ test('Show Hundredths is off for a new timer, saved when set, and kept across a 
   assert.equal(Again.ShowHundredths, true);
   const [, Off] = await Ctx.Manager.Update(Created.ID, { ShowHundredths: 0 });
   assert.equal(Off.ShowHundredths, false);
+});
+
+// --- World Clock ----------------------------------------------------------------
+
+test('a World Clock is created running, keeps its format across a restart, and shows the host time', async (t) => {
+  const Temp = TempDatabase();
+  t.after(() => Temp.cleanup());
+  const Bus = RecordingBus();
+  let TimeOfDay = 9 * 3600 * 1000;
+  const Manager = CreateTimerManager({
+    Db: Temp.Db,
+    Broadcast: Bus,
+    Now: FakeClock(100000),
+    TimeOfDay: () => TimeOfDay,
+    AutoWatch: false,
+  });
+  t.after(() => Manager.Dispose());
+  const [Err, Clock] = await Manager.Create({ Type: 'CLOCK', ClockFormat: '12h' });
+  assert.equal(Err, null);
+  assert.equal(Clock.Type, 'CLOCK');
+  assert.equal(Clock.Duration, null, 'no duration, not the default five minutes');
+  assert.equal(Clock.ClockFormat, '12H');
+  assert.equal(Clock.Status, 'RUNNING');
+  assert.equal(Clock.ElapsedMs, TimeOfDay);
+  TimeOfDay += 1000;
+  assert.equal((await Manager.Get(Clock.ID)).ElapsedMs, TimeOfDay);
+
+  const Again = CreateTimerManager({
+    Db: Temp.Db,
+    Broadcast: RecordingBus(),
+    Now: FakeClock(0),
+    TimeOfDay: () => TimeOfDay,
+    AutoWatch: false,
+  });
+  const Reloaded = await Again.Get(Clock.ID);
+  assert.equal(Reloaded.ClockFormat, '12H');
+  assert.equal(Reloaded.Status, 'RUNNING', 'running again after a restart, with no Start');
+});
+
+test('a World Clock cannot be started, paused, stopped or jumped, singly, in a group or all at once', async (t) => {
+  const Ctx = await Setup(t);
+  const [, Clock] = await Ctx.Manager.Create({ Type: 'CLOCK' });
+  const [, Other] = await Ctx.Manager.Create({ Type: 'TIMER' });
+  for (const Action of ['Start', 'Pause', 'Unpause', 'Stop']) {
+    const [Err] = await Ctx.Manager.Control(Clock.ID, Action);
+    assert.match(Err, /World Clock/, Action);
+  }
+  const [JumpErr] = await Ctx.Manager.JumpTo(Clock.ID, 5000);
+  assert.match(JumpErr, /World Clock/);
+  assert.equal(await Ctx.Manager.ControlMany([Clock.ID], 'Stop'), 0);
+  assert.equal(await Ctx.Manager.ControlMany([Clock.ID], 'Start', { RestartRunning: true }), 0);
+  assert.equal(await Ctx.Manager.ControlAll('Start'), 1, 'only the timer starts');
+  assert.equal(await Ctx.Manager.ControlAll('Stop'), 1, 'only the timer stops');
+  assert.equal((await Ctx.Manager.Get(Clock.ID)).Status, 'RUNNING');
+  assert.equal((await Ctx.Manager.Get(Other.ID)).Status, 'STANDBY');
+});
+
+test('changing a timer to a World Clock and back runs it, then puts it in standby with a duration', async (t) => {
+  const Ctx = await Setup(t);
+  const [, Created] = await Ctx.Manager.Create({ Type: 'COUNTDOWN' });
+  const [, AsClock] = await Ctx.Manager.Update(Created.ID, { Type: 'CLOCK' });
+  assert.equal(AsClock.Status, 'RUNNING');
+  assert.equal(AsClock.Duration, null);
+  const [, Back] = await Ctx.Manager.Update(Created.ID, { Type: 'COUNTDOWN' });
+  assert.equal(Back.Status, 'STANDBY');
+  assert.equal(Back.Duration, DEFAULT_DURATION_MS);
 });

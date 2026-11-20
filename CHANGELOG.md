@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- A new **World Clock** type: the host computer's time of day, in 12 or 24
+  hour time, with optional hundredths. It is always running and has no run
+  controls. The Web Dashboard shows the host's time rather than the browser's,
+  so every screen shows the same clock.
+
 ## [2.0.1] - 2026-11-19
 
 ### Changed

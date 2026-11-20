@@ -2,6 +2,8 @@
 // debounce, toggles and dropdowns save at once) rather than having a Save
 // button; the header's close button just closes it.
 import {
+  CLOCK_FORMATS,
+  CLOCK_FORMAT_LABELS,
   END_BEHAVIOURS,
   END_BEHAVIOUR_LABELS,
   FormatDurationInput,
@@ -51,6 +53,7 @@ function ApplyVisibility(): void {
   $(`#${MODAL_ID} [data-timer-field="duration"]`).toggleClass('d-none', !Visible.Duration);
   $(`#${MODAL_ID} [data-timer-field="ending"]`).toggleClass('d-none', !Visible.Ending);
   $(`#${MODAL_ID} [data-timer-field="warning"]`).toggleClass('d-none', !Visible.Warning);
+  $(`#${MODAL_ID} [data-timer-field="clock"]`).toggleClass('d-none', !Visible.Clock);
   $('#TIMER_EDITOR_TYPE_HINT').text(TypeHint(Current.Type));
 }
 
@@ -133,6 +136,13 @@ function Populate(Timer: TimerView): void {
   $('#TIMER_EDITOR_DURATION').val(FormatDurationInput(Timer.Duration)).removeClass('is-invalid');
   $('#TIMER_EDITOR_SHOWONWEB').prop('checked', Timer.ShowOnWeb);
   $('#TIMER_EDITOR_HUNDREDTHS').prop('checked', Timer.ShowHundredths);
+  $('#TIMER_EDITOR_CLOCK_FORMAT')
+    .html(
+      CLOCK_FORMATS.map(
+        (Value) => `<option value="${Value}">${Safe(CLOCK_FORMAT_LABELS[Value])}</option>`
+      ).join('')
+    )
+    .val(Timer.ClockFormat);
   $('#TIMER_EDITOR_END_BEHAVIOUR').html(
     END_BEHAVIOURS.map(
       (Value) => `<option value="${Value}">${Safe(END_BEHAVIOUR_LABELS[Value])}</option>`
@@ -155,6 +165,7 @@ const SYNCED_FIELDS = [
   'Duration',
   'ShowOnWeb',
   'ShowHundredths',
+  'ClockFormat',
   'EndBehaviour',
   'CompletionSound',
   'CompletionToast',
@@ -271,6 +282,9 @@ export function InitTimerEditor(): void {
   });
   $('#TIMER_EDITOR_HUNDREDTHS').on('change', function () {
     void Save({ ShowHundredths: $(this).is(':checked') });
+  });
+  $('#TIMER_EDITOR_CLOCK_FORMAT').on('change', function () {
+    void Save({ ClockFormat: String($(this).val()) as TimerView['ClockFormat'] });
   });
   $('#TIMER_EDITOR_END_BEHAVIOUR').on('change', function () {
     void Save({ EndBehaviour: String($(this).val()) as TimerView['EndBehaviour'] });

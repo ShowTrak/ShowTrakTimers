@@ -116,6 +116,7 @@ test('a timer carries every 1.x field, plus the 2.0 additions, and nothing inter
     ElapsedMs: 61500,
     Warning: true,
     ShowHundredths: true,
+    ClockFormat: '24H',
     GroupID: 7,
     State: {
       ElapsedTime: 61500,

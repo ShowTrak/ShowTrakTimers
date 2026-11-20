@@ -34,6 +34,7 @@ const TIMER_COLUMNS = [
   'WarningToast',
   'ShowHundredths',
   'GroupID',
+  'ClockFormat',
 ];
 
 const GROUP_COLUMNS = [

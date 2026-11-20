@@ -135,6 +135,14 @@ export const Migrations: Migration[] = [
       )`);
     },
   },
+  {
+    Version: 6,
+    Name: 'World Clock format',
+    async Up(Db) {
+      // 12 or 24 hour time for a World Clock (Type 'CLOCK'); see common/timers.ts.
+      await Db.AddColumnIfMissing('Timers', 'ClockFormat', "TEXT NOT NULL DEFAULT '24H'");
+    },
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = Migrations[Migrations.length - 1]!.Version;

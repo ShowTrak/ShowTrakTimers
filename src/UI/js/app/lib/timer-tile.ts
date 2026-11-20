@@ -10,6 +10,7 @@ import type { TimerEventView } from '../../../../common/api';
 import {
   ComputeTimerDisplay,
   FormatRemaining,
+  IsClock,
   IsTicking,
   StatusLabel,
   type TimerStatus,
@@ -37,6 +38,7 @@ const TYPE_LABEL: Readonly<Record<TimerView['Type'], string>> = {
   TIMER: 'Timer',
   COUNTDOWN: 'Countdown',
   STOPWATCH: 'Stopwatch',
+  CLOCK: 'World Clock',
 };
 
 export function TypeLabel(Type: TimerView['Type']): string {
@@ -66,6 +68,9 @@ export function BuildTileModel(Timer: TimerView, ElapsedMs: number): TileModel {
   let StatusText = StatusLabel(Status);
   if (Status === 'STANDBY') StatusText = TypeLabel(Timer.Type);
 
+  // A World Clock is always running and has no run controls.
+  const Clock = IsClock(Timer.Type);
+
   return {
     ID: Timer.ID,
     Name: Timer.Name,
@@ -74,12 +79,14 @@ export function BuildTileModel(Timer: TimerView, ElapsedMs: number): TileModel {
     Progress: Display.Progress,
     StatusText,
     Classes,
-    Controls: {
-      Start: Status === 'STANDBY' || Status === 'COMPLETE',
-      Resume: Status === 'PAUSED',
-      Pause: IsTicking(Status),
-      Stop: Status !== 'STANDBY',
-    },
+    Controls: Clock
+      ? { Start: false, Resume: false, Pause: false, Stop: false }
+      : {
+          Start: Status === 'STANDBY' || Status === 'COMPLETE',
+          Resume: Status === 'PAUSED',
+          Pause: IsTicking(Status),
+          Stop: Status !== 'STANDBY',
+        },
     Ticking: IsTicking(Status),
   };
 }

@@ -284,3 +284,33 @@ test('every action row has a title and an icon', () => {
     assert.match(Row.Icon, /^bi-/, Row.Action);
   }
 });
+
+// --- World Clock ----------------------------------------------------------------
+
+test('a World Clock takes no run action, alone or in a mixed selection', () => {
+  const Clock = timer({ Type: 'CLOCK', Status: 'RUNNING' });
+  for (const Action of ['Start', 'Pause', 'Unpause', 'Stop']) {
+    assert.equal(SelectionActionApplies(Action, [Clock]), false, Action);
+  }
+  const Idle = timer({ Status: 'STANDBY' });
+  assert.equal(SelectionActionApplies('Start', [Clock, Idle]), true);
+  assert.equal(SelectionActionApplies('Pause', [Clock, Idle]), false);
+});
+
+test('a selection of only World Clocks offers no run actions at all', () => {
+  const Rows = BuildContextMenuRows({
+    Selected: [timer({ Type: 'CLOCK', Status: 'RUNNING' })],
+    TimerCount: 1,
+    Mode: 'SHOW',
+    Groups: [],
+  });
+  const Actions = Rows.map((R) => R.Action).filter(Boolean);
+  for (const Action of [
+    'SELECTION_START',
+    'SELECTION_PAUSE',
+    'SELECTION_RESUME',
+    'SELECTION_STOP',
+  ]) {
+    assert.ok(!Actions.includes(Action), Action);
+  }
+});

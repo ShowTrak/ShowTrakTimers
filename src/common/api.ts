@@ -5,7 +5,7 @@
 // source of truth: the main process may only register these, and the sandboxed
 // preload (src/bridge_main.ts) inlines the same lists, checked against these
 // types at compile time and by test/ipc-channels.test.js at runtime.
-import type { EndBehaviour, TimerStatus, TimerType, TimerView } from './timers';
+import type { ClockFormat, EndBehaviour, TimerStatus, TimerType, TimerView } from './timers';
 import type { GroupPatchView, GroupView } from './groups';
 
 export const INVOKE_CHANNELS = [
@@ -138,6 +138,7 @@ export interface TimerPatchView {
   WarningSound?: string | null;
   WarningToast?: boolean;
   ShowHundredths?: boolean;
+  ClockFormat?: ClockFormat;
   /** A group ID, or null for the Default group. */
   GroupID?: number | null;
 }

@@ -20,6 +20,10 @@ flow and design tokens.
 - **Timer**: counts up to a duration (shown as `elapsed / total`).
 - **Countdown**: counts down from a duration to zero.
 - **Stopwatch**: counts up with no end.
+- **World Clock**: the host computer's time of day, in 12 or 24 hour time. It
+  is always running and has no run controls (start, pause, resume and stop,
+  from the app or OSC, leave it alone). The Web Dashboard shows the host's
+  clock, not the browser's, so every screen agrees.
 - Start, pause, resume and stop from the tile, the menu, the keyboard or OSC.
 - Timing is measured against the clock, so timers never drift, however busy
   the machine is.

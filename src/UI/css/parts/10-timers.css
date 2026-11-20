@@ -478,6 +478,32 @@ body.web-dashboard {
   color: var(--text-strong);
   --timer-tile-min-width: 300px;
   --timer-readout-size: clamp(2.5rem, 7vw, 4rem);
+  /* Overridden on each readout by tile-dom.ts. */
+  --readout-chars: 5;
+}
+
+/* A readout as large as the page allows, but never wider than its tile: a long
+   one (a World Clock with hundredths, "12:59:59.99 PM") would otherwise run out
+   of a narrow tile, however the page is zoomed. The dashboard's tiles have no
+   run controls, so the readout takes the whole row (not just the name's
+   column, beside the status), and is the size container its text is measured
+   against. tile-dom.ts sets --readout-chars to the readout's length; 0.6em is a
+   little more than a bold tabular digit, so the estimate errs on the side of
+   fitting. */
+body.web-dashboard .SHOWTRAK_TIMER {
+  grid-template-areas:
+    'name head'
+    'readout readout'
+    'progress progress';
+}
+
+body.web-dashboard .timer-tile-readout {
+  container-type: inline-size;
+  width: 100%;
+}
+
+body.web-dashboard .timer-tile-primary {
+  font-size: min(var(--timer-readout-size), calc(100cqi / (var(--readout-chars) * 0.6)));
 }
 
 .dashboard-bar {

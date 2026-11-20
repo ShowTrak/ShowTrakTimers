@@ -19,7 +19,14 @@ function FakeNode(Attrs = {}) {
     Classes: new Set(),
     _text: '',
     children: [],
-    style: {},
+    style: {
+      // The readout's length (--readout-chars), kept like any other write.
+      setProperty(Name, Value) {
+        Node.Writes++;
+        Node.Props[Name] = Value;
+      },
+    },
+    Props: {},
     get textContent() {
       return this._text;
     },
@@ -169,4 +176,18 @@ test('a dashboard tile (no buttons) paints the same way', () => {
   PaintTileElement(Tile.El, BuildTileModel(Timer({ Type: 'TIMER' }), 90_000));
   assert.equal(Tile.Roles.primary.textContent, '01:30');
   assert.equal(Tile.Roles.secondary.textContent, '/ 05:00');
+});
+
+test("the readout's length is written for the dashboard to size it, only when it changes", () => {
+  const Tile = FakeTile({ Buttons: false });
+  const Clock = Timer({ Type: 'CLOCK', Duration: null, ClockFormat: '12H', ShowHundredths: true });
+  const At = (H, M, S) => ((H * 60 + M) * 60 + S) * 1000;
+  PaintTileElement(Tile.El, BuildTileModel(Clock, At(13, 5, 9)));
+  assert.equal(Tile.Roles.primary.textContent, '1:05:09.00 PM');
+  assert.equal(Tile.Roles.primary.Props['--readout-chars'], '13');
+  const Writes = Tile.Roles.primary.Writes;
+  PaintTileElement(Tile.El, BuildTileModel(Clock, At(13, 5, 10)));
+  assert.equal(Tile.Roles.primary.Writes, Writes + 1, 'the text only: same length');
+  PaintTileElement(Tile.El, BuildTileModel(Clock, At(22, 0, 0)));
+  assert.equal(Tile.Roles.primary.Props['--readout-chars'], '14');
 });

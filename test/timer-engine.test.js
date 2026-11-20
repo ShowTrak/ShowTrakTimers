@@ -877,3 +877,54 @@ test('a looping timer is due at the end of each loop', () => {
   T.Evaluate();
   assert.equal(T.MsUntilNextThreshold(), 750);
 });
+
+// --- World Clock ----------------------------------------------------------------
+
+function ClockTimer(TimeOfDay, Overrides = {}) {
+  const Clock = FakeClock(T0);
+  const T = new Timer(
+    Config({ Type: 'CLOCK', Duration: null, ClockFormat: '24H', ...Overrides }),
+    Clock,
+    () => TimeOfDay.Value
+  );
+  return { T, Clock };
+}
+
+test('a World Clock is running from the moment it exists and reads the time of day', () => {
+  const TimeOfDay = { Value: 12 * 3600 * 1000 };
+  const { T, Clock } = ClockTimer(TimeOfDay);
+  assert.equal(T.Status, 'RUNNING');
+  assert.equal(T.IsClock, true);
+  assert.equal(T.ElapsedMs(), TimeOfDay.Value);
+  TimeOfDay.Value += 2500;
+  Clock.Advance(99999);
+  // The wall clock, not the monotonic one.
+  assert.equal(T.ToView().ElapsedMs, 12 * 3600 * 1000 + 2500);
+  assert.equal(T.ToView().Warning, false);
+});
+
+test('a World Clock ignores every run control and never fires an event', () => {
+  const { T } = ClockTimer({ Value: 1000 });
+  assert.deepEqual(T.Start(), []);
+  assert.equal(T.Pause(), false);
+  assert.equal(T.Unpause(), null);
+  T.Stop();
+  assert.deepEqual(T.JumpTo(5000), []);
+  assert.equal(T.Status, 'RUNNING');
+  assert.deepEqual(T.Evaluate(), []);
+  assert.equal(T.MsUntilNextThreshold(), null);
+});
+
+test('a timer made into a World Clock runs; a World Clock made into a timer goes to standby', () => {
+  const Clock = FakeClock(T0);
+  const T = new Timer(Config({ Type: 'COUNTDOWN' }), Clock, () => 777);
+  T.Start();
+  Clock.Advance(3000);
+  T.Pause();
+  T.Reconfigure({ ...T.Config, Type: 'CLOCK', Duration: null });
+  assert.equal(T.Status, 'RUNNING');
+  assert.equal(T.ElapsedMs(), 777);
+  T.Reconfigure({ ...T.Config, Type: 'COUNTDOWN', Duration: 10000 });
+  assert.equal(T.Status, 'STANDBY');
+  assert.equal(T.ElapsedMs(), 0);
+});

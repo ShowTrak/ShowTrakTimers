@@ -8,13 +8,18 @@
 // as accurate as the clock, however often (or rarely) anything looks at it.
 import {
   HasDuration,
+  IsClock,
   IsTicking,
+  LocalTimeOfDayMs,
   type TimerConfig,
   type TimerStatus,
   type TimerView,
 } from '../../common/timers';
 
 export type Clock = () => number;
+
+/** The host's time of day, in ms since its local midnight (what a World Clock shows). */
+export type TimeOfDayClock = () => number;
 
 /** The shortest duration a LOOP timer loops at; shorter ones hold at the end. */
 export const MIN_LOOP_MS = 1000;
@@ -41,16 +46,29 @@ export class Timer {
 
   constructor(
     Config: TimerConfig,
-    private readonly Now: Clock
+    private readonly Now: Clock,
+    private readonly TimeOfDay: TimeOfDayClock = () => LocalTimeOfDayMs()
   ) {
     this.Config = Config;
+    // A World Clock is always running.
+    if (this.IsClock) this.Status = 'RUNNING';
   }
 
   get ID(): number {
     return this.Config.ID;
   }
 
+  /** A World Clock: no run control, always RUNNING, showing the time of day. */
+  get IsClock(): boolean {
+    return IsClock(this.Config.Type);
+  }
+
+  /**
+   * Elapsed time at `At`. A World Clock reads the host's time of day instead,
+   * from the wall clock (it follows the system time, unlike a timer).
+   */
   ElapsedMs(At: number = this.Now()): number {
+    if (this.IsClock) return this.TimeOfDay();
     const Running = this.SegmentStart === null ? 0 : Math.max(0, At - this.SegmentStart);
     return this.AccumulatedMs + Running;
   }
@@ -96,6 +114,21 @@ export class Timer {
     return Next;
   }
 
+  /**
+   * Take on a new configuration. A World Clock made into another type goes
+   * to standby (its "run" was only ever the time of day); a timer made into a
+   * World Clock starts running.
+   */
+  Reconfigure(Next: TimerConfig, At: number = this.Now()): void {
+    const WasClock = this.IsClock;
+    this.Config = Next;
+    if (WasClock && !this.IsClock) {
+      this.ResetRun();
+      this.Status = 'STANDBY';
+    }
+    this.Resettle(At);
+  }
+
   private Bank(At: number): void {
     this.AccumulatedMs = this.ElapsedMs(At);
     this.SegmentStart = null;
@@ -110,6 +143,7 @@ export class Timer {
 
   /** Start from zero, whatever the timer was doing (the 1.x Start semantics). */
   Start(At: number = this.Now()): TimerEvent[] {
+    if (this.IsClock) return [];
     this.ResetRun();
     this.Status = 'RUNNING';
     this.SegmentStart = At;
@@ -118,13 +152,14 @@ export class Timer {
 
   /** Back to standby at zero. */
   Stop(): void {
+    if (this.IsClock) return;
     this.ResetRun();
     this.Status = 'STANDBY';
   }
 
   /** Pause a running timer. Anything else is left alone (1.x paused idle timers). */
   Pause(At: number = this.Now()): boolean {
-    if (!IsTicking(this.Status)) return false;
+    if (this.IsClock || !IsTicking(this.Status)) return false;
     this.Bank(At);
     this.Status = 'PAUSED';
     return true;
@@ -148,6 +183,7 @@ export class Timer {
    * to be resumed (1.x set the time but left it in standby, where Start wiped it).
    */
   JumpTo(Ms: number, At: number = this.Now()): TimerEvent[] {
+    if (this.IsClock) return [];
     const Target = Number.isFinite(Ms) && Ms > 0 ? Math.floor(Ms) : 0;
     const WasTicking = IsTicking(this.Status);
     this.AccumulatedMs = Target;
@@ -163,6 +199,11 @@ export class Timer {
    * (by a jump or an edit) does not fire it after the fact.
    */
   Resettle(At: number = this.Now()): void {
+    if (this.IsClock) {
+      this.ResetRun();
+      this.Status = 'RUNNING';
+      return;
+    }
     const Target = this.TargetMs();
     const Elapsed = this.ElapsedMs(At);
     if (Target === null) {

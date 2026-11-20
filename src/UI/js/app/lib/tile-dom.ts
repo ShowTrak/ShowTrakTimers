@@ -26,6 +26,7 @@ interface TileParts {
   Text: Record<string, string>;
   Scale: string | null;
   NoBar: boolean | null;
+  Chars: number | null;
 }
 
 const Parts = new WeakMap<HTMLElement, TileParts>();
@@ -51,6 +52,7 @@ function PartsOf(El: HTMLElement): TileParts {
     Text: {},
     Scale: null,
     NoBar: null,
+    Chars: null,
   };
   Parts.set(El, Found);
   return Found;
@@ -82,6 +84,13 @@ export function PaintTileElement(
   SetText(P, 'Name', Model.Name);
   SetText(P, 'Status', Model.StatusText);
   SetText(P, 'Primary', Model.Primary);
+  // The readout's length, so a surface can size it to fit the tile (the Web
+  // Dashboard does, in 10-timers.css). Changes only when the length does.
+  const Chars = Model.Primary.length;
+  if (P.Primary && P.Chars !== Chars) {
+    P.Chars = Chars;
+    P.Primary.style.setProperty('--readout-chars', String(Chars));
+  }
   SetText(P, 'Secondary', Model.Secondary ? `/ ${Model.Secondary}` : '');
 
   const NoBar = Model.Progress === null;

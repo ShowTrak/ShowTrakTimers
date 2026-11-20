@@ -281,3 +281,19 @@ test('an event without a name falls back to the timer ID', () => {
   const Event = { Kind: 'complete', TimerID: 9, Name: '', Sound: null, Toast: true };
   assert.equal(DescribeTimerEvent(Event, undefined), 'Timer 9 has finished.');
 });
+
+// --- World Clock ----------------------------------------------------------------
+
+test('a World Clock tile is running, shows the time of day and has no run controls', () => {
+  const Model = BuildTileModel(
+    timer({ Type: 'CLOCK', Duration: null, Status: 'RUNNING', ClockFormat: '12H' }),
+    (15 * 60 + 4) * 60 * SECOND
+  );
+  assert.equal(Model.Primary, '3:04:00 PM');
+  assert.equal(Model.Secondary, null);
+  assert.equal(Model.Progress, null);
+  assert.equal(Model.Ticking, true);
+  assert.ok(Model.Classes.includes('RUNNING'));
+  assert.deepEqual(Model.Controls, { Start: false, Resume: false, Pause: false, Stop: false });
+  assert.equal(TypeLabel('CLOCK'), 'World Clock');
+});

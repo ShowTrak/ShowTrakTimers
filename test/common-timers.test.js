@@ -33,7 +33,7 @@ const HOUR = 60 * MIN;
 // --- Vocabulary --------------------------------------------------------------
 
 test('the type and end-behaviour lists are the documented ones, each with a label', () => {
-  assert.deepEqual([...TIMER_TYPES], ['TIMER', 'COUNTDOWN', 'STOPWATCH']);
+  assert.deepEqual([...TIMER_TYPES], ['TIMER', 'COUNTDOWN', 'STOPWATCH', 'CLOCK']);
   assert.deepEqual([...END_BEHAVIOURS], ['HOLD', 'OVERRUN', 'RESET', 'LOOP']);
   for (const Behaviour of END_BEHAVIOURS) {
     assert.equal(typeof END_BEHAVIOUR_LABELS[Behaviour], 'string');
@@ -53,7 +53,8 @@ test('NormalizeTimerType accepts any case and falls back to TIMER', () => {
   assert.equal(NormalizeTimerType('countdown'), 'COUNTDOWN');
   assert.equal(NormalizeTimerType('Stopwatch'), 'STOPWATCH');
   assert.equal(NormalizeTimerType('TIMER'), 'TIMER');
-  for (const Junk of [null, undefined, '', 'clock', 42, {}, 'COUNTDOWN ']) {
+  assert.equal(NormalizeTimerType('clock'), 'CLOCK');
+  for (const Junk of [null, undefined, '', 'world clock', 42, {}, 'COUNTDOWN ']) {
     assert.equal(NormalizeTimerType(Junk), 'TIMER', `for ${JSON.stringify(Junk)}`);
   }
 });
@@ -500,4 +501,69 @@ test('ComputeTimerDisplay shows hundredths on the main readout only when asked',
   assert.equal(Timers.ComputeTimerDisplay(Overrun, 62005).Primary, '+00:02.00');
   const Stopwatch = { Type: 'STOPWATCH', Duration: null, Status: 'PAUSED', ShowHundredths: true };
   assert.equal(Timers.ComputeTimerDisplay(Stopwatch, 4321).Primary, '00:04.32');
+});
+
+// --- World Clock ----------------------------------------------------------------
+
+test('a World Clock has no duration and is recognised in any case', () => {
+  assert.equal(Timers.HasDuration('CLOCK'), false);
+  assert.equal(Timers.IsClock('CLOCK'), true);
+  assert.equal(Timers.IsClock('TIMER'), false);
+  assert.equal(Timers.NormalizeDuration('CLOCK', 60000, { FallbackToDefault: true }), null);
+});
+
+test('NormalizeClockFormat accepts 12H or 24H in any case and falls back to 24H', () => {
+  assert.deepEqual([...Timers.CLOCK_FORMATS], ['24H', '12H']);
+  assert.equal(Timers.NormalizeClockFormat('12h'), '12H');
+  assert.equal(Timers.NormalizeClockFormat('24H'), '24H');
+  for (const Junk of [null, undefined, '', '12', 'AMPM', 42]) {
+    assert.equal(Timers.NormalizeClockFormat(Junk), '24H', `for ${JSON.stringify(Junk)}`);
+  }
+});
+
+test('FormatTimeOfDay reads as a 24 hour clock', () => {
+  const At = (H, M, S, Ms = 0) => ((H * 60 + M) * 60 + S) * 1000 + Ms;
+  assert.equal(Timers.FormatTimeOfDay(0, '24H'), '00:00:00');
+  assert.equal(Timers.FormatTimeOfDay(At(13, 5, 9, 999), '24H'), '13:05:09');
+  assert.equal(Timers.FormatTimeOfDay(At(23, 59, 59, 999), '24H', true), '23:59:59.99');
+  assert.equal(Timers.FormatTimeOfDay(At(7, 0, 0, 420), '24H', true), '07:00:00.42');
+});
+
+test('FormatTimeOfDay reads as a 12 hour clock, with 12 for midnight and noon', () => {
+  const At = (H, M, S, Ms = 0) => ((H * 60 + M) * 60 + S) * 1000 + Ms;
+  assert.equal(Timers.FormatTimeOfDay(0, '12H'), '12:00:00 AM');
+  assert.equal(Timers.FormatTimeOfDay(At(0, 30, 0), '12H'), '12:30:00 AM');
+  assert.equal(Timers.FormatTimeOfDay(At(11, 59, 59), '12H'), '11:59:59 AM');
+  assert.equal(Timers.FormatTimeOfDay(At(12, 0, 0), '12H'), '12:00:00 PM');
+  assert.equal(Timers.FormatTimeOfDay(At(13, 5, 9, 250), '12H', true), '1:05:09.25 PM');
+});
+
+test('FormatTimeOfDay wraps past midnight, as a clock animated across it does', () => {
+  const Day = Timers.MS_PER_DAY;
+  assert.equal(Timers.FormatTimeOfDay(Day + 1500, '24H'), '00:00:01');
+  assert.equal(Timers.FormatTimeOfDay(-1000, '24H'), '23:59:59');
+  assert.equal(Timers.FormatTimeOfDay(NaN, '24H'), '00:00:00');
+});
+
+test('LocalTimeOfDayMs is the time since local midnight', () => {
+  const At = new Date(2026, 10, 20, 14, 3, 7, 125).getTime();
+  assert.equal(Timers.LocalTimeOfDayMs(At), ((14 * 60 + 3) * 60 + 7) * 1000 + 125);
+});
+
+test('a World Clock displays its elapsed time as the time of day, with no bar', () => {
+  const Ms = ((18 * 60 + 45) * 60 + 30) * 1000 + 670;
+  const Clock = { Type: 'CLOCK', Duration: null, Status: 'RUNNING' };
+  assert.deepEqual(Timers.ComputeTimerDisplay({ ...Clock, ClockFormat: '24H' }, Ms), {
+    Primary: '18:45:30',
+    Secondary: null,
+    Progress: null,
+    OverrunMs: 0,
+    RemainingMs: null,
+  });
+  assert.equal(
+    Timers.ComputeTimerDisplay({ ...Clock, ClockFormat: '12H', ShowHundredths: true }, Ms).Primary,
+    '6:45:30.67 PM'
+  );
+  // No format (an older payload) reads as 24 hour.
+  assert.equal(Timers.ComputeTimerDisplay(Clock, Ms).Primary, '18:45:30');
 });

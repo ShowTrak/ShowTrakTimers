@@ -344,7 +344,7 @@ test("the timer editor's sections are exactly the ones timer-editor.ts shows and
   const InCode = new Set(
     [...source('timer-editor.ts').matchAll(/\[data-timer-field="([a-z]+)"\]/g)].map((M) => M[1])
   );
-  assert.deepEqual([...InHtml].sort(), ['duration', 'ending', 'warning']);
+  assert.deepEqual([...InHtml].sort(), ['clock', 'duration', 'ending', 'warning']);
   assert.deepEqual([...InCode].sort(), [...InHtml].sort());
 });
 

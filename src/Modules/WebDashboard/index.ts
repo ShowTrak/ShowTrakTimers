@@ -34,6 +34,7 @@ import {
   FormatElapsed,
   FormatRemaining,
   IsTicking,
+  NormalizeClockFormat,
   type TimerView,
 } from '../../common/timers';
 
@@ -53,6 +54,8 @@ export interface DashboardTimer {
   ElapsedMs: number;
   Warning: boolean;
   ShowHundredths: boolean;
+  /** 12 or 24 hour time, for a World Clock. */
+  ClockFormat: TimerView['ClockFormat'];
   /** The timer's group; null for the Default group. */
   GroupID: number | null;
   State: {
@@ -81,6 +84,7 @@ export function ToDashboardTimers(Timers: TimerView[]): DashboardTimer[] {
         ElapsedMs: T.ElapsedMs,
         Warning: T.Warning,
         ShowHundredths: T.ShowHundredths === true,
+        ClockFormat: NormalizeClockFormat(T.ClockFormat),
         GroupID: T.GroupID ?? null,
         State: {
           ElapsedTime: T.ElapsedMs,

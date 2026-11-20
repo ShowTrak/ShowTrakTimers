@@ -1,7 +1,7 @@
 // The Web Dashboard keeps the last list it received in localStorage, so a
 // browser that reloads while the host is unreachable still shows the timers
 // (greyed out, as offline) instead of a blank page. As in 1.x.
-import type { TimerView } from '../../../../common/timers';
+import { NormalizeClockFormat, TIMER_TYPES, type TimerView } from '../../../../common/timers';
 import {
   DEFAULT_GROUP_COLUMN_COUNT,
   NormalizeColumnSpan,
@@ -45,6 +45,7 @@ export type DashboardTimerLike = Pick<
   TimerView,
   'ID' | 'Name' | 'Type' | 'Duration' | 'Status' | 'ElapsedMs' | 'Warning' | 'ShowHundredths'
 > &
+  Partial<Pick<TimerView, 'ClockFormat'>> &
   Partial<Pick<TimerView, 'Weight' | 'GroupID'>>;
 
 export function IsDashboardTimer(Value: unknown): Value is DashboardTimerLike {
@@ -62,7 +63,7 @@ export function NormalizeDashboardTimer(Value: Record<string, unknown>): Dashboa
   return {
     ID: Number(Value.ID),
     Name: String(Value.Name ?? ''),
-    Type: (['TIMER', 'COUNTDOWN', 'STOPWATCH'].includes(String(Value.Type))
+    Type: (TIMER_TYPES.includes(String(Value.Type) as TimerView['Type'])
       ? Value.Type
       : 'TIMER') as TimerView['Type'],
     Duration: typeof Value.Duration === 'number' ? Value.Duration : null,
@@ -70,6 +71,7 @@ export function NormalizeDashboardTimer(Value: Record<string, unknown>): Dashboa
     ElapsedMs: Number.isFinite(Elapsed) ? Elapsed : 0,
     Warning: Value.Warning === true,
     ShowHundredths: Value.ShowHundredths === true,
+    ClockFormat: NormalizeClockFormat(Value.ClockFormat),
     // Only when there is one: an absent weight stays absent.
     ...(Value.Weight !== undefined && Number.isFinite(Weight) ? { Weight } : {}),
     // A host from before groups sends none: every timer is then in the Default group.

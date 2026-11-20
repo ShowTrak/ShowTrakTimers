@@ -83,6 +83,7 @@ export function CreateOSC(Options: OscOptions = {}) {
       const Timer = await Timers.Get(ID);
       if (!Timer) return 'Timer not found';
       if (Timer.Type === 'STOPWATCH') return 'A stopwatch has no duration';
+      if (Timer.Type === 'CLOCK') return 'A World Clock has no duration';
       const [Err] = await Timers.Update(ID, { Duration: Ms });
       return Err;
     },

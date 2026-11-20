@@ -3,7 +3,12 @@
 // shows. No Node, Electron or DOM dependencies: this file is compiled into the
 // main process by tsc and bundled into both renderers by esbuild.
 
-export type TimerType = 'TIMER' | 'COUNTDOWN' | 'STOPWATCH';
+// CLOCK is a World Clock: the host computer's time of day. It has no run
+// control and is always RUNNING.
+export type TimerType = 'TIMER' | 'COUNTDOWN' | 'STOPWATCH' | 'CLOCK';
+
+// How a World Clock shows the time.
+export type ClockFormat = '24H' | '12H';
 
 // OVERRUN is a timer still running past its duration (EndBehaviour OVERRUN).
 export type TimerStatus = 'STANDBY' | 'RUNNING' | 'PAUSED' | 'COMPLETE' | 'OVERRUN';
@@ -15,7 +20,16 @@ export type TimerStatus = 'STANDBY' | 'RUNNING' | 'PAUSED' | 'COMPLETE' | 'OVERR
 //   LOOP     start again from zero
 export type EndBehaviour = 'HOLD' | 'OVERRUN' | 'RESET' | 'LOOP';
 
-export const TIMER_TYPES: readonly TimerType[] = ['TIMER', 'COUNTDOWN', 'STOPWATCH'];
+export const TIMER_TYPES: readonly TimerType[] = ['TIMER', 'COUNTDOWN', 'STOPWATCH', 'CLOCK'];
+export const CLOCK_FORMATS: readonly ClockFormat[] = ['24H', '12H'];
+export const DEFAULT_CLOCK_FORMAT: ClockFormat = '24H';
+
+export const CLOCK_FORMAT_LABELS: Readonly<Record<ClockFormat, string>> = {
+  '24H': '24 Hour (13:30:00)',
+  '12H': '12 Hour (1:30:00 PM)',
+};
+
+export const MS_PER_DAY = 24 * 60 * 60 * 1000;
 export const END_BEHAVIOURS: readonly EndBehaviour[] = ['HOLD', 'OVERRUN', 'RESET', 'LOOP'];
 
 export const END_BEHAVIOUR_LABELS: Readonly<Record<EndBehaviour, string>> = {
@@ -49,6 +63,8 @@ export interface TimerConfig {
   WarningToast: boolean;
   /** Show hundredths of a second (mm:ss.cc). */
   ShowHundredths: boolean;
+  /** 12 or 24 hour time, for a World Clock (kept, but unused, by other types). */
+  ClockFormat: ClockFormat;
   /** The group the timer is in; null for the Default group. */
   GroupID: number | null;
 }
@@ -60,7 +76,11 @@ export interface TimerConfig {
  */
 export interface TimerView extends TimerConfig {
   Status: TimerStatus;
-  /** Elapsed running time when the snapshot was taken. */
+  /**
+   * Elapsed running time when the snapshot was taken. For a World Clock, the
+   * host's time of day (ms since its local midnight), so every surface animates
+   * the host's clock rather than its own.
+   */
   ElapsedMs: number;
   /** True while inside the warning window before the end. */
   Warning: boolean;
@@ -68,7 +88,25 @@ export interface TimerView extends TimerConfig {
 
 export function NormalizeTimerType(Value: unknown): TimerType {
   const Upper = String(Value || '').toUpperCase();
-  return Upper === 'COUNTDOWN' || Upper === 'STOPWATCH' ? Upper : 'TIMER';
+  return Upper === 'COUNTDOWN' || Upper === 'STOPWATCH' || Upper === 'CLOCK' ? Upper : 'TIMER';
+}
+
+export function NormalizeClockFormat(Value: unknown): ClockFormat {
+  const Upper = String(Value || '').toUpperCase();
+  return Upper === '12H' || Upper === '24H' ? Upper : DEFAULT_CLOCK_FORMAT;
+}
+
+/** True for a World Clock, which shows the time of day and cannot be controlled. */
+export function IsClock(Type: TimerType): boolean {
+  return Type === 'CLOCK';
+}
+
+/** Milliseconds since local midnight at the epoch time `Epoch`. */
+export function LocalTimeOfDayMs(Epoch: number = Date.now()): number {
+  const At = new Date(Epoch);
+  return (
+    ((At.getHours() * 60 + At.getMinutes()) * 60 + At.getSeconds()) * 1000 + At.getMilliseconds()
+  );
 }
 
 export function NormalizeEndBehaviour(Value: unknown): EndBehaviour {
@@ -85,7 +123,7 @@ export function NormalizeGroupID(Value: unknown): number | null {
 
 /** True for the types that run towards a duration. */
 export function HasDuration(Type: TimerType): boolean {
-  return Type !== 'STOPWATCH';
+  return Type !== 'STOPWATCH' && Type !== 'CLOCK';
 }
 
 /**
@@ -162,6 +200,29 @@ export function FormatRemaining(Ms: number, Hundredths = false): string {
 }
 
 /**
+ * A time of day (ms since midnight; wraps past a day) as a clock reads:
+ * 13:05:09 in 24 hour time, 1:05:09 PM in 12 hour time, with ".cc" for
+ * hundredths. Rounded down, as a clock ticks.
+ */
+export function FormatTimeOfDay(
+  Ms: number,
+  Format: ClockFormat = DEFAULT_CLOCK_FORMAT,
+  Hundredths = false
+): string {
+  const Value = Number.isFinite(Ms) ? Math.floor(Ms) : 0;
+  const Day = ((Value % MS_PER_DAY) + MS_PER_DAY) % MS_PER_DAY;
+  const TotalSeconds = Math.floor(Day / 1000);
+  const Hours = Math.floor(TotalSeconds / 3600);
+  const Clock = `${Pad2(Math.floor((TotalSeconds % 3600) / 60))}:${Pad2(TotalSeconds % 60)}`;
+  const Fraction = Hundredths ? `.${Pad2(Math.floor((Day % 1000) / 10))}` : '';
+  if (Format === '12H') {
+    const Hour12 = Hours % 12 === 0 ? 12 : Hours % 12;
+    return `${Hour12}:${Clock}${Fraction} ${Hours < 12 ? 'AM' : 'PM'}`;
+  }
+  return `${Pad2(Hours)}:${Clock}${Fraction}`;
+}
+
+/**
  * Parse what an operator types as a duration: "90" (seconds), "5:00", "1:30:00",
  * or with units ("1h 30m", "90s", "2m30s"). Returns milliseconds, or null when
  * it is not a duration.
@@ -230,10 +291,22 @@ export interface TimerDisplay {
  * state is clamped to it.
  */
 export function ComputeTimerDisplay(
-  Timer: Pick<TimerView, 'Type' | 'Duration' | 'Status'> & { ShowHundredths?: boolean },
+  Timer: Pick<TimerView, 'Type' | 'Duration' | 'Status'> & {
+    ShowHundredths?: boolean;
+    ClockFormat?: ClockFormat;
+  },
   ElapsedMs: number
 ): TimerDisplay {
   const H = Timer.ShowHundredths === true;
+  if (IsClock(Timer.Type)) {
+    return {
+      Primary: FormatTimeOfDay(Number(ElapsedMs) || 0, NormalizeClockFormat(Timer.ClockFormat), H),
+      Secondary: null,
+      Progress: null,
+      OverrunMs: 0,
+      RemainingMs: null,
+    };
+  }
   const Elapsed = Math.max(0, Number(ElapsedMs) || 0);
   const Duration =
     HasDuration(Timer.Type) && typeof Timer.Duration === 'number' && Timer.Duration >= 0

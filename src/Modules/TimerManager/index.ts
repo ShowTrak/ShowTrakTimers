@@ -14,9 +14,12 @@ import { Manager as BroadcastManager } from '../Broadcast';
 import { Manager as AppDb, type Database } from '../DB';
 import { TIMER_RESYNC_INTERVAL_MS } from '../Config/constants';
 import {
+  DEFAULT_CLOCK_FORMAT,
   DEFAULT_DURATION_MS,
+  HasDuration,
   IsTicking,
   MAX_DURATION_MS,
+  NormalizeClockFormat,
   NormalizeDuration,
   NormalizeEndBehaviour,
   NormalizeGroupID,
@@ -26,13 +29,13 @@ import {
   type TimerType,
   type TimerView,
 } from '../../common/timers';
-import { Timer, type Clock, type TimerEvent } from './timer';
+import { Timer, type Clock, type TimeOfDayClock, type TimerEvent } from './timer';
 import { AppClock } from './clock';
 import { NormalizeSoundRef } from '../../common/sounds';
 import { Manager as AppShowLock, LockMethods, type ShowLock } from '../ShowLock';
 
 export { Timer } from './timer';
-export type { Clock, TimerEvent } from './timer';
+export type { Clock, TimeOfDayClock, TimerEvent } from './timer';
 
 const Logger = CreateLogger('Timers');
 
@@ -55,6 +58,7 @@ interface TimerRow {
   WarningSound: string | null;
   WarningToast: number | boolean | null;
   ShowHundredths: number | boolean | null;
+  ClockFormat: string | null;
   GroupID: number | null;
 }
 
@@ -72,6 +76,7 @@ export interface TimerPatch {
   WarningSound?: unknown;
   WarningToast?: unknown;
   ShowHundredths?: unknown;
+  ClockFormat?: unknown;
   /** A group ID, or null for the Default group. Callers check the group exists. */
   GroupID?: unknown;
 }
@@ -90,6 +95,8 @@ export interface TimerManagerOptions {
   Db?: Database;
   Broadcast?: { emit(Event: string, ...Args: unknown[]): unknown };
   Now?: Clock;
+  /** The host's time of day, for World Clocks (tests pin it). */
+  TimeOfDay?: TimeOfDayClock;
   /** Whether to run the watch loop (off in tests that drive Evaluate by hand). */
   AutoWatch?: boolean;
   /** The lock every write to the show takes (see Modules/ShowLock). */
@@ -120,6 +127,7 @@ function FromRow(Row: TimerRow): TimerConfig {
     WarningSound: NormalizeSoundRef(Row.WarningSound),
     WarningToast: !!Row.WarningToast,
     ShowHundredths: !!Row.ShowHundredths,
+    ClockFormat: NormalizeClockFormat(Row.ClockFormat),
     GroupID: NormalizeGroupID(Row.GroupID),
   };
 }
@@ -158,6 +166,7 @@ export function ApplyPatch(Current: TimerConfig, Patch: TimerPatch): TimerConfig
   if (Patch.WarningSound !== undefined) Next.WarningSound = NormalizeSoundRef(Patch.WarningSound);
   if (Patch.WarningToast !== undefined) Next.WarningToast = !!Patch.WarningToast;
   if (Patch.ShowHundredths !== undefined) Next.ShowHundredths = !!Patch.ShowHundredths;
+  if (Patch.ClockFormat !== undefined) Next.ClockFormat = NormalizeClockFormat(Patch.ClockFormat);
   if (Patch.GroupID !== undefined) Next.GroupID = NormalizeGroupID(Patch.GroupID);
   return Next;
 }
@@ -176,6 +185,7 @@ function DefaultConfig(): Omit<TimerConfig, 'ID' | 'Weight'> {
     WarningSound: null,
     WarningToast: false,
     ShowHundredths: false,
+    ClockFormat: DEFAULT_CLOCK_FORMAT,
     GroupID: null,
   };
 }
@@ -184,6 +194,8 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
   const Db = Options.Db ?? AppDb;
   const Broadcast = Options.Broadcast ?? BroadcastManager;
   const Now: Clock = Options.Now ?? (() => performance.now());
+  const TimeOfDay = Options.TimeOfDay;
+  const MakeTimer = (Config: TimerConfig) => new Timer(Config, Now, TimeOfDay);
   const AutoWatch = Options.AutoWatch ?? true;
   const Lock = Options.Lock ?? AppShowLock;
 
@@ -307,7 +319,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
       );
       if (Err) throw Err;
       await NormalizeWeights(Rows || []);
-      Timers = (Rows || []).map((Row) => new Timer(FromRow(Row), Now));
+      Timers = (Rows || []).map((Row) => MakeTimer(FromRow(Row)));
       Sorted();
       Loaded = true;
     })();
@@ -322,7 +334,8 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
     const [Err] = await Db.Run(
       `UPDATE Timers SET Type = ?, Name = ?, Description = ?, Duration = ?, ShowOnWeb = ?,
         EndBehaviour = ?, CompletionSound = ?, CompletionToast = ?, WarningMs = ?,
-        WarningSound = ?, WarningToast = ?, ShowHundredths = ?, GroupID = ? WHERE ID = ?`,
+        WarningSound = ?, WarningToast = ?, ShowHundredths = ?, ClockFormat = ?, GroupID = ?
+        WHERE ID = ?`,
       [
         Config.Type,
         Config.Name,
@@ -336,6 +349,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
         Config.WarningSound,
         Config.WarningToast ? 1 : 0,
         Config.ShowHundredths ? 1 : 0,
+        Config.ClockFormat,
         Config.GroupID,
         Config.ID,
       ]
@@ -376,13 +390,14 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
       const Config = ApplyPatch({ ID: 0, Weight, ...DefaultConfig() }, Patch);
       // A new countdown/timer with no usable duration gets the default rather
       // than an endless timer nobody asked for.
-      if (Config.Duration === null && Config.Type !== 'STOPWATCH' && Patch.Duration === undefined) {
+      if (Config.Duration === null && HasDuration(Config.Type) && Patch.Duration === undefined) {
         Config.Duration = DEFAULT_DURATION_MS;
       }
       const [Err, Res] = await Db.Run(
         `INSERT INTO Timers (Type, Name, Description, Duration, Weight, TextAlert, AudioAlert,
           ShowOnWeb, EndBehaviour, CompletionSound, CompletionToast, WarningMs, WarningSound,
-          WarningToast, ShowHundredths, GroupID) VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          WarningToast, ShowHundredths, ClockFormat, GroupID)
+          VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           Config.Type,
           Config.Name,
@@ -397,12 +412,13 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
           Config.WarningSound,
           Config.WarningToast ? 1 : 0,
           Config.ShowHundredths ? 1 : 0,
+          Config.ClockFormat,
           Config.GroupID,
         ]
       );
       if (Err || !Res) return [Err?.message || 'Failed to create the timer', null];
       Config.ID = Res.lastID;
-      const T = new Timer(Config, Now);
+      const T = MakeTimer(Config);
       Timers.push(T);
       Sorted();
       Logger.log(`Timer ${Config.ID} created (${Config.Name})`);
@@ -421,8 +437,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
       // lands just after the warning point, before the watch loop has woken for
       // it, must not swallow the warning.
       Emit(T.Evaluate());
-      T.Config = Next;
-      T.Resettle();
+      T.Reconfigure(Next);
       Emit(T.Evaluate());
       Announce();
       EnsureWatching();
@@ -479,6 +494,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
       await Load();
       const T = Find(ID);
       if (!T) return ['Timer not found', null];
+      if (T.IsClock) return ['A World Clock is always running and cannot be controlled', null];
       RunControl(T, Action);
       Announce();
       EnsureWatching();
@@ -489,6 +505,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
       await Load();
       const T = Find(ID);
       if (!T) return ['Timer not found', null];
+      if (T.IsClock) return ['A World Clock always shows the time of day', null];
       const Value = Number(Ms);
       if (!Number.isFinite(Value) || Value < 0) return ['Invalid time', null];
       // No further than the longest duration a timer can have (99:59:59).
@@ -655,6 +672,8 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
 
   // Returns whether the action changed anything.
   function RunControl(T: Timer, Action: ControlAction): boolean {
+    // A World Clock has no run control: it is always running.
+    if (T.IsClock) return false;
     switch (Action) {
       case 'Start':
         Emit(T.Start());

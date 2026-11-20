@@ -2,7 +2,7 @@
 // a callback, so the rules are tested without a DOM
 // (test/renderer-context-menu-model.test.js). context-menu.ts draws the rows
 // and runs the actions. The row shapes are ShowTrak Server's.
-import type { TimerView } from '../../../../common/timers';
+import { IsClock, type TimerView } from '../../../../common/timers';
 import { DEFAULT_GROUP_TITLE, type GroupView } from '../../../../common/groups';
 import type { AppMode } from '../../../../common/api';
 import { SHORTCUT_KEYS } from './shortcuts';
@@ -57,6 +57,8 @@ export function SelectionActionApplies(
   Action: 'Start' | 'Pause' | 'Unpause' | 'Stop',
   Timers: readonly TimerView[]
 ): boolean {
+  // A World Clock has no run control.
+  Timers = Timers.filter((T) => !IsClock(T.Type));
   switch (Action) {
     case 'Start':
       return Timers.some(CanStart);
@@ -91,7 +93,9 @@ export function BuildContextMenuRows(Input: ContextMenuInput): ContextMenuRow[] 
       ['SELECTION_RESUME', 'Unpause', 'Resume', 'bi-play-fill', SHORTCUT_KEYS.Resume],
       ['SELECTION_STOP', 'Stop', 'Stop', 'bi-stop-fill', SHORTCUT_KEYS.Stop],
     ];
-    for (const [Action, Control, Title, Icon, Shortcut] of Transport) {
+    // Only World Clocks selected: there is nothing to start, pause or stop.
+    const Controllable = Selected.some((T) => !IsClock(T.Type));
+    for (const [Action, Control, Title, Icon, Shortcut] of Controllable ? Transport : []) {
       Rows.push({
         Type: 'Action',
         Action,

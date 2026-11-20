@@ -19,7 +19,7 @@ test('a timer or countdown with a duration shows the duration and ending section
   for (const Type of ['TIMER', 'COUNTDOWN']) {
     assert.deepEqual(
       EditorFieldVisibility({ Type, Duration: FIVE_MINUTES, WarningMs: null }),
-      { Duration: true, Ending: true, Warning: false },
+      { Duration: true, Ending: true, Warning: false, Clock: false },
       Type
     );
   }
@@ -29,7 +29,7 @@ test('the warning sound and notification appear once a warning lead time is set'
   for (const Type of ['TIMER', 'COUNTDOWN']) {
     assert.deepEqual(
       EditorFieldVisibility({ Type, Duration: FIVE_MINUTES, WarningMs: 30_000 }),
-      { Duration: true, Ending: true, Warning: true },
+      { Duration: true, Ending: true, Warning: true, Clock: false },
       Type
     );
   }
@@ -51,6 +51,7 @@ test('a timer without a duration counts up with no end, so nothing about ending 
     Duration: true,
     Ending: false,
     Warning: false,
+    Clock: false,
   });
 });
 
@@ -59,6 +60,7 @@ test('a zero-length duration is still a duration, so it has an end', () => {
     Duration: true,
     Ending: true,
     Warning: false,
+    Clock: false,
   });
 });
 
@@ -68,8 +70,18 @@ test('a stopwatch shows neither a duration nor anything about ending', () => {
       Duration: false,
       Ending: false,
       Warning: false,
+      Clock: false,
     });
   }
+});
+
+test('a World Clock shows only its time format: no duration and nothing about ending', () => {
+  assert.deepEqual(EditorFieldVisibility({ Type: 'CLOCK', Duration: null, WarningMs: 30_000 }), {
+    Duration: false,
+    Ending: false,
+    Warning: false,
+    Clock: true,
+  });
 });
 
 test('each timer type has a one-sentence hint', () => {
