@@ -10,6 +10,7 @@ import { Manager as AppSettings, type SettingsManagerShape } from '../SettingsMa
 import { Manager as AppTimers, type TimerManager } from '../TimerManager';
 import { Manager as AppGroups, type GroupManager } from '../GroupManager';
 import { DEFAULT_GROUP_SLUG, DEFAULT_GROUP_TITLE, EffectiveGroupID } from '../../common/groups';
+import { IsArray } from '../../common/guards';
 import { DEFAULT_OSC_PORT } from '../Config/constants';
 import { DescribeError, IsTransientNetworkError } from '@showtrak/protocol/runtime';
 import { MatchRoute, ROUTES, type OscRouteContext } from './routes';
@@ -115,7 +116,7 @@ export function CreateOSC(Options: OscOptions = {}) {
   };
 
   async function HandleMessage(Message: unknown): Promise<void> {
-    if (!Array.isArray(Message) || typeof Message[0] !== 'string') return;
+    if (!IsArray(Message) || typeof Message[0] !== 'string') return;
     const [Address, ...Args] = Message as [string, ...unknown[]];
     const Match = MatchRoute(Address, Args);
     if (!Match) {
@@ -143,7 +144,7 @@ export function CreateOSC(Options: OscOptions = {}) {
   async function HandleBundle(Bundle: OscBundle, Depth = 0): Promise<void> {
     if (!Bundle || !Array.isArray(Bundle.elements) || Depth > 8) return;
     for (const Element of Bundle.elements) {
-      if (Array.isArray(Element)) await HandleMessage(Element);
+      if (IsArray(Element)) await HandleMessage(Element);
       else await HandleBundle(Element as OscBundle, Depth + 1);
     }
   }
@@ -182,7 +183,7 @@ export function CreateOSC(Options: OscOptions = {}) {
       const Port = Number(await Settings.GetValue('OSC_PORT')) || DEFAULT_OSC_PORT;
       const Host = String((await Settings.GetValue('OSC_BIND')) || '0.0.0.0');
       const ServerClass: OscServerConstructor =
-        Options.ServerClass ?? (require('node-osc').Server as OscServerConstructor);
+        Options.ServerClass ?? (require('node-osc') as typeof import('node-osc')).Server;
       try {
         Bound = { Host, Port };
         const Instance = new ServerClass(Port, Host, () => {

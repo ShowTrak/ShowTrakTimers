@@ -17,14 +17,15 @@ import {
 } from '@showtrak/protocol/runtime';
 import { Manager as AppDataManager } from '../AppData';
 
-const pc = require('picocolors');
+import pc from 'picocolors';
 
 const fsp = fs.promises;
 
 let IsInInstallation = false;
 try {
   // In install/update phase for Electron apps, avoid file I/O noise.
-  IsInInstallation = require('electron-squirrel-startup');
+  IsInInstallation =
+    require('electron-squirrel-startup') as typeof import('electron-squirrel-startup');
 } catch {
   IsInInstallation = false;
 }
@@ -213,7 +214,7 @@ class Logger {
   }
   databaseError(...args: unknown[]): void {
     args.forEach((arg) =>
-      writeLine(this.Alias, 'Database', arg instanceof Error ? arg : pc.red(arg), 'error')
+      writeLine(this.Alias, 'Database', arg instanceof Error ? arg : pc.red(String(arg)), 'error')
     );
   }
   child(suffix: string): Logger {

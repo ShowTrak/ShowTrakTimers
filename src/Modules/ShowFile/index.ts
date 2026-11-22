@@ -22,6 +22,7 @@ import { CompareVersions, WriteAndSyncFileSync } from '../Utils';
 import { DefaultSettings } from '../SettingsManager/DefaultSettings';
 import { LATEST_SCHEMA_VERSION } from '../DB/schema';
 import { Manager as AppShowLock, type ShowLock } from '../ShowLock';
+import { IsRecord } from '../../common/guards';
 
 // Machine settings 2.0 betas stored in the database: not show data, so they
 // alone never call for a Save As.
@@ -129,11 +130,11 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
     try {
       const StatePath = StateFilePath();
       if (!fs.existsSync(StatePath)) return { CurrentFilePath: null, Unsaved: false };
-      const State = JSON.parse(fs.readFileSync(StatePath, 'utf8'));
+      const State: unknown = JSON.parse(fs.readFileSync(StatePath, 'utf8'));
+      const Saved: Record<string, unknown> = IsRecord(State) ? State : {};
       return {
-        CurrentFilePath:
-          State && typeof State.CurrentFilePath === 'string' ? State.CurrentFilePath : null,
-        Unsaved: !!(State && State.Unsaved === true),
+        CurrentFilePath: typeof Saved.CurrentFilePath === 'string' ? Saved.CurrentFilePath : null,
+        Unsaved: Saved.Unsaved === true,
       };
     } catch (Err) {
       Logger.error('Failed to read which show file was open:', Err);

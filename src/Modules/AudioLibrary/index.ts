@@ -9,6 +9,7 @@ import crypto from 'crypto';
 import { CreateLogger } from '../Logger';
 import { Manager as AppData } from '../AppData';
 import { WriteAndSyncFileSync } from '../Utils';
+import { IsArray, IsRecord } from '../../common/guards';
 
 const Logger = CreateLogger('AudioLibrary');
 
@@ -60,6 +61,19 @@ const MIME_BY_EXTENSION: Record<string, string> = {
 
 // The file name Import gives a sound: its id and its extension.
 const STORED_FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9-]*\.[a-z0-9]{1,8}$/;
+
+// A manifest entry worth keeping. The manifest is this library's own file, so
+// beyond the id and file name its entries are taken as written.
+function IsStoredSound(Value: unknown): Value is StoredSound {
+  return (
+    IsRecord(Value) &&
+    typeof Value.ID === 'string' &&
+    typeof Value.FileName === 'string' &&
+    // Only names this library writes ("<id>.<ext>"): a manifest entry
+    // can never point out of the folder, or at the folder itself.
+    STORED_FILE_NAME.test(Value.FileName)
+  );
+}
 
 export function SanitizeLabel(Input: unknown): string {
   const Cleaned = String(Input ?? '')
@@ -124,18 +138,8 @@ export function CreateAudioLibrary(Directory: () => string = () => AppData.GetAu
     if (Loaded) return;
     fs.mkdirSync(Directory(), { recursive: true });
     try {
-      const Parsed = JSON.parse(fs.readFileSync(ManifestPath(), 'utf8'));
-      Sounds = Array.isArray(Parsed)
-        ? Parsed.filter(
-            (S: StoredSound) =>
-              S &&
-              typeof S.ID === 'string' &&
-              typeof S.FileName === 'string' &&
-              // Only names this library writes ("<id>.<ext>"): a manifest entry
-              // can never point out of the folder, or at the folder itself.
-              STORED_FILE_NAME.test(S.FileName)
-          )
-        : [];
+      const Parsed: unknown = JSON.parse(fs.readFileSync(ManifestPath(), 'utf8'));
+      Sounds = IsArray(Parsed) ? Parsed.filter(IsStoredSound) : [];
     } catch (Err) {
       if ((Err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
         Logger.error('Failed to read the sound library manifest; starting empty', Err);

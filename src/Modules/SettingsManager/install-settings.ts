@@ -6,6 +6,7 @@ import path from 'path';
 import fs from 'fs';
 import { Manager as AppDataManager } from '../AppData';
 import { WriteAndSyncFileSync } from '../Utils';
+import { IsRecord } from '../../common/guards';
 
 export interface InstallSettingsStore {
   /** Every stored value. An unreadable or corrupt file reads as empty. */
@@ -23,8 +24,8 @@ export function CreateInstallSettingsStore(
 ): InstallSettingsStore {
   function ReadAll(): Record<string, unknown> {
     try {
-      const Parsed = JSON.parse(fs.readFileSync(GetFilePath(), 'utf8'));
-      return Parsed && typeof Parsed === 'object' && !Array.isArray(Parsed) ? Parsed : {};
+      const Parsed: unknown = JSON.parse(fs.readFileSync(GetFilePath(), 'utf8'));
+      return IsRecord(Parsed) ? Parsed : {};
     } catch {
       return {};
     }

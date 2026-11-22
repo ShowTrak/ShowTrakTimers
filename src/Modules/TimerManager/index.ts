@@ -33,6 +33,7 @@ import { Timer, type Clock, type TimeOfDayClock, type TimerEvent } from './timer
 import { AppClock } from './clock';
 import { NormalizeSoundRef } from '../../common/sounds';
 import { Manager as AppShowLock, LockMethods, type ShowLock } from '../ShowLock';
+import { IsArray } from '../../common/guards';
 
 export { Timer } from './timer';
 export type { Clock, TimeOfDayClock, TimerEvent } from './timer';
@@ -472,7 +473,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
     /** Put the timers in the given order (IDs not listed keep their place after). */
     async Reorder(IDs: unknown): Promise<Result<true>> {
       await Load();
-      if (!Array.isArray(IDs)) return ['Invalid order', null];
+      if (!IsArray(IDs)) return ['Invalid order', null];
       const Wanted = IDs.map(Number).filter((ID) => Timers.some((T) => T.ID === ID));
       const Rest = Timers.map((T) => T.ID).filter((ID) => !Wanted.includes(ID));
       const Order = [...new Set([...Wanted, ...Rest])];
@@ -560,7 +561,8 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
      */
     async Arrange(Layout: readonly TimerPlacement[]): Promise<Result<true>> {
       await Load();
-      if (!Array.isArray(Layout)) return ['Invalid arrangement', null];
+      // IsArray rather than Array.isArray, which would retype the entries as any.
+      if (!IsArray(Layout)) return ['Invalid arrangement', null];
       const Placements = new Map<number, number | null>();
       for (const Entry of Layout) {
         const ID = Number(Entry?.ID);

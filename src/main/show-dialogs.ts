@@ -6,6 +6,7 @@ import type { OpenDialogOptions, SaveDialogOptions } from 'electron';
 import { Manager as AppDataManager } from '../Modules/AppData';
 import { SHOW_FILE_EXTENSION, WithShowFileExtension } from '../Modules/ShowFile';
 import { getMainWindow, hasMainWindow } from './app-window';
+import { IsRecord } from '../common/guards';
 
 const SHOW_FILE_FILTER = { name: 'ShowTrak Timers Show File', extensions: [SHOW_FILE_EXTENSION] };
 
@@ -15,7 +16,8 @@ function DirectoryStorePath(): string {
 
 function LastDirectory(): string | undefined {
   try {
-    const Dir = JSON.parse(fs.readFileSync(DirectoryStorePath(), 'utf8'))?.show;
+    const Stored: unknown = JSON.parse(fs.readFileSync(DirectoryStorePath(), 'utf8'));
+    const Dir = IsRecord(Stored) ? Stored.show : undefined;
     return typeof Dir === 'string' && fs.existsSync(Dir) ? Dir : undefined;
   } catch {
     return undefined;

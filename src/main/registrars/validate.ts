@@ -2,6 +2,7 @@
 // `unknown`; these narrow it or throw a ValidationError, which the registrars
 // turn into an `[Error, null]` result rather than an exception in the renderer.
 import type { ControlAction } from '../../common/api';
+import { IsArray, IsRecord } from '../../common/guards';
 
 export class ValidationError extends Error {}
 
@@ -26,15 +27,13 @@ export function Action(Value: unknown): ControlAction {
 
 export function PlainObject(Value: unknown, Label = 'payload'): Record<string, unknown> {
   if (Value === undefined || Value === null) return {};
-  if (typeof Value !== 'object' || Array.isArray(Value)) {
-    throw new ValidationError(`Invalid ${Label}`);
-  }
-  return Value as Record<string, unknown>;
+  if (!IsRecord(Value)) throw new ValidationError(`Invalid ${Label}`);
+  return Value;
 }
 
 /** A timer list (a selection): at least one, each a valid ID. */
 export function TimerIDs(Value: unknown): number[] {
-  if (!Array.isArray(Value) || Value.length === 0 || Value.length > 10000) {
+  if (!IsArray(Value) || Value.length === 0 || Value.length > 10000) {
     throw new ValidationError('Invalid timer list');
   }
   return [...new Set(Value.map(TimerID))];
@@ -55,13 +54,13 @@ export function GroupRef(Value: unknown): number | null {
 }
 
 export function GroupIDList(Value: unknown): number[] {
-  if (!Array.isArray(Value) || Value.length > 10000) throw new ValidationError('Invalid order');
+  if (!IsArray(Value) || Value.length > 10000) throw new ValidationError('Invalid order');
   return Value.map(GroupID);
 }
 
 /** Timers in their groups, in order (dragging tiles between groups). */
 export function Placements(Value: unknown): Array<{ ID: number; GroupID: number | null }> {
-  if (!Array.isArray(Value) || Value.length > 10000) {
+  if (!IsArray(Value) || Value.length > 10000) {
     throw new ValidationError('Invalid arrangement');
   }
   return Value.map((Entry) => {

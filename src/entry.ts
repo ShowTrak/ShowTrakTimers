@@ -13,7 +13,7 @@ import { HandleSquirrelFileAssociations } from './main/file-associations';
 const { app } = require('electron/main') as typeof import('electron/main');
 
 HandleSquirrelFileAssociations();
-if (require('electron-squirrel-startup')) {
+if (require('electron-squirrel-startup') as typeof import('electron-squirrel-startup')) {
   app.quit();
 } else {
   require('./main');

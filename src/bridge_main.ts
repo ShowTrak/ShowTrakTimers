@@ -3,10 +3,10 @@
 // This is a SANDBOXED preload script. Its `require` can only resolve Electron
 // built-ins, not local files, so the channel allowlists are inlined here rather
 // than imported from src/common/api.ts. That file stays the source of truth and
-// drift is a COMPILE error: the imports below are type-only (erased from the
-// emitted JS), `satisfies` rejects an entry that is not a known channel, and the
-// _Missing* aliases reject a known channel missing from these lists.
-const { contextBridge, ipcRenderer } = require('electron');
+// drift is a COMPILE error: the imports from it below are type-only (erased from
+// the emitted JS), `satisfies` rejects an entry that is not a known channel, and
+// the _Missing* aliases reject a known channel missing from these lists.
+import { contextBridge, ipcRenderer } from 'electron';
 import type { InvokeChannel, PushChannel, TimersAPI } from './common/api';
 
 type AssertAllChannelsListed<T extends never> = T;
@@ -91,7 +91,9 @@ const PUSH_CHANNELS = new Set<string>(PUSH_CHANNEL_LIST);
 
 function invoke<T = unknown>(Channel: InvokeChannel, ...Args: unknown[]): Promise<T> {
   if (!INVOKE_CHANNELS.has(Channel)) throw new Error(`Blocked invoke channel: ${Channel}`);
-  return ipcRenderer.invoke(Channel, ...Args);
+  // Electron leaves the reply untyped; what each channel resolves to is the
+  // contract's (T is inferred from TimersAPI at each call below).
+  return ipcRenderer.invoke(Channel, ...Args) as Promise<T>;
 }
 
 // Subscribe to a push channel; returns the unsubscribe function. The Electron

@@ -9,6 +9,7 @@ import { CreateLogger } from '../Logger';
 import { Manager as BroadcastManager } from '../Broadcast';
 import { Manager as AppDb, type Database } from '../DB';
 import { Manager as AppShowLock, LockMethods, type ShowLock } from '../ShowLock';
+import { IsArray } from '../../common/guards';
 import {
   DEFAULT_GROUP_SLUG,
   NormalizeColour,
@@ -293,7 +294,7 @@ export function CreateGroupManager(Options: GroupManagerOptions = {}) {
     /** Put the groups in this order (IDs not listed keep their place after). */
     async Reorder(IDs: unknown): Promise<Result<true>> {
       await Load();
-      if (!Array.isArray(IDs)) return ['Invalid order', null];
+      if (!IsArray(IDs)) return ['Invalid order', null];
       const Wanted = [...new Set(IDs.map(Number))].filter((ID) => Find(ID));
       const Order = [
         ...Wanted,

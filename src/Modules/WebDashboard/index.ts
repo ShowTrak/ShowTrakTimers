@@ -27,6 +27,7 @@ import {
   type GroupView,
 } from '../../common/groups';
 import { DEFAULT_WEB_DASHBOARD_PORT } from '../Config/constants';
+import { IsRecord } from '../../common/guards';
 import { DIST_ROOT } from '../Config/dist-root';
 import { Config } from '../Config';
 import {
@@ -229,6 +230,12 @@ export function ClientAddress(Raw: string | undefined | null): string {
   return Address.startsWith('::ffff:') ? Address.slice(7) : Address;
 }
 
+// Socket.IO passes an acknowledgement callback as the last argument when the
+// browser asked for a reply (anything else there is just what it sent).
+function IsAck(Value: unknown): Value is (Result: LoginResult) => void {
+  return typeof Value === 'function';
+}
+
 // Constant-time comparison (both sides hashed to a fixed width first).
 export function PasscodeMatches(Input: string, Expected: string): boolean {
   const A = crypto.createHash('sha256').update(Input, 'utf8').digest();
@@ -307,8 +314,9 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
   function ReadSessionKey(): string | null {
     if (!SessionKeyFile) return null;
     try {
-      const Saved = JSON.parse(fs.readFileSync(SessionKeyFile(), 'utf8'));
-      return typeof Saved?.Key === 'string' && /^[0-9a-f]{48}$/.test(Saved.Key) ? Saved.Key : null;
+      const Saved: unknown = JSON.parse(fs.readFileSync(SessionKeyFile(), 'utf8'));
+      const Key = IsRecord(Saved) ? Saved.Key : undefined;
+      return typeof Key === 'string' && /^[0-9a-f]{48}$/.test(Key) ? Key : null;
     } catch {
       return null;
     }
@@ -609,7 +617,7 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
       Client.on('auth:login', (Payload: unknown, Ack: unknown) => {
         Login(Client, Payload)
           .then((Result) => {
-            if (typeof Ack === 'function') Ack(Result);
+            if (IsAck(Ack)) Ack(Result);
           })
           .catch((Err) => Logger.error('Web Dashboard: login failed', Err));
       });

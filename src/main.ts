@@ -48,6 +48,7 @@ app.on('open-file', (Event, FilePath) => {
 }
 
 import path from 'path';
+import { IsArray } from './common/guards';
 import {
   MAIN_WINDOW_READY_TIMEOUT_MS,
   PRELOADER_MIN_DISPLAY_MS,
@@ -327,7 +328,7 @@ async function OnReady(): Promise<void> {
       }
       MainWindow.show();
       try {
-        require('node:module').flushCompileCache?.();
+        (require('node:module') as typeof import('node:module')).flushCompileCache?.();
       } catch {
         /* best-effort, like enabling it */
       }
@@ -383,7 +384,7 @@ app.on('second-instance', (_Event, Argv, WorkingDirectory, Data) => {
     argv?: unknown;
     cwd?: unknown;
   };
-  const FromData = Array.isArray(Handed.argv) ? (Handed.argv as unknown[]).slice(1) : null;
+  const FromData = IsArray(Handed.argv) ? Handed.argv.slice(1) : null;
   const Cwd = typeof Handed.cwd === 'string' ? Handed.cwd : WorkingDirectory;
   const FilePath = ShowFileFromArgv(FromData ?? Argv.slice(1), Cwd);
   FocusMainWindow();
