@@ -294,7 +294,8 @@ Used by packaging and CI when signing/notarization is enabled:
 - `shared/` - `@showtrak/protocol`, runtime shared with ShowTrak Server (git submodule)
 - `test/` - Node test runner suite
 - `forge.config.ts` - Electron Forge packaging/maker/signing configuration
-- `eslint.config.ts` - lint rules
+- `eslint.config.ts` - lint rules (type-aware for the TypeScript: no `any`,
+  explicit or implicit)
 
 Everything under `src/` is TypeScript; the tests and build scripts are
 JavaScript. Each surface is type-checked against its own environment by

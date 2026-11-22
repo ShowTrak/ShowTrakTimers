@@ -59,15 +59,43 @@ export default defineConfig([
     // TypeScript: the app's source (main process, modules, bridges, renderer,
     // splash window, service worker) and the Forge and ESLint configs.
     files: ['**/*.ts'],
+    // The submodule (ignored above) belongs to none of the projects below, so
+    // it stays out of this block too.
+    ignores: ['shared/**'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended, prettier],
     languageOptions: {
       globals: { ...globals.browser, ...globals.node },
+      parserOptions: {
+        // Linted with type information: every TypeScript file here belongs to
+        // one of these programs (see `npm run typecheck`).
+        project: [
+          './tsconfig.json',
+          './tsconfig.renderer.json',
+          './tsconfig.preloader.json',
+          './tsconfig.service-worker.json',
+          './tsconfig.tooling.json',
+        ],
+        tsconfigRootDir: __dirname,
+      },
     },
     rules: {
       'no-empty': ['error', { allowEmptyCatch: true }],
       // No explicit `any`: if you truly need a dynamic value, use `unknown` and
       // narrow it.
       '@typescript-eslint/no-explicit-any': 'error',
+      // No implicit `any` either. Whatever arrives as `any` (an untyped
+      // require(), JSON.parse, an Electron or jQuery callback argument) is typed,
+      // as `unknown` or by the contract in src/common/api.ts, and narrowed (see
+      // src/common/guards.ts) before it is used.
+      '@typescript-eslint/no-unsafe-assignment': 'error',
+      '@typescript-eslint/no-unsafe-member-access': 'error',
+      '@typescript-eslint/no-unsafe-call': 'error',
+      '@typescript-eslint/no-unsafe-return': 'error',
+      '@typescript-eslint/no-unsafe-argument': 'error',
+      '@typescript-eslint/no-unsafe-function-type': 'error',
+      '@typescript-eslint/no-unsafe-declaration-merging': 'error',
+      '@typescript-eslint/no-unsafe-enum-comparison': 'error',
+      '@typescript-eslint/no-unsafe-unary-minus': 'error',
       // Electron and a few CommonJS-only packages are loaded with require().
       '@typescript-eslint/no-require-imports': 'off',
       // jQuery handler patterns legitimately alias `this` (e.g. into rAF closures).
