@@ -1,11 +1,11 @@
 // IPC: show files (New, Open, Save, Save As, the upgrade and missing-file
 // checks), as ShowTrak Server's show registrar. Results are [Error, Value]
 // tuples; a cancelled picker is the error 'Cancelled By User'.
-import path from 'path';
 import { RPC } from '../rpc';
 import { ConsumeTakenShowFileRequest, TakeShowFileRequest } from '../file-associations';
 import { Manager as ShowFile, ShowFileDisplayName } from '../../Modules/ShowFile';
 import { Manager as AppData } from '../../Modules/AppData';
+import { IsSamePath } from '../../Modules/Utils';
 import { PickShowFileToOpen, PickShowFileToSave } from '../show-dialogs';
 import { Guard } from './validate';
 import type {
@@ -14,13 +14,6 @@ import type {
 } from '@showtrak/protocol/timers';
 
 export const CANCELLED = 'Cancelled By User';
-
-function SamePath(A: string | null, B: string | null): boolean {
-  if (!A || !B) return false;
-  const Key = (P: string) =>
-    process.platform === 'linux' ? path.resolve(P) : path.resolve(P).toLowerCase();
-  return Key(A) === Key(B);
-}
 
 export function register(): void {
   RPC.handle('Show:GetCurrentFile', async () => ShowFile.GetCurrentFilePath());
@@ -79,7 +72,7 @@ export function register(): void {
     Guard(async () => {
       const Request = TakeShowFileRequest();
       if (!Request) return [null, null];
-      if (SamePath(Request.FilePath, ShowFile.GetCurrentFilePath())) {
+      if (IsSamePath(Request.FilePath, ShowFile.GetCurrentFilePath())) {
         ConsumeTakenShowFileRequest();
         return [null, null];
       }

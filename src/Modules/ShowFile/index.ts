@@ -18,7 +18,7 @@ import { Manager as AppDb, type WorkingDatabase, ReadShowFileInfo } from '../DB'
 import { Manager as AppDataManager } from '../AppData';
 import { Manager as BroadcastManager } from '../Broadcast';
 import { Config } from '../Config';
-import { CompareVersions, ReplaceFileSync } from '../Utils';
+import { CompareVersions, IsSamePath, ReplaceFileSync, SamePathKey } from '../Utils';
 import { DefaultSettings } from '../SettingsManager/DefaultSettings';
 import { LATEST_SCHEMA_VERSION } from '../DB/schema';
 import { Manager as AppShowLock, type ShowLock } from '../ShowLock';
@@ -80,15 +80,6 @@ function CheckWritable(FilePath: string): string | null {
   } catch (Err) {
     return `The show file cannot be saved there: ${ErrorText(Err)}`;
   }
-}
-
-function SamePathKey(FilePath: string): string {
-  const Resolved = path.resolve(FilePath);
-  return process.platform === 'linux' ? Resolved : Resolved.toLowerCase();
-}
-
-function IsSamePath(A: string | null, B: string | null): boolean {
-  return !!A && !!B && SamePathKey(A) === SamePathKey(B);
 }
 
 /** A show file name without its folder or extension, as the title bar shows it. */

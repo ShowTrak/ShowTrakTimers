@@ -76,3 +76,17 @@ export function ReplaceFileSync(FilePath: string, Text: string): void {
   WriteAndSyncFileSync(TempPath, Text);
   fs.renameSync(TempPath, FilePath);
 }
+
+/**
+ * A path as compared for "the same file": resolved, and in lower case except on
+ * Linux, whose file systems tell case apart (Windows' and macOS's do not).
+ */
+export function SamePathKey(FilePath: string): string {
+  const Resolved = path.resolve(FilePath);
+  return process.platform === 'linux' ? Resolved : Resolved.toLowerCase();
+}
+
+/** Whether two paths name the same file (see SamePathKey); false when either is missing. */
+export function IsSamePath(A: string | null, B: string | null): boolean {
+  return !!A && !!B && SamePathKey(A) === SamePathKey(B);
+}
