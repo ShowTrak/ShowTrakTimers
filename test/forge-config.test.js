@@ -105,6 +105,11 @@ test('packageAfterExtract trims Chromium locale packs from the extracted Electro
     Log.mock.calls.map((Call) => Call.arguments.join(' ')),
     ['[forge] Removed 2 unused Chromium locale pack(s)']
   );
+  // With the shared script, whose specs cover what it keeps and removes.
+  assert.match(
+    fs.readFileSync(FORGE_CONFIG, 'utf8'),
+    /packageAfterExtract[\s\S]*?require\('\.\/shared\/scripts\/trim-electron-locales'\)/
+  );
 });
 
 test('packageAfterPrune keeps only the compiled sqlite3 addon from its build folder', async (t) => {

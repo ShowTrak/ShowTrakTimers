@@ -244,10 +244,10 @@ const config: ForgeConfig = {
   hooks: {
     // Drop Chromium's UI translations (~45 MB) before the app is copied in and
     // signed; the UI is English and Chromium falls back to en-US. See
-    // scripts/trim-electron-locales.js.
+    // shared/scripts/trim-electron-locales.js.
     packageAfterExtract: async (_forgeConfig, buildPath) => {
-      // scripts/ stays JavaScript, with no type declarations; this is its shape.
-      const { trimElectronLocales } = require('./scripts/trim-electron-locales') as {
+      // The script is JavaScript, with no type declarations; this is its shape.
+      const { trimElectronLocales } = require('./shared/scripts/trim-electron-locales') as {
         trimElectronLocales(buildPath: string): number;
       };
       const removed = trimElectronLocales(buildPath);

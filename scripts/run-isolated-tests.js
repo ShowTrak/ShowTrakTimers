@@ -1,52 +1,7 @@
-// `npm test`: run the suite with no ShowTrak Timers application data (from
-// ShowTrak Server).
+// `npm test`: run the suite with HOME (and the Windows/XDG equivalents) in an
+// empty temp folder, so no test can read or migrate a real ShowTrak Timers
+// database (shared/scripts/run-isolated-tests.js). Extra arguments go to
+// `node --test`: `npm test -- test/show-file.test.js`.
 //
-// The managers open the app's sqlite database on first use. Run against a
-// developer's real app-data directory, a test that forgot to inject its own
-// database would read (and migrate) the real one, and pass locally while CI,
-// which has no such database, sees something else.
-//
-// Pointing HOME (and the Windows/XDG equivalents) at an empty directory moves
-// the app-data path somewhere that does not exist, so every run (local, CI and
-// coverage) sees the same empty machine and never touches real timers.
-//
-// Extra arguments are passed through to `node --test`, so a single file runs as
-// `npm test -- test/db.test.js`.
-//
-// Not named test-*.js: that matches node --test's default file pattern, so the
-// suite would run this script as a test file of its own (spawning a recursive
-// run that node skips with a warning).
-const { spawnSync } = require('node:child_process');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-
-const Sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'showtrak-isolated-'));
-
-try {
-  const Result = spawnSync(
-    process.execPath,
-    [
-      '--test',
-      '--test-concurrency=1',
-      // Per file. Generous for slow Windows runners; a hung test still fails.
-      '--test-timeout=60000',
-      '--test-force-exit',
-      ...process.argv.slice(2),
-    ],
-    {
-      stdio: 'inherit',
-      env: {
-        ...process.env,
-        HOME: Sandbox,
-        USERPROFILE: Sandbox,
-        APPDATA: path.join(Sandbox, 'AppData', 'Roaming'),
-        XDG_DATA_HOME: path.join(Sandbox, '.local', 'share'),
-      },
-    }
-  );
-  process.exitCode = Result.status == null ? 1 : Result.status;
-} finally {
-  // Retries: on Windows a just-exited child can hold a file handle briefly.
-  fs.rmSync(Sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
-}
+// Not named test-*.js: that matches node --test's default file pattern.
+require('../shared/scripts/run-isolated-tests').main();

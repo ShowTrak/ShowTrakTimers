@@ -344,7 +344,8 @@ usually `unknown` narrowed with the guards `IsArray` and `IsRecord`
 
 Code that ShowTrak Server runs too is not copied here: it comes from the
 `shared/` submodule (its README's "Shared code" section describes each part),
-compiled by `npm run build:shared`, the first step of `npm run build`:
+whose TypeScript `npm run build:shared`, the first step of `npm run build`,
+compiles:
 
 - `@showtrak/protocol/runtime` - the logger, the process guards, durable file
   writes (`ReplaceFileSync`) and the update-channel rules
@@ -356,6 +357,11 @@ compiled by `npm run build:shared`, the first step of `npm run build`:
   modal, toasts and the confirmation dialog, the modal titlebar, release-notes
   Markdown, QR codes, the right-click menu's placement and type-to-search, the
   Preferences tabs, the HTML escaper and the error reporter
+- `shared/scripts/` (plain JavaScript) - the build, dev, test and release
+  tooling: the main and renderer bundles, asset and CSS builds, `npm start`,
+  `npm test`, `npm run publish`, the Bootstrap Icons copy and the Electron
+  locale trim. Each `scripts/<name>.js` here calls the shared one with Timers'
+  settings (its bundles, asset folders and externals)
 
 What is Timers' own (its name, release repository, file type, push channels,
 filled icons, update-channel note) is passed in by a few lines of

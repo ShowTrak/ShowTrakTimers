@@ -428,5 +428,5 @@ test('main.css is the stylesheet parts concatenated in file-name order', () => {
   const Actual = fs.readFileSync(path.join(ROOT, 'src', 'UI', 'css', 'main.css'), 'utf8');
   // Normalise line endings only, so a CRLF checkout compares like the others.
   assert.equal(Actual.replace(/\r\n/g, '\n'), Expected.replace(/\r\n/g, '\n'));
-  assert.match(readText('scripts', 'build-css.js'), /\.sort\(\)/);
+  assert.match(readText('shared', 'scripts', 'build-css.js'), /\.sort\(\)/);
 });
