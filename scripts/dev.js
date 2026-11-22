@@ -6,14 +6,15 @@
 //
 //   main process (src/**/*.ts)    tsc --watch,    -> restart Electron
 //                                 then the bundle (scripts/build-main.js)
-//   renderer (src/UI/js/app)      esbuild watch   -> reload the window
+//   renderer (src/UI/js/app),     esbuild watch   -> reload the window
+//   splash window, service worker
 //   markup / CSS / static assets  copy on change  -> reload the window
 //   protocol runtime (shared/)    build:shared    -> tsc picks it up
 //
 // The window reload is done by the app itself (src/main/dev-reload.ts) when it
 // sees dist/UI change, so the main process, and everything connected to it,
-// survives a renderer edit. Renderer type errors are reported by a --noEmit
-// watcher but never block a reload; CI and the pre-commit hook enforce them.
+// survives a renderer edit. Renderer type errors are reported by --noEmit
+// watchers but never block a reload; CI and the pre-commit hook enforce them.
 //
 // `npm start -- --no-app` builds and watches without launching Electron, for when
 // another instance already holds the app's single-instance lock.
@@ -137,21 +138,31 @@ function watchMainProcess() {
   return ready;
 }
 
+// The browser-side programs esbuild bundles (see `typecheck:renderer`): the
+// desktop renderer, the splash window and the dashboard's service worker.
+const RENDERER_TSCONFIGS = [
+  'tsconfig.renderer.json',
+  'tsconfig.preloader.json',
+  'tsconfig.service-worker.json',
+];
+
 function watchRendererTypes() {
-  const child = spawn(
-    process.execPath,
-    [TSC, '-p', 'tsconfig.renderer.json', '--noEmit', '--watch', '--preserveWatchOutput'],
-    { cwd: ROOT, stdio: ['ignore', 'pipe', 'inherit'] }
-  );
-  children.push(child);
-  child.stdout.setEncoding('utf8');
-  child.stdout.on('data', (text) => {
-    // Only surface problems; a clean pass is the normal case and is noise.
-    if (!/error TS|Found [1-9]\d* errors?/.test(text)) return;
-    for (const line of text.split(/\r?\n/)) {
-      if (line.trim()) console.log(`[renderer-types] ${line}`);
-    }
-  });
+  for (const tsconfig of RENDERER_TSCONFIGS) {
+    const child = spawn(
+      process.execPath,
+      [TSC, '-p', tsconfig, '--noEmit', '--watch', '--preserveWatchOutput'],
+      { cwd: ROOT, stdio: ['ignore', 'pipe', 'inherit'] }
+    );
+    children.push(child);
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (text) => {
+      // Only surface problems; a clean pass is the normal case and is noise.
+      if (!/error TS|Found [1-9]\d* errors?/.test(text)) return;
+      for (const line of text.split(/\r?\n/)) {
+        if (line.trim()) console.log(`[renderer-types] ${line}`);
+      }
+    });
+  }
 }
 
 async function watchRendererBundles() {
@@ -176,8 +187,14 @@ function watchStaticAssets() {
     }
     runScript('copy-assets.js');
   }, 150);
-  const dashboard = fs.watch(path.join(ROOT, 'src', 'WebDashboard'), { recursive: true }, () =>
-    sync()
+  const dashboard = fs.watch(
+    path.join(ROOT, 'src', 'WebDashboard'),
+    { recursive: true },
+    (_event, file) => {
+      // The service worker is bundled by esbuild above.
+      if (file && file.endsWith('.ts')) return;
+      sync();
+    }
   );
   const markup = fs.watch(ui, { recursive: true }, (_event, file) => {
     if (!file) return;

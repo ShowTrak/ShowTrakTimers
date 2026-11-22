@@ -205,6 +205,7 @@ test('everything the app loads at runtime is packaged', () => {
     '/dist/bridge_preloader.js',
     '/dist/UI/index.html',
     '/dist/UI/preloader.html',
+    '/dist/UI/preloader.js',
     '/dist/UI/js/app/bundle.js',
     '/dist/UI/css/main.css',
     '/dist/UI/vendors/bootstrap-icons/font/bootstrap-icons.min.css',
@@ -212,6 +213,7 @@ test('everything the app loads at runtime is packaged', () => {
     '/dist/UI/audio/alert_1.m4a',
     '/dist/WebDashboard/index.html',
     '/dist/WebDashboard/dashboard.js',
+    '/dist/WebDashboard/service-worker.js',
     '/node_modules/express/index.js',
     '/node_modules/sqlite3/package.json',
     '/node_modules/@showtrak/protocol',
@@ -331,6 +333,69 @@ test('the packages the main bundle leaves external are runtime dependencies', ()
     Required.filter((Name) => !(Name in Package.dependencies)),
     []
   );
+});
+
+// --- scripts/build-renderer.js and scripts/copy-assets.js --------------------------------
+
+test('the splash window and the service worker are bundled to the paths their pages load', () => {
+  const { BUNDLES } = require('../scripts/build-renderer.js');
+  const Outputs = Object.fromEntries(
+    BUNDLES.map((B) => [path.relative(ROOT, B.entry), path.relative(ROOT, B.outfile)])
+  );
+  assert.equal(
+    Outputs[path.join('src', 'UI', 'preloader.ts')],
+    path.join('dist', 'UI', 'preloader.js')
+  );
+  // Served from dist/WebDashboard at /service-worker.js, the path dashboard-main.ts registers.
+  assert.equal(
+    Outputs[path.join('src', 'WebDashboard', 'service-worker.ts')],
+    path.join('dist', 'WebDashboard', 'service-worker.js')
+  );
+  assert.match(
+    readText('src', 'UI', 'js', 'app', 'dashboard-main.ts'),
+    /serviceWorker\.register\('\/service-worker\.js'\)/
+  );
+});
+
+test('only the service worker is stamped with the app version', () => {
+  const { BUNDLES, bundleOptions } = require('../scripts/build-renderer.js');
+  for (const Bundle of BUNDLES) {
+    const { define } = bundleOptions(Bundle);
+    if (Bundle.entry.endsWith('service-worker.ts')) {
+      assert.deepEqual(define, { __APP_VERSION__: JSON.stringify(Package.version) });
+    } else {
+      assert.equal(define, undefined, Bundle.name);
+    }
+  }
+});
+
+test('a build with no app version to stamp fails', (t) => {
+  const BuildRenderer = require('../scripts/build-renderer.js');
+  const RealRead = fs.readFileSync;
+  t.after(() => {
+    fs.readFileSync = RealRead;
+  });
+  for (const Manifest of ['{}', '{"version": ""}', '{"version": 2}']) {
+    fs.readFileSync = (File, ...Rest) =>
+      path.basename(String(File)) === 'package.json' ? Manifest : RealRead(File, ...Rest);
+    assert.throws(() => BuildRenderer.appVersion(), /no version/, Manifest);
+  }
+  fs.readFileSync = RealRead;
+  assert.equal(BuildRenderer.appVersion(), Package.version);
+});
+
+test('copy-assets never copies a file from src over a bundle', () => {
+  // A leftover src/UI/preloader.js or src/WebDashboard/service-worker.js (both
+  // were plain JavaScript once) would otherwise replace the bundle.
+  const { BUNDLES } = require('../scripts/build-renderer.js');
+  const { skipFiles } = require('../scripts/copy-assets.js');
+  const Skipped = [...skipFiles].map((File) => path.relative(ROOT, File)).sort();
+  assert.deepEqual(
+    Skipped,
+    BUNDLES.map((B) => path.join('src', path.relative(path.join(ROOT, 'dist'), B.outfile))).sort()
+  );
+  assert.ok(Skipped.includes(path.join('src', 'UI', 'preloader.js')));
+  assert.ok(Skipped.includes(path.join('src', 'WebDashboard', 'service-worker.js')));
 });
 
 // --- scripts/build-css.js ---------------------------------------------------------------

@@ -538,7 +538,7 @@ test("everything the dashboard's service worker pre-caches is served by the host
   const Served = servedUiFolders();
   const Bundle = path.basename(BUNDLES.find((B) => /WebDashboard/.test(B.outfile)).outfile);
   const Block = /const STATIC_ASSETS = \[([\s\S]*?)\];/.exec(
-    readText('src', 'WebDashboard', 'service-worker.js')
+    readText('src', 'WebDashboard', 'service-worker.ts')
   );
   assert.ok(Block, 'STATIC_ASSETS not found');
   const Assets = [...Block[1].matchAll(/'([^']+)'/g)].map((M) => M[1]);

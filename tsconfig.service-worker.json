@@ -1,0 +1,21 @@
+// Type-checking of the Web Dashboard's service worker,
+// src/WebDashboard/service-worker.ts.
+//
+// A worker has its own global scope: the WebWorker library and no DOM, so it
+// cannot reach for window or document, and none of the pages' code can see the
+// worker's globals. That is why it is not part of tsconfig.renderer.json.
+//
+// esbuild bundles it (scripts/build-renderer.js, which also defines
+// __APP_VERSION__); this only type-checks.
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "WebWorker"],
+    "rootDir": "./src",
+    "noEmit": true,
+    "types": []
+  },
+  "include": ["src/WebDashboard/service-worker.ts"]
+}

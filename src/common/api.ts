@@ -1,5 +1,6 @@
 // The contract between the main process and the desktop renderer: the IPC
-// channel names, and the shape of `window.API` the preload bridge exposes.
+// channel names, and the shape of `window.API` the preload bridges expose (the
+// main window's, and the splash window's PreloaderAPI).
 //
 // Like ShowTrak Server's IPC registry, the channel lists here are the single
 // source of truth: the main process may only register these, and the sandboxed
@@ -339,5 +340,11 @@ export interface TimersAPI {
   OnWindowFullscreenChanged(Callback: (IsFullscreen: boolean) => void): Unsubscribe;
   Shutdown(Confirmed?: boolean): Promise<void>;
 }
+
+/**
+ * `window.API` in the splash window (src/UI/preloader.ts), exposed by its own
+ * preload, src/bridge_preloader.ts: only the app's name and version.
+ */
+export type PreloaderAPI = Pick<TimersAPI, 'GetConfig'>;
 
 export type { TimerView, TimerStatus, TimerType, EndBehaviour, GroupView, GroupPatchView };

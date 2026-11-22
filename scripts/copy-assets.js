@@ -5,10 +5,11 @@
 // TypeScript (tsconfig.json) compiles the Node-side code (src/Modules, src/main,
 // src/main.ts, src/bridge_*.ts) into dist/. The renderer UI, the served Web
 // Dashboard, and image/icon assets are intentionally excluded from compilation and
-// must be copied verbatim.
+// must be copied verbatim. Their scripts are bundled by scripts/build-renderer.js.
 const fs = require('node:fs');
 const path = require('node:path');
 const { copyDir } = require('./lib/copy-dir');
+const { BUNDLES } = require('./build-renderer');
 
 const SRC_ROOT = path.resolve(__dirname, '..', 'src');
 const DIST_ROOT = path.resolve(__dirname, '..', 'dist');
@@ -26,19 +27,13 @@ const skipDirs = new Set([
   path.resolve(SRC_ROOT, 'UI', 'types'),
 ]);
 
-// The Web Dashboard's service worker names its cache after the app version, so
-// each update starts a fresh offline cache (see src/WebDashboard/service-worker.js).
-const VERSION_PLACEHOLDER = '__APP_VERSION__';
-
-function stampServiceWorker() {
-  const Worker = path.join(DIST_ROOT, 'WebDashboard', 'service-worker.js');
-  const Source = fs.readFileSync(Worker, 'utf8');
-  if (!Source.includes(VERSION_PLACEHOLDER)) {
-    throw new Error(`[copy-assets] ${VERSION_PLACEHOLDER} not found in service-worker.js`);
-  }
-  const { version } = require('../package.json');
-  fs.writeFileSync(Worker, Source.split(VERSION_PLACEHOLDER).join(version), 'utf8');
-}
+// Every file esbuild writes into these folders (dist/UI/preloader.js,
+// dist/WebDashboard/service-worker.js, ...) is the bundle's: a leftover
+// JavaScript file at the same place under src/ (the preloader and the service
+// worker were plain JavaScript before) must never be copied over it.
+const skipFiles = new Set(
+  BUNDLES.map((Bundle) => path.resolve(SRC_ROOT, path.relative(DIST_ROOT, Bundle.outfile)))
+);
 
 function main() {
   let copied = 0;
@@ -46,14 +41,15 @@ function main() {
     const source = path.join(SRC_ROOT, dir);
     const destination = path.join(DIST_ROOT, dir);
     if (fs.existsSync(source)) {
-      copyDir(source, destination, { skipDirs });
+      copyDir(source, destination, { skipDirs, skipFiles });
       copied += 1;
     }
   }
-  stampServiceWorker();
   console.log(
     `[copy-assets] Copied ${copied} static asset director${copied === 1 ? 'y' : 'ies'} into dist/`
   );
 }
 
-main();
+module.exports = { ASSET_DIRECTORIES, skipDirs, skipFiles };
+
+if (require.main === module) main();

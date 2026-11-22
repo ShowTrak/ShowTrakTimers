@@ -1,0 +1,20 @@
+// Type-checking of the splash window's script, src/UI/preloader.ts.
+//
+// Separate from tsconfig.renderer.json because the two windows have different
+// preloads: in the splash window `window.API` is src/bridge_preloader.ts's
+// PreloaderAPI, which preloader.ts declares, not the desktop window's API that
+// src/UI/types/global.d.ts declares. In one program the two would collide.
+//
+// esbuild bundles it (scripts/build-renderer.js); this only type-checks.
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "rootDir": "./src",
+    "noEmit": true,
+    "types": []
+  },
+  "include": ["src/UI/preloader.ts"]
+}

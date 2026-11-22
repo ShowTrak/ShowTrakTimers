@@ -7,6 +7,7 @@ const { EventEmitter } = require('node:events');
 const { installModuleMocks, matchesModule, recordingManager } = require('./helpers/main-mocks');
 const { createLoggerStub } = require('./helpers/net-logger');
 const { LOOPBACK, freeTcpPort, holdTcpPort, waitFor, sleep } = require('./helpers/net-util');
+const { loadServiceWorker } = require('./helpers/service-worker-harness');
 
 // Exercises src/Modules/WebDashboard/index.ts: the read-only timer view served
 // to browsers on the show network.
@@ -427,12 +428,14 @@ test('every asset the real page and its offline cache load is served', async (t)
   t.after(() => Dashboard.Stop());
   assert.deepEqual(await Dashboard.Start(), [null, true]);
 
-  const Worker = fs.readFileSync(path.join(DIST, 'WebDashboard', 'service-worker.js'), 'utf8');
-  const CachedList = /STATIC_ASSETS\s*=\s*\[([\s\S]*?)\]/.exec(Worker);
-  assert.ok(CachedList, 'service-worker.js no longer declares STATIC_ASSETS');
+  // What the built service worker pre-caches when it installs.
+  const Worker = loadServiceWorker();
+  await Worker.install();
+  const Cached = Worker.Caches.AddAllCalls.flatMap((Call) => Call.Urls);
+  assert.ok(Cached.length >= 5, 'the service worker pre-caches next to nothing');
   const Paths = new Set([
     ...[...REAL_PAGE.matchAll(/\b(?:src|href)="([^"]+)"/g)].map((M) => M[1]),
-    ...[...CachedList[1].matchAll(/'([^']+)'/g)].map((M) => M[1]),
+    ...Cached,
     '/service-worker.js',
   ]);
   assert.ok(Paths.has('/socket.io/socket.io.js'), 'the page no longer loads the socket client');
@@ -441,6 +444,28 @@ test('every asset the real page and its offline cache load is served', async (t)
     await Res.arrayBuffer();
     assert.equal(Res.status, 200, `${Asset} is not served`);
   }
+});
+
+test('the service worker is served as the version-stamped bundle, as JavaScript', async (t) => {
+  // Browsers refuse to register a worker served under any other MIME type.
+  const Port = await freeTcpPort();
+  const Dashboard = CreateWebDashboard({
+    Settings: fakeSettings({
+      WEB_ENABLE_DASHBOARD: true,
+      WEB_DASHBOARD_PORT: Port,
+      WEB_DASHBOARD_BIND: LOOPBACK,
+    }),
+    Timers: recordingManager({ GetAll: async () => [] }),
+    Broadcast: recordingBus(),
+  });
+  t.after(() => Dashboard.Stop());
+  assert.deepEqual(await Dashboard.Start(), [null, true]);
+  const Res = await fetch(url(Port, '/service-worker.js'));
+  const Body = await Res.text();
+  assert.equal(Res.status, 200);
+  assert.match(Res.headers.get('content-type'), /^(application|text)\/javascript\b/);
+  assert.equal(Body, fs.readFileSync(path.join(DIST, 'WebDashboard', 'service-worker.js'), 'utf8'));
+  assert.ok(Body.includes(`showtrak-dashboard-static-${Package.version}`), 'no versioned cache');
 });
 
 test('Address reports the bound host and port, and a copy of it', async (t) => {

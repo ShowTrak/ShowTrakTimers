@@ -5,10 +5,21 @@
 // there the offline view is the page's own cache of the last timers (kept in
 // localStorage), not this shell.
 //
-// The cache is named after the app version (scripts/copy-assets.js fills it in
-// at build), so every update starts a fresh cache and drops the old one: an
-// offline reload never pairs one version's page with another's script.
-const STATIC_CACHE = 'showtrak-dashboard-static-__APP_VERSION__';
+// The cache is named after the app version (scripts/build-renderer.js defines
+// __APP_VERSION__ when it bundles this file to dist/WebDashboard/service-worker.js),
+// so every update starts a fresh cache and drops the old one: an offline reload
+// never pairs one version's page with another's script.
+//
+// Typechecked by tsconfig.service-worker.json, with the WebWorker library and
+// no DOM: a worker has no window or document.
+
+// The WebWorker library types `self` as any worker's global scope; this file
+// only ever runs as a service worker.
+declare const self: ServiceWorkerGlobalScope;
+// The app version, written in by the build (an esbuild `define`).
+declare const __APP_VERSION__: string;
+
+const STATIC_CACHE = `showtrak-dashboard-static-${__APP_VERSION__}`;
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -88,3 +99,7 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(request).then((cached) => cached || Response.error()))
   );
 });
+
+// A module, so the `self` declared above is this file's own rather than a
+// clash with the library's global one. The bundle is a classic script.
+export {};
