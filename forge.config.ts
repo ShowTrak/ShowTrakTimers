@@ -1,7 +1,11 @@
-const { FusesPlugin } = require('@electron-forge/plugin-fuses');
-const { FuseV1Options, FuseVersion } = require('@electron/fuses');
-const path = require('node:path');
-const fs = require('node:fs');
+// Electron Forge configuration. Forge loads this TypeScript file itself (through
+// jiti, which runs it as CommonJS: __dirname and require are there as in a .js
+// config); tsconfig.tooling.json type-checks it.
+import type { ForgeConfig, ForgePackagerOptions } from '@electron-forge/shared-types';
+import { FusesPlugin } from '@electron-forge/plugin-fuses';
+import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const appleSignIdentity = process.env.APPLE_SIGN_IDENTITY;
 const appleSigningKeychain = process.env.APPLE_KEYCHAIN_PATH;
@@ -14,7 +18,23 @@ const shouldNotarizeMac =
     process.env.APPLE_API_ISSUER_ID
   );
 
-module.exports = {
+// Some of the signing and notarisation options below are from older versions
+// of @electron/osx-sign and @electron/notarize, and the versions under Forge 8
+// do not read them: osx-sign 2 takes hardenedRuntime and entitlements per file
+// (through optionsForFile) and has no entitlementsInherit or gatekeeperAssess,
+// and notarize 3 has no `tool` (notarytool is the only tool it has). They are
+// kept as they were; these types say which they are.
+type OsxSignOptions = Exclude<ForgePackagerOptions['osxSign'], true | undefined> & {
+  hardenedRuntime: boolean;
+  entitlements: string;
+  entitlementsInherit: string;
+  gatekeeperAssess: boolean;
+};
+type OsxNotarizeOptions = NonNullable<ForgePackagerOptions['osxNotarize']> & {
+  tool: 'notarytool';
+};
+
+const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
     // Copy the *contents* of symlinks rather than the links themselves.
@@ -67,7 +87,7 @@ module.exports = {
       /^\/\.claude($|\/)/,
       // Config & docs.
       /^\/tsconfig.*\.json$/,
-      /^\/eslint\.config\.mjs$/,
+      /^\/eslint\.config\.ts$/,
       /^\/\.prettier/,
       /^\/\.gitignore$/,
       /^\/(README|TODO|DEVELOPMENT)\.md$/,
@@ -135,17 +155,18 @@ module.exports = {
             entitlementsInherit: path.resolve(__dirname, 'build/entitlements.mac.plist'),
             gatekeeperAssess: false,
             strictVerify: true,
-          },
+          } as OsxSignOptions,
         }
       : {}),
     ...(shouldNotarizeMac
       ? {
           osxNotarize: {
             tool: 'notarytool',
-            appleApiKey: process.env.APPLE_API_KEY_PATH,
-            appleApiKeyId: process.env.APPLE_API_KEY_ID,
-            appleApiIssuer: process.env.APPLE_API_ISSUER_ID,
-          },
+            // Set, all three: shouldNotarizeMac checked them.
+            appleApiKey: process.env.APPLE_API_KEY_PATH!,
+            appleApiKeyId: process.env.APPLE_API_KEY_ID!,
+            appleApiIssuer: process.env.APPLE_API_ISSUER_ID!,
+          } as OsxNotarizeOptions,
         }
       : {}),
   },
@@ -176,10 +197,12 @@ module.exports = {
     {
       name: '@electron-forge/maker-zip',
       platforms: ['darwin'],
+      config: {},
     },
     {
       name: '@electron-forge/maker-zip',
       platforms: ['linux'],
+      config: {},
     },
     {
       name: '@electron-forge/maker-deb',
@@ -222,7 +245,10 @@ module.exports = {
     // signed; the UI is English and Chromium falls back to en-US. See
     // scripts/trim-electron-locales.js.
     packageAfterExtract: async (_forgeConfig, buildPath) => {
-      const { trimElectronLocales } = require('./scripts/trim-electron-locales');
+      // scripts/ stays JavaScript, with no type declarations; this is its shape.
+      const { trimElectronLocales } = require('./scripts/trim-electron-locales') as {
+        trimElectronLocales(buildPath: string): number;
+      };
       const removed = trimElectronLocales(buildPath);
       console.log(`[forge] Removed ${removed} unused Chromium locale pack(s)`);
     },
@@ -236,7 +262,7 @@ module.exports = {
       const sqlite3 = path.join(buildPath, 'node_modules', 'sqlite3');
       const release = path.join(sqlite3, 'build', 'Release');
       if (!fs.existsSync(path.join(release, 'node_sqlite3.node'))) return;
-      const remove = (target) => fs.rmSync(target, { recursive: true, force: true });
+      const remove = (target: string) => fs.rmSync(target, { recursive: true, force: true });
       remove(path.join(sqlite3, 'bin'));
       for (const entry of fs.readdirSync(path.dirname(release))) {
         if (entry !== 'Release') remove(path.join(path.dirname(release), entry));
@@ -289,3 +315,5 @@ module.exports = {
     },
   },
 };
+
+export default config;

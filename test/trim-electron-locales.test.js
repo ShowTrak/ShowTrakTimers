@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-// Covers scripts/trim-electron-locales.js, run from forge.config.js's
+// Covers scripts/trim-electron-locales.js, run from forge.config.ts's
 // packageAfterExtract hook: it deletes Chromium's UI translations (about 45 MB)
 // from the freshly extracted Electron, keeping English and the en-US fallback.
 // Ported from ShowTrak Server's test (the script is the same file), with temp
@@ -99,6 +99,6 @@ test('trim-electron-locales: the keep lists are English only', () => {
 });
 
 test('trim-electron-locales: forge runs it on the extracted Electron', () => {
-  const Forge = fs.readFileSync(path.join(__dirname, '..', 'forge.config.js'), 'utf8');
+  const Forge = fs.readFileSync(path.join(__dirname, '..', 'forge.config.ts'), 'utf8');
   assert.match(Forge, /packageAfterExtract[\s\S]*?require\('\.\/scripts\/trim-electron-locales'\)/);
 });

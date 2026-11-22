@@ -1,11 +1,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-// Project configuration: forge.config.js (what gets packaged, and the names a
+// Project configuration: forge.config.ts (what gets packaged, and the names a
 // 1.x install updates from), package.json, and the build scripts' outputs.
-// Nothing here runs a build; the config files are required (forge.config.js
-// with process.platform swapped, since it branches on it at load time) or read
-// as text.
+// Nothing here runs a build; the config files are loaded (forge.config.ts
+// through jiti as Forge loads it, with process.platform swapped, since it
+// branches on it at load time) or read as text.
 //
 // The mistakes guarded against all ship silently: a renamed Windows executable
 // orphans every 1.x Start Menu shortcut, a changed Squirrel id installs 2.0
@@ -13,11 +13,15 @@ const assert = require('node:assert/strict');
 // greedy packages an app with no main process.
 const fs = require('node:fs');
 const path = require('node:path');
+const { createJiti } = require('jiti');
 const { ROOT, readText, walkFiles } = require('./helpers/ui-source');
 const { ParseVersion } = require('@showtrak/protocol/runtime');
 const Package = require('../package.json');
 
-const FORGE_CONFIG = path.join(ROOT, 'forge.config.js');
+const FORGE_CONFIG = path.join(ROOT, 'forge.config.ts');
+// Electron Forge loads forge.config.ts through jiti, and so do these tests.
+// Without the module cache every load evaluates the file afresh.
+const jiti = createJiti(__filename, { moduleCache: false });
 const SIGNING_ENV = [
   'APPLE_SIGN_IDENTITY',
   'APPLE_KEYCHAIN_PATH',
@@ -26,8 +30,8 @@ const SIGNING_ENV = [
   'APPLE_API_ISSUER_ID',
 ];
 
-/** Load forge.config.js as it would be on `Platform`, with only `Env` signing vars set. */
-function loadForgeConfig(Platform, Env = {}) {
+/** Load forge.config.ts as it would be on `Platform`, with only `Env` signing vars set. */
+async function loadForgeConfig(Platform, Env = {}) {
   const Descriptor = Object.getOwnPropertyDescriptor(process, 'platform');
   const SavedEnv = Object.fromEntries(SIGNING_ENV.map((Name) => [Name, process.env[Name]]));
   for (const Name of SIGNING_ENV) {
@@ -35,12 +39,10 @@ function loadForgeConfig(Platform, Env = {}) {
     else delete process.env[Name];
   }
   Object.defineProperty(process, 'platform', { ...Descriptor, value: Platform });
-  delete require.cache[FORGE_CONFIG];
   try {
-    return require(FORGE_CONFIG);
+    return await jiti.import(FORGE_CONFIG, { default: true });
   } finally {
     Object.defineProperty(process, 'platform', Descriptor);
-    delete require.cache[FORGE_CONFIG];
     for (const [Name, Value] of Object.entries(SavedEnv)) {
       if (Value === undefined) delete process.env[Name];
       else process.env[Name] = Value;
@@ -52,32 +54,32 @@ function isIgnored(Config, AppPath) {
   return Config.packagerConfig.ignore.some((Pattern) => Pattern.test(AppPath));
 }
 
-// --- forge.config.js: names --------------------------------------------------------
+// --- forge.config.ts: names --------------------------------------------------------
 
-test("the Windows build keeps 1.x's executable name, so upgraded shortcuts still work", () => {
+test("the Windows build keeps 1.x's executable name, so upgraded shortcuts still work", async () => {
   // No executableName on win32: Packager falls back to productName, giving the
   // "ShowTrak Timers.exe" that 1.x's Start Menu and Desktop shortcuts point at.
-  const Config = loadForgeConfig('win32');
+  const Config = await loadForgeConfig('win32');
   assert.equal('executableName' in Config.packagerConfig, false);
 });
 
-test('macOS and Linux builds use a stable lower-case binary name the Linux makers can find', () => {
+test('macOS and Linux builds use a stable lower-case binary name the Linux makers can find', async () => {
   for (const Platform of ['darwin', 'linux']) {
     assert.equal(
-      loadForgeConfig(Platform).packagerConfig.executableName,
+      (await loadForgeConfig(Platform)).packagerConfig.executableName,
       'showtrak-timers',
       Platform
     );
   }
-  const Config = loadForgeConfig('linux');
+  const Config = await loadForgeConfig('linux');
   for (const Maker of Config.makers.filter((M) => /maker-(deb|rpm)$/.test(M.name))) {
     assert.equal(Maker.config.options.bin, 'showtrak-timers', Maker.name);
   }
 });
 
-test("the Squirrel package id is 1.x's, so installed copies update in place", () => {
+test("the Squirrel package id is 1.x's, so installed copies update in place", async () => {
   // 1.x had no explicit name: Squirrel derived it from the package name.
-  const Squirrel = loadForgeConfig('win32').makers.find(
+  const Squirrel = (await loadForgeConfig('win32')).makers.find(
     (M) => M.name === '@electron-forge/maker-squirrel'
   );
   assert.ok(Squirrel, 'no Squirrel maker');
@@ -87,58 +89,62 @@ test("the Squirrel package id is 1.x's, so installed copies update in place", ()
   assert.ok(fs.existsSync(path.join(ROOT, Squirrel.config.setupIcon)), 'setup icon missing');
 });
 
-test('every platform the app ships on has a maker', () => {
-  const Config = loadForgeConfig('linux');
+test('every platform the app ships on has a maker', async () => {
+  const Config = await loadForgeConfig('linux');
   const Platforms = new Set(Config.makers.flatMap((M) => M.platforms));
   for (const Platform of ['win32', 'darwin', 'linux']) assert.ok(Platforms.has(Platform), Platform);
 });
 
-test('the app icon exists in every format the packager looks for', () => {
-  const Icon = loadForgeConfig('linux').packagerConfig.icon;
+test('the app icon exists in every format the packager looks for', async () => {
+  const Icon = (await loadForgeConfig('linux')).packagerConfig.icon;
   for (const Ext of ['.icns', '.ico', '.png']) {
     assert.ok(fs.existsSync(path.join(ROOT, `${Icon}${Ext}`)), `${Icon}${Ext}`);
   }
 });
 
-test('macOS is told why the app wants the local network', () => {
-  const Info = loadForgeConfig('darwin').packagerConfig.extendInfo;
+test('macOS is told why the app wants the local network', async () => {
+  const Info = (await loadForgeConfig('darwin')).packagerConfig.extendInfo;
   assert.match(Info.NSLocalNetworkUsageDescription, /OSC/);
   assert.match(Info.NSLocalNetworkUsageDescription, /Web Dashboard/);
 });
 
-test('macOS opens .showtraktimers files in ShowTrak Timers', () => {
-  const Info = loadForgeConfig('darwin').packagerConfig.extendInfo;
+test('macOS opens .showtraktimers files in ShowTrak Timers', async () => {
+  const Info = (await loadForgeConfig('darwin')).packagerConfig.extendInfo;
   const [Type] = Info.UTExportedTypeDeclarations;
   assert.deepEqual(Type.UTTypeTagSpecification['public.filename-extension'], ['showtraktimers']);
   assert.deepEqual(Info.CFBundleDocumentTypes[0].LSItemContentTypes, [Type.UTTypeIdentifier]);
   assert.equal(Info.CFBundleDocumentTypes[0].LSHandlerRank, 'Owner');
 });
 
-test('signing and notarisation switch on only with their credentials', () => {
-  const Unsigned = loadForgeConfig('darwin').packagerConfig;
+test('signing and notarisation switch on only with their credentials', async () => {
+  const Unsigned = (await loadForgeConfig('darwin')).packagerConfig;
   assert.equal('osxSign' in Unsigned, false);
   assert.equal('osxNotarize' in Unsigned, false);
 
-  const Signed = loadForgeConfig('darwin', {
-    APPLE_SIGN_IDENTITY: 'Developer ID Application: Test',
-  }).packagerConfig;
+  const Signed = (
+    await loadForgeConfig('darwin', {
+      APPLE_SIGN_IDENTITY: 'Developer ID Application: Test',
+    })
+  ).packagerConfig;
   assert.equal(Signed.osxSign.identity, 'Developer ID Application: Test');
   assert.equal(Signed.osxSign.hardenedRuntime, true);
   assert.ok(fs.existsSync(Signed.osxSign.entitlements), 'entitlements file missing');
   assert.equal('osxNotarize' in Signed, false);
 
-  const Notarised = loadForgeConfig('darwin', {
-    APPLE_SIGN_IDENTITY: 'Developer ID Application: Test',
-    APPLE_API_KEY_PATH: '/tmp/key.p8',
-    APPLE_API_KEY_ID: 'KEYID',
-    APPLE_API_ISSUER_ID: 'ISSUER',
-  }).packagerConfig;
+  const Notarised = (
+    await loadForgeConfig('darwin', {
+      APPLE_SIGN_IDENTITY: 'Developer ID Application: Test',
+      APPLE_API_KEY_PATH: '/tmp/key.p8',
+      APPLE_API_KEY_ID: 'KEYID',
+      APPLE_API_ISSUER_ID: 'ISSUER',
+    })
+  ).packagerConfig;
   assert.equal(Notarised.osxNotarize.tool, 'notarytool');
 });
 
-test('the Electron fuses lock the packaged app down', () => {
+test('the Electron fuses lock the packaged app down', async () => {
   const { FuseV1Options } = require('@electron/fuses');
-  const Fuses = loadForgeConfig('linux').plugins.find((P) => P && P.name === 'fuses');
+  const Fuses = (await loadForgeConfig('linux')).plugins.find((P) => P && P.name === 'fuses');
   assert.ok(Fuses, 'no fuses plugin');
   const Config = Fuses.fusesConfig;
   assert.equal(Config[FuseV1Options.RunAsNode], false);
@@ -149,10 +155,10 @@ test('the Electron fuses lock the packaged app down', () => {
   assert.equal(Config[FuseV1Options.OnlyLoadAppFromAsar], true);
 });
 
-// --- forge.config.js: what is packaged ------------------------------------------------
+// --- forge.config.ts: what is packaged ------------------------------------------------
 
-test('sources, tests and build tooling stay out of the package', () => {
-  const Config = loadForgeConfig('linux');
+test('sources, tests and build tooling stay out of the package', async () => {
+  const Config = await loadForgeConfig('linux');
   assert.equal(Config.packagerConfig.asar, true);
   for (const AppPath of [
     '/src',
@@ -169,7 +175,7 @@ test('sources, tests and build tooling stay out of the package', () => {
     '/.github/workflows/ci.yml',
     '/tsconfig.json',
     '/tsconfig.renderer.test.json',
-    '/eslint.config.mjs',
+    '/eslint.config.ts',
     '/package-lock.json',
     '/README.md',
     '/DEVELOPMENT.md',
@@ -193,8 +199,8 @@ test('sources, tests and build tooling stay out of the package', () => {
   }
 });
 
-test('everything the app loads at runtime is packaged', () => {
-  const Config = loadForgeConfig('linux');
+test('everything the app loads at runtime is packaged', async () => {
+  const Config = await loadForgeConfig('linux');
   for (const AppPath of [
     '/package.json',
     '/LICENSE', // read by the About modal
@@ -246,8 +252,8 @@ test('the files loaded outside the main bundle need nothing the package leaves o
   }
 });
 
-test('packaging hooks trim Chromium locales and verify the staged app', () => {
-  const { hooks } = loadForgeConfig('linux');
+test('packaging hooks trim Chromium locales and verify the staged app', async () => {
+  const { hooks } = await loadForgeConfig('linux');
   assert.equal(typeof hooks.packageAfterExtract, 'function');
   assert.equal(typeof hooks.packageAfterCopy, 'function');
 });

@@ -6,8 +6,6 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "rootDir": "./src",
     "noEmit": true,
-    "allowJs": true,
-    "checkJs": false,
     "types": ["jquery"]
   },
   "include": ["src/UI/js/app/**/*", "src/UI/types/**/*", "src/common/**/*"]

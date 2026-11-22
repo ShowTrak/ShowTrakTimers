@@ -285,13 +285,29 @@ Used by packaging and CI when signing/notarization is enabled:
 - `src/main.ts` - Electron main process and lifecycle orchestration
 - `src/main/` - main-process wiring: IPC registrars, updater, services, shutdown
 - `src/bridge_main.ts` - preload bridge and IPC channel allowlists
+- `src/bridge_preloader.ts` - the splash window's preload bridge
 - `src/common/` - timer maths and the IPC contract, shared by every surface
 - `src/Modules/` - timers, database, settings, OSC, Web Dashboard, Sound Library
-- `src/UI/` - desktop renderer UI (and the Web Dashboard's script)
-- `src/WebDashboard/` - the Web Dashboard page
+- `src/UI/` - desktop renderer UI, the splash window (`preloader.ts`), and the
+  Web Dashboard's script
+- `src/WebDashboard/` - the Web Dashboard page and its service worker
 - `shared/` - `@showtrak/protocol`, runtime shared with ShowTrak Server (git submodule)
 - `test/` - Node test runner suite
-- `forge.config.js` - Electron Forge packaging/maker/signing configuration
+- `forge.config.ts` - Electron Forge packaging/maker/signing configuration
+- `eslint.config.ts` - lint rules
+
+Everything under `src/` is TypeScript; the tests and build scripts are
+JavaScript. Each surface is type-checked against its own environment by
+`npm run typecheck`:
+
+- `tsconfig.json` - the main process (compiled to `dist/` by `tsc`)
+- `tsconfig.renderer.json` - the desktop renderer and the Web Dashboard page
+- `tsconfig.preloader.json` - the splash window, whose `window.API` is its own
+- `tsconfig.service-worker.json` - the Web Dashboard's service worker (no DOM)
+- `tsconfig.tooling.json` - `forge.config.ts` and `eslint.config.ts`, which
+  Forge and ESLint load through jiti
+
+The browser-side code is bundled by esbuild (`scripts/build-renderer.js`).
 
 ## Support
 

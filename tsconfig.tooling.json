@@ -1,0 +1,16 @@
+// Type-checking of the build tooling written in TypeScript: forge.config.ts
+// (loaded by Electron Forge) and eslint.config.ts (loaded by ESLint). Both tools
+// compile their config on the fly with jiti, so nothing here is emitted; jiti
+// runs them as CommonJS, so __dirname and require are available as in a .js
+// config, and "preserve" lets them import the ES-module-only packages the
+// tools themselves load.
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["forge.config.ts", "eslint.config.ts"]
+}
