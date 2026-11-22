@@ -6,6 +6,20 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.0.2-beta.2] - 2026-11-22
+
+### Changed
+
+- ShowTrak Timers now runs on the same code as ShowTrak Server for its
+  updates, file associations, logging, notifications, confirmations and the
+  Software Update window, so fixes to either app reach both. Nothing about
+  your timers or show files changes.
+
+### Fixed
+
+- Pressing Escape while the right-click menu is open over a confirmation now
+  closes only the menu, instead of also cancelling the question.
+
 ## [2.0.2-beta.1] - 2026-11-20
 
 ### Changed
@@ -363,7 +377,8 @@ test, lint and release tooling, the same update system, and the same look.
 - Data storage:
   - SQLite-backed persistence layer and DB module foundation.
 
-[Unreleased]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.2-beta.1...HEAD
+[Unreleased]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.2-beta.2...HEAD
+[2.0.2-beta.2]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.2-beta.1...v2.0.2-beta.2
 [2.0.2-beta.1]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.1...v2.0.2-beta.1
 [2.0.1]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/ShowTrak/ShowTrakTimers/compare/v1.2.0...v2.0.0
