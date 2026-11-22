@@ -23,6 +23,7 @@ import { DefaultSettings } from '../SettingsManager/DefaultSettings';
 import { LATEST_SCHEMA_VERSION } from '../DB/schema';
 import { Manager as AppShowLock, type ShowLock } from '../ShowLock';
 import { IsRecord } from '../../common/guards';
+import { SHOW_FILE_EXTENSION } from '../../common/show-files';
 import type {
   ResultTuple,
   ShowFileOpenOutcome,
@@ -37,7 +38,11 @@ const INSTALL_SETTING_KEYS = DefaultSettings.filter((S) => S.Scope === 'INSTALL'
 
 const Logger = CreateLogger('ShowFile');
 
-export const SHOW_FILE_EXTENSION = 'showtraktimers';
+export {
+  SHOW_FILE_EXTENSION,
+  ShowFileDisplayName,
+  WithShowFileExtension,
+} from '../../common/show-files';
 
 export interface ShowFileManagerOptions {
   Db?: WorkingDatabase;
@@ -80,20 +85,6 @@ function CheckWritable(FilePath: string): string | null {
   } catch (Err) {
     return `The show file cannot be saved there: ${ErrorText(Err)}`;
   }
-}
-
-/** A show file name without its folder or extension, as the title bar shows it. */
-export function ShowFileDisplayName(FilePath: unknown): string {
-  if (!FilePath) return '';
-  const Base = String(FilePath).split(/[\\/]/).pop() || '';
-  return Base.replace(new RegExp(`\\.${SHOW_FILE_EXTENSION}$`, 'i'), '');
-}
-
-/** Ensure a path picked in a save dialog ends with the show file extension. */
-export function WithShowFileExtension(FilePath: string): string {
-  return new RegExp(`\\.${SHOW_FILE_EXTENSION}$`, 'i').test(FilePath)
-    ? FilePath
-    : `${FilePath}.${SHOW_FILE_EXTENSION}`;
 }
 
 export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {

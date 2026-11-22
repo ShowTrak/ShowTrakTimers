@@ -9,15 +9,8 @@ import { DiscardTimerEditor } from './timer-editor';
 import { DiscardGroupEditor } from './group-manager';
 import { HandleNonFatalError } from './utils';
 import { ClearSelection } from './selection';
+import { ShowFileDisplayName } from '../../../common/show-files';
 import type { ShowFileStateView, ShowFileUpgrade } from '@showtrak/protocol/timers';
-
-const EXTENSION = /\.showtraktimers$/i;
-
-/** A show file's name without its folder or extension. */
-export function ShowFileDisplayName(FilePath: unknown): string {
-  if (!FilePath) return '';
-  return (String(FilePath).split(/[\\/]/).pop() || '').replace(EXTENSION, '');
-}
 
 const Cancelled = (Err: unknown) => /cancelled by user/i.test(String(Err));
 
