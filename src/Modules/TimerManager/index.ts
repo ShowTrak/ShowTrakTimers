@@ -39,6 +39,7 @@ import { AppClock } from './clock';
 import { NormalizeSoundRef } from '../../common/sounds';
 import { Manager as AppShowLock, LockMethods, type ShowLock } from '../ShowLock';
 import { IsArray } from '../../common/guards';
+import { CreateLoadOnce } from '../Utils';
 
 export { Timer } from './timer';
 export type { Clock, TimeOfDayClock } from './timer';
@@ -196,8 +197,6 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
   const Lock = Options.Lock ?? AppShowLock;
 
   let Timers: Timer[] = [];
-  let Loaded = false;
-  let Loading: Promise<void> | null = null;
   let WatchTimer: ReturnType<typeof setTimeout> | null = null;
   let LastResync = 0;
 
@@ -306,25 +305,14 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
     }
   }
 
-  async function Load(): Promise<void> {
-    if (Loaded) return;
-    if (Loading) return Loading;
-    Loading = (async () => {
-      const [Err, Rows] = await Db.All<TimerRow>(
-        'SELECT * FROM Timers ORDER BY Weight ASC, ID ASC'
-      );
-      if (Err) throw Err;
-      await NormalizeWeights(Rows || []);
-      Timers = (Rows || []).map((Row) => MakeTimer(FromRow(Row)));
-      Sorted();
-      Loaded = true;
-    })();
-    try {
-      await Loading;
-    } finally {
-      Loading = null;
-    }
-  }
+  const Loader = CreateLoadOnce(async () => {
+    const [Err, Rows] = await Db.All<TimerRow>('SELECT * FROM Timers ORDER BY Weight ASC, ID ASC');
+    if (Err) throw Err;
+    await NormalizeWeights(Rows || []);
+    Timers = (Rows || []).map((Row) => MakeTimer(FromRow(Row)));
+    Sorted();
+  });
+  const Load = Loader.Ensure;
 
   async function Persist(Config: TimerConfig): Promise<string | null> {
     const [Err] = await Db.Run(
@@ -627,8 +615,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
      */
     async Reload(): Promise<void> {
       StopWatching();
-      if (Loading) await Loading.catch(() => {});
-      Loaded = false;
+      await Loader.Reset();
       Timers = [];
       await Load();
       Announce();

@@ -51,6 +51,40 @@ export function CompareVersions(A: string, B: string): number {
 }
 
 /**
+ * Load something on first use. Callers that arrive while a load is running
+ * share it, and a load that fails is tried again by the next caller. Reset
+ * makes the next call load afresh, once a load still running has settled.
+ */
+export function CreateLoadOnce(Load: () => Promise<void>) {
+  let Loaded = false;
+  let Loading: Promise<void> | null = null;
+  return {
+    async Ensure(): Promise<void> {
+      if (Loaded) return;
+      if (Loading) return Loading;
+      Loading = (async () => {
+        await Load();
+        Loaded = true;
+      })();
+      try {
+        await Loading;
+      } finally {
+        Loading = null;
+      }
+    },
+
+    async Reset(): Promise<void> {
+      if (Loading) await Loading.catch(() => {});
+      Loaded = false;
+    },
+
+    IsLoaded(): boolean {
+      return Loaded;
+    },
+  };
+}
+
+/**
  * Write a text file and flush it to the disk before returning. For the temp
  * file of a write-then-rename: without the flush, a power cut can leave the
  * renamed file empty, because the rename can reach the disk before the data.

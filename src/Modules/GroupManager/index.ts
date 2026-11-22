@@ -10,6 +10,7 @@ import { Manager as BroadcastManager } from '../Broadcast';
 import { Manager as AppDb, type Database } from '../DB';
 import { Manager as AppShowLock, LockMethods, type ShowLock } from '../ShowLock';
 import { IsArray } from '../../common/guards';
+import { CreateLoadOnce } from '../Utils';
 import type { GroupView, ResultTuple } from '@showtrak/protocol/timers';
 import {
   DEFAULT_GROUP_SLUG,
@@ -72,8 +73,6 @@ export function CreateGroupManager(Options: GroupManagerOptions = {}) {
   const Lock = Options.Lock ?? AppShowLock;
 
   let Groups: GroupView[] = [];
-  let Loaded = false;
-  let Loading: Promise<void> | null = null;
 
   const Copy = (G: GroupView): GroupView => ({ ...G });
   const Find = (ID: unknown) => {
@@ -110,22 +109,13 @@ export function CreateGroupManager(Options: GroupManagerOptions = {}) {
     return Groups.filter((G) => G.GroupID !== ExceptID && G.Slug).map((G) => G.Slug);
   }
 
-  async function Load(): Promise<void> {
-    if (Loaded) return;
-    if (Loading) return Loading;
-    Loading = (async () => {
-      const [Err, Rows] = await Db.All<GroupRow>('SELECT * FROM `Groups`');
-      if (Err) throw Err;
-      Groups = SortGroups((Rows || []).map(FromRow));
-      await BackfillSlugs();
-      Loaded = true;
-    })();
-    try {
-      await Loading;
-    } finally {
-      Loading = null;
-    }
-  }
+  const Loader = CreateLoadOnce(async () => {
+    const [Err, Rows] = await Db.All<GroupRow>('SELECT * FROM `Groups`');
+    if (Err) throw Err;
+    Groups = SortGroups((Rows || []).map(FromRow));
+    await BackfillSlugs();
+  });
+  const Load = Loader.Ensure;
 
   // Validate a patch against the current groups. Returns the columns to write,
   // or the reason it cannot be applied.
@@ -316,8 +306,7 @@ export function CreateGroupManager(Options: GroupManagerOptions = {}) {
 
     /** Drop what is held in memory and load the groups again (a show swap). */
     async Reload(): Promise<void> {
-      if (Loading) await Loading.catch(() => {});
-      Loaded = false;
+      await Loader.Reset();
       Groups = [];
       await Load();
       Announce();

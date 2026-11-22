@@ -18,6 +18,7 @@ import { Manager as BroadcastManager } from '../Broadcast';
 import { Manager as AppDb, type Database } from '../DB';
 import { CreateInstallSettingsStore, type InstallSettingsStore } from './install-settings';
 import { Manager as AppShowLock, LockMethods, type ShowLock } from '../ShowLock';
+import { CreateLoadOnce } from '../Utils';
 
 const Logger = CreateLogger('Settings');
 
@@ -25,7 +26,7 @@ const Logger = CreateLogger('Settings');
 export const SECRET_SETTING_KEYS: ReadonlySet<string> = new Set(['WEB_DASHBOARD_PASSWORD']);
 
 export interface SettingsManagerShape {
-  Initialized: boolean;
+  readonly Initialized: boolean;
   Init(): Promise<void>;
   GetGroups(): Promise<SettingGroupView[]>;
   /** Every setting, as held in memory and sent to the renderer (copies). */
@@ -88,7 +89,6 @@ export function CreateSettingsManager(
 ): SettingsManagerShape {
   const Settings = new Map<string, SettingView>();
   const DefinitionsByKey = new Map(Definitions.map((Def) => [Def.Key, Def]));
-  let Initializing: Promise<void> | null = null;
 
   // A copy a caller may change freely: the arrays too, since Options is what
   // CoerceValue validates against.
@@ -98,90 +98,84 @@ export function CreateSettingsManager(
     ShowWhen: S.ShowWhen ? [...S.ShowWhen] : null,
   });
 
-  const Manager: SettingsManagerShape = {
-    Initialized: false,
-
-    async Init() {
-      if (Manager.Initialized) return;
-      if (Initializing) return Initializing;
-      Initializing = (async () => {
-        const [Err, Rows] = await Db.All<{ Key: string; Value: unknown }>(
-          'SELECT Key, Value FROM Settings'
-        );
-        if (Err) throw Err;
-        const Saved = new Map((Rows || []).map((Row) => [String(Row.Key), Row.Value]));
-        const InstallValues = Install.ReadAll();
-        // Machine settings the install store has never seen used to live in the
-        // database (every 2.0 beta, and 1.x). Adopt that value once, or the
-        // default, and record it, so opening another show never seeds it again.
-        const Seeds: Record<string, unknown> = {};
-        for (const Def of Definitions) {
-          const IsInstall = Def.Scope === 'INSTALL';
-          let HasSaved: boolean;
-          let Raw: unknown;
-          if (IsInstall && Object.prototype.hasOwnProperty.call(InstallValues, Def.Key)) {
-            HasSaved = true;
-            Raw = InstallValues[Def.Key];
-          } else if (IsInstall) {
-            HasSaved = Saved.has(Def.Key);
-            Raw = Saved.get(Def.Key);
-            Seeds[Def.Key] = HasSaved ? CoerceValue(Def, Raw) : Def.DefaultValue;
-          } else {
-            HasSaved = Saved.has(Def.Key);
-            Raw = Saved.get(Def.Key);
-          }
-          const Value = HasSaved ? CoerceValue(Def, Raw) : Def.DefaultValue;
-          Settings.set(Def.Key, {
-            Group: Def.Group,
-            Key: Def.Key,
-            Title: Def.Title,
-            Description: Def.Description,
-            Type: Def.Type,
-            Value,
-            isDefault: Value === Def.DefaultValue,
-            DefaultValue: Def.DefaultValue,
-            OnUpdateEvent: Def.OnUpdateEvent || null,
-            Options: Def.Options ? [...Def.Options] : null,
-            Min: typeof Def.Min === 'number' ? Def.Min : null,
-            Max: typeof Def.Max === 'number' ? Def.Max : null,
-            Unit: Def.Unit || null,
-            ShowWhen: Def.ShowWhen ? [...Def.ShowWhen] : null,
-            RequiresSave: !!Def.RequiresSave,
-            Scope: IsInstall ? 'INSTALL' : null,
-          });
-        }
-        let Adopted = true;
-        if (Object.keys(Seeds).length) {
-          const SeedErr = Install.Write(Seeds);
-          if (SeedErr) {
-            Adopted = false;
-            Logger.error(
-              `Failed to move ${Object.keys(Seeds).join(', ')} to install settings:`,
-              SeedErr
-            );
-          }
-        }
-        // Machine settings left in the show (by a 2.0 beta, or 1.x) are this
-        // machine's now: drop them from the show, so they are not saved into
-        // the file (where the Web Dashboard passcode would travel with it).
-        // Not a change to the show, so it is not marked unsaved.
-        const Stale = Definitions.filter((Def) => Def.Scope === 'INSTALL' && Saved.has(Def.Key));
-        if (Adopted && Stale.length) {
-          const [PurgeErr] = await Db.Run(
-            `DELETE FROM Settings WHERE Key IN (${Stale.map(() => '?').join(', ')})`,
-            Stale.map((Def) => Def.Key),
-            { MarkDirty: false }
-          );
-          if (PurgeErr) Logger.warn('Failed to drop machine settings from the show:', PurgeErr);
-        }
-        Manager.Initialized = true;
-      })();
-      try {
-        await Initializing;
-      } finally {
-        Initializing = null;
+  const Loader = CreateLoadOnce(async () => {
+    const [Err, Rows] = await Db.All<{ Key: string; Value: unknown }>(
+      'SELECT Key, Value FROM Settings'
+    );
+    if (Err) throw Err;
+    const Saved = new Map((Rows || []).map((Row) => [String(Row.Key), Row.Value]));
+    const InstallValues = Install.ReadAll();
+    // Machine settings the install store has never seen used to live in the
+    // database (every 2.0 beta, and 1.x). Adopt that value once, or the
+    // default, and record it, so opening another show never seeds it again.
+    const Seeds: Record<string, unknown> = {};
+    for (const Def of Definitions) {
+      const IsInstall = Def.Scope === 'INSTALL';
+      let HasSaved: boolean;
+      let Raw: unknown;
+      if (IsInstall && Object.prototype.hasOwnProperty.call(InstallValues, Def.Key)) {
+        HasSaved = true;
+        Raw = InstallValues[Def.Key];
+      } else if (IsInstall) {
+        HasSaved = Saved.has(Def.Key);
+        Raw = Saved.get(Def.Key);
+        Seeds[Def.Key] = HasSaved ? CoerceValue(Def, Raw) : Def.DefaultValue;
+      } else {
+        HasSaved = Saved.has(Def.Key);
+        Raw = Saved.get(Def.Key);
       }
+      const Value = HasSaved ? CoerceValue(Def, Raw) : Def.DefaultValue;
+      Settings.set(Def.Key, {
+        Group: Def.Group,
+        Key: Def.Key,
+        Title: Def.Title,
+        Description: Def.Description,
+        Type: Def.Type,
+        Value,
+        isDefault: Value === Def.DefaultValue,
+        DefaultValue: Def.DefaultValue,
+        OnUpdateEvent: Def.OnUpdateEvent || null,
+        Options: Def.Options ? [...Def.Options] : null,
+        Min: typeof Def.Min === 'number' ? Def.Min : null,
+        Max: typeof Def.Max === 'number' ? Def.Max : null,
+        Unit: Def.Unit || null,
+        ShowWhen: Def.ShowWhen ? [...Def.ShowWhen] : null,
+        RequiresSave: !!Def.RequiresSave,
+        Scope: IsInstall ? 'INSTALL' : null,
+      });
+    }
+    let Adopted = true;
+    if (Object.keys(Seeds).length) {
+      const SeedErr = Install.Write(Seeds);
+      if (SeedErr) {
+        Adopted = false;
+        Logger.error(
+          `Failed to move ${Object.keys(Seeds).join(', ')} to install settings:`,
+          SeedErr
+        );
+      }
+    }
+    // Machine settings left in the show (by a 2.0 beta, or 1.x) are this
+    // machine's now: drop them from the show, so they are not saved into
+    // the file (where the Web Dashboard passcode would travel with it).
+    // Not a change to the show, so it is not marked unsaved.
+    const Stale = Definitions.filter((Def) => Def.Scope === 'INSTALL' && Saved.has(Def.Key));
+    if (Adopted && Stale.length) {
+      const [PurgeErr] = await Db.Run(
+        `DELETE FROM Settings WHERE Key IN (${Stale.map(() => '?').join(', ')})`,
+        Stale.map((Def) => Def.Key),
+        { MarkDirty: false }
+      );
+      if (PurgeErr) Logger.warn('Failed to drop machine settings from the show:', PurgeErr);
+    }
+  });
+
+  const Manager: SettingsManagerShape = {
+    get Initialized() {
+      return Loader.IsLoaded();
     },
+
+    Init: () => Loader.Ensure(),
 
     async GetGroups() {
       return SettingGroups;
@@ -245,10 +239,9 @@ export function CreateSettingsManager(
     },
 
     async Reload() {
-      if (Initializing) await Initializing.catch(() => {});
+      await Loader.Reset();
       const Before = new Map(Array.from(Settings.values(), (S) => [S.Key, S.Value]));
       Settings.clear();
-      Manager.Initialized = false;
       await Manager.Init();
       Broadcast.emit('SettingsUpdated');
       const Events = new Set<string>();
