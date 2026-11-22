@@ -118,7 +118,6 @@ function WireGroupList(): void {
     function (this: HTMLElement, Event) {
       this.dataset.dragged = '';
       this.classList.add('dragging');
-      this.dataset.dragged = '';
       const Transfer = (Event.originalEvent as DragEvent | undefined)?.dataTransfer;
       if (Transfer) {
         Transfer.effectAllowed = 'move';
