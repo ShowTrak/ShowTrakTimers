@@ -25,7 +25,7 @@ function renderMarkdownSafe(md: unknown): string {
   text = Safe(text);
   // Extract fenced code blocks
   const codeBlocks: string[] = [];
-  text = text.replace(/```([\s\S]*?)```/g, (_m, code) => {
+  text = text.replace(/```([\s\S]*?)```/g, (_m, code: string) => {
     const idx = codeBlocks.push(code) - 1;
     return `%%CODEBLOCK_${idx}%%`;
   });
@@ -43,9 +43,9 @@ function renderMarkdownSafe(md: unknown): string {
   const inline: string[] = [];
   const stash = (html: string) => `%%INLINE${inline.push(html) - 1}%%`;
   // Inline code (after fences are removed)
-  text = text.replace(/`([^`]+)`/g, (_m, code) => stash(`<code>${code}</code>`));
+  text = text.replace(/`([^`]+)`/g, (_m, code: string) => stash(`<code>${code}</code>`));
   // Links
-  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label, href) => {
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label: string, href: string) => {
     const url = sanitizeHref(href);
     return stash(`<a href="${url}" target="_blank" rel="noopener">${label}</a>`);
   });
@@ -79,8 +79,8 @@ function renderMarkdownSafe(md: unknown): string {
     .join('\n');
   // Restore fenced code blocks (and, first, the inline code and links)
   return html
-    .replace(/%%INLINE(\d+)%%/g, (_m, i) => inline[Number(i)] ?? '')
-    .replace(/%%CODEBLOCK_(\d+)%%/g, (_m, i) => {
+    .replace(/%%INLINE(\d+)%%/g, (_m, i: string) => inline[Number(i)] ?? '')
+    .replace(/%%CODEBLOCK_(\d+)%%/g, (_m, i: string) => {
       const code = codeBlocks[Number(i)] || '';
       return `<pre class="mb-2"><code>${code}</code></pre>`;
     });

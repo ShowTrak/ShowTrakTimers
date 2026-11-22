@@ -301,7 +301,7 @@ export function InitTimerEditor(): void {
   $('#TIMER_EDITOR_WARNING_TOAST').on('change', function () {
     void Save({ WarningToast: $(this).is(':checked') });
   });
-  $(`#${MODAL_ID}`).on('click', '[data-sound-preview]', function () {
+  $(`#${MODAL_ID}`).on('click', '[data-sound-preview]', function (this: HTMLElement) {
     const SelectID = this.getAttribute('data-sound-preview') || '';
     const Ref = String($(`#${SelectID}`).val() || '') || null;
     if (!Ref) {

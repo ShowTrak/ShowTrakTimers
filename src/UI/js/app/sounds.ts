@@ -179,7 +179,7 @@ function WireSoundLibrary(): void {
   const $Host = $('#SOUND_LIBRARY_LIST');
   const RowID = (El: Element) => $(El).closest('[data-sound-id]').attr('data-sound-id') || '';
 
-  $Host.on('input', '[data-sound-label]', function () {
+  $Host.on('input', '[data-sound-label]', function (this: HTMLElement) {
     const ID = RowID(this);
     const Label = String($(this).val() ?? '');
     clearTimeout(LabelTimers.get(ID));
@@ -193,7 +193,7 @@ function WireSoundLibrary(): void {
     );
   });
 
-  $Host.on('input', '[data-sound-volume]', function () {
+  $Host.on('input', '[data-sound-volume]', function (this: HTMLElement) {
     const ID = RowID(this);
     const Volume = Number($(this).val());
     $(this).closest('[data-sound-id]').find('[data-sound-volume-label]').text(`${Volume}%`);
@@ -209,11 +209,11 @@ function WireSoundLibrary(): void {
     );
   });
 
-  $Host.on('click', '[data-sound-play]', function () {
+  $Host.on('click', '[data-sound-play]', function (this: HTMLElement) {
     void PreviewSoundRef(`asset:${RowID(this)}`);
   });
 
-  $Host.on('click', '[data-sound-delete]', async function () {
+  $Host.on('click', '[data-sound-delete]', async function (this: HTMLElement) {
     const ID = RowID(this);
     const Sound = Sounds.find((S) => S.ID === ID);
     const Confirmed = await ConfirmationDialog(

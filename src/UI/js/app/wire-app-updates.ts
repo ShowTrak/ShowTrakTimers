@@ -10,6 +10,7 @@
 // flight, reopening the modal shows its progress rather than starting another,
 // and a floating progress bar tracks it whenever the modal is closed.
 import type { AppUpdateStatus } from '../../../common/api';
+import { IsArray, IsRecord } from '../../../common/guards';
 import { SettingValue } from './state';
 import { HandleNonFatalError } from './utils';
 import { CloseAllModals } from './modals';
@@ -70,13 +71,13 @@ function setVersionBadge(version: unknown) {
 }
 
 // electron-updater ships release notes in different shapes across platforms.
-function extractNotes(info: AppUpdateStatus['info']) {
+function extractNotes(info: AppUpdateStatus['info']): unknown {
   if (!info) return '';
   const raw = info.releaseNotes || info.notes || info.body || '';
-  if (Array.isArray(raw)) {
+  if (IsArray(raw)) {
     // mac: array of releases; take the first entry's notes
     const first = raw.find(Boolean);
-    return (first && (first.releaseNotes || first.notes || first.body)) || '';
+    return (IsRecord(first) && (first.releaseNotes || first.notes || first.body)) || '';
   }
   return raw || '';
 }

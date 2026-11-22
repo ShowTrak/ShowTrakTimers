@@ -325,7 +325,7 @@ function ArrangementOnPage(): Array<{ ID: number; GroupID: number | null }> {
 
 function WireDragAndDrop(): void {
   const $Grid = $('#TIMER_GRID');
-  $Grid.on('dragstart', '.SHOWTRAK_TIMER', function (Event) {
+  $Grid.on('dragstart', '.SHOWTRAK_TIMER', function (this: HTMLElement, Event) {
     if (Mode !== 'EDIT') return false;
     DraggingID = Number(this.getAttribute('data-timer-id'));
     LayoutAtDragStart = LayoutKey(ArrangementOnPage());
@@ -339,7 +339,7 @@ function WireDragAndDrop(): void {
   });
   // Over a tile: before or after it, by which half the pointer is over (left
   // and right in a zone of several columns, top and bottom in a single one).
-  $Grid.on('dragover', '.SHOWTRAK_TIMER', function (Event) {
+  $Grid.on('dragover', '.SHOWTRAK_TIMER', function (this: HTMLElement, Event) {
     if (DraggingID === null) return;
     Event.preventDefault();
     Event.stopPropagation();
@@ -355,7 +355,7 @@ function WireDragAndDrop(): void {
     $Grid.find('.dnd-over').removeClass('dnd-over');
   });
   // Over a zone's empty space (or an empty group): to the end of that group.
-  $Grid.on('dragover', '.timer-group-zone', function (Event) {
+  $Grid.on('dragover', '.timer-group-zone', function (this: HTMLElement, Event) {
     if (DraggingID === null) return;
     Event.preventDefault();
     const Dragged = document.getElementById(`TIMER_${DraggingID}`);
@@ -365,7 +365,7 @@ function WireDragAndDrop(): void {
     this.classList.add('dnd-over');
   });
   $Grid.on('drop', '.timer-group-zone', (Event) => Event.preventDefault());
-  $Grid.on('dragend', '.SHOWTRAK_TIMER', async function (Event) {
+  $Grid.on('dragend', '.SHOWTRAK_TIMER', async function (this: HTMLElement, Event) {
     this.classList.remove('dragging');
     $Grid.find('.dnd-over').removeClass('dnd-over');
     if (DraggingID === null) return;
@@ -408,26 +408,26 @@ function HandleTimerEvent(Event: TimerEventView): void {
 export function InitTimers(): void {
   SetTimerSource(CurrentTimers);
   OnSelectionChange(() => UpdateBottomBar());
-  $('#TIMER_GRID').on('click', '.timer-tile-btn', function (Event) {
+  $('#TIMER_GRID').on('click', '.timer-tile-btn', function (this: HTMLElement, Event) {
     Event.stopPropagation();
     const ID = Number($(this).closest('.SHOWTRAK_TIMER').attr('data-timer-id'));
     const Action = this.getAttribute('data-action');
     if (!Number.isInteger(ID) || !Action) return;
     if (Action === 'edit') void OpenTimerEditor(ID);
     else void ControlTimer(ID, Action as ControlAction);
-    (this as HTMLElement).blur();
+    this.blur();
   });
   // A click on a tile toggles its selection, as on ShowTrak Server's tiles.
-  $('#TIMER_GRID').on('click', '.SHOWTRAK_TIMER', function () {
+  $('#TIMER_GRID').on('click', '.SHOWTRAK_TIMER', function (this: HTMLElement) {
     const ID = Number(this.getAttribute('data-timer-id'));
     if (Number.isInteger(ID)) ToggleSelection(ID);
   });
   // A group's rail toggles the whole group.
-  $('#TIMER_GRID').on('click', '.GROUP_TITLE_CLICKABLE', function () {
+  $('#TIMER_GRID').on('click', '.GROUP_TITLE_CLICKABLE', function (this: HTMLElement) {
     ToggleGroupSelection(ParseGroupKey(this.getAttribute('data-groupid')));
   });
   // In EDIT mode a double-click anywhere on a tile opens its editor.
-  $('#TIMER_GRID').on('dblclick', '.SHOWTRAK_TIMER', function () {
+  $('#TIMER_GRID').on('dblclick', '.SHOWTRAK_TIMER', function (this: HTMLElement) {
     if (Mode !== 'EDIT') return;
     void OpenTimerEditor(Number(this.getAttribute('data-timer-id')));
   });

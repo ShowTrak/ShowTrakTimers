@@ -113,17 +113,21 @@ function DragAfterElement(Container: HTMLElement, Y: number): Element | null {
 
 function WireGroupList(): void {
   const $List = $('#GROUP_MANAGER_GROUP_LIST');
-  $List.on('dragstart', '.GROUP_MANAGER_GROUP_ITEM[draggable="true"]', function (Event) {
-    this.dataset.dragged = '';
-    this.classList.add('dragging');
-    this.dataset.dragged = '';
-    const Transfer = (Event.originalEvent as DragEvent | undefined)?.dataTransfer;
-    if (Transfer) {
-      Transfer.effectAllowed = 'move';
-      Transfer.setData('text/plain', this.getAttribute('data-groupid') || '');
+  $List.on(
+    'dragstart',
+    '.GROUP_MANAGER_GROUP_ITEM[draggable="true"]',
+    function (this: HTMLElement, Event) {
+      this.dataset.dragged = '';
+      this.classList.add('dragging');
+      this.dataset.dragged = '';
+      const Transfer = (Event.originalEvent as DragEvent | undefined)?.dataTransfer;
+      if (Transfer) {
+        Transfer.effectAllowed = 'move';
+        Transfer.setData('text/plain', this.getAttribute('data-groupid') || '');
+      }
     }
-  });
-  $List.on('dragover', '#GROUP_MANAGER_SORTABLE_LIST', function (Event) {
+  );
+  $List.on('dragover', '#GROUP_MANAGER_SORTABLE_LIST', function (this: HTMLElement, Event) {
     Event.preventDefault();
     const Dragging = this.querySelector('.GROUP_MANAGER_GROUP_ITEM.dragging');
     if (!Dragging) return;
@@ -132,7 +136,7 @@ function WireGroupList(): void {
     else this.appendChild(Dragging);
   });
   $List.on('drop', '#GROUP_MANAGER_SORTABLE_LIST', (Event) => Event.preventDefault());
-  $List.on('dragend', '.GROUP_MANAGER_GROUP_ITEM', async function (Event) {
+  $List.on('dragend', '.GROUP_MANAGER_GROUP_ITEM', async function (this: HTMLElement, Event) {
     this.classList.remove('dragging');
     this.dataset.dragged = '1';
     // Cancelled (Escape) or dropped outside the list: put the rows back.
@@ -153,7 +157,7 @@ function WireGroupList(): void {
   $List.on(
     'click',
     '.GROUP_MANAGER_GROUP_ITEM:not(.GROUP_MANAGER_GROUP_ITEM_DEFAULT)',
-    function () {
+    function (this: HTMLElement) {
       if (this.dataset.dragged === '1') {
         this.dataset.dragged = '';
         return;
@@ -374,7 +378,7 @@ function WireEditor(): void {
   $('#GROUP_MANAGER_EDITOR_MEMBER_LIST').on(
     'click',
     '.GROUP_MANAGER_MEMBER_REMOVE',
-    async function () {
+    async function (this: HTMLElement) {
       const ID = Number(this.getAttribute('data-timer-id'));
       if (!Number.isInteger(ID) || EditingGroupID === null) return;
       const [Err] = await window.API.MoveTimersToGroup([ID], null);

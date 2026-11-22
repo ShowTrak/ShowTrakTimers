@@ -234,9 +234,11 @@ function BindKeyboard($Menu: JQuery<HTMLElement>): void {
       HideContextMenu();
     }
   });
-  $Menu.off('mouseenter').on('mouseenter', 'a.SHOWTRAK_CONTEXTMENU_BUTTON', function () {
-    if (this.getAttribute('aria-disabled') !== 'true') $(this).trigger('focus');
-  });
+  $Menu
+    .off('mouseenter')
+    .on('mouseenter', 'a.SHOWTRAK_CONTEXTMENU_BUTTON', function (this: HTMLElement) {
+      if (this.getAttribute('aria-disabled') !== 'true') $(this).trigger('focus');
+    });
 }
 
 /** Open the menu at a point (a right-click), or centred (the keyboard). */

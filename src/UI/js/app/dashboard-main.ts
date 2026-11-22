@@ -20,6 +20,7 @@ import {
   type DashboardTimerLike,
 } from './lib/dashboard-cache';
 import { IsTicking, type TimerView } from '../../../common/timers';
+import { IsArray } from '../../../common/guards';
 import { GetGroupSpan, GroupTintHex } from '../../../common/groups';
 import { BuildGroupSections, SectionsKey } from './lib/group-layout';
 
@@ -382,7 +383,7 @@ if (typeof io === 'function') {
     Render(LastTimers, false);
   });
   Socket.on('timers:update', (Payload: unknown) => {
-    const List = Array.isArray(Payload)
+    const List = IsArray(Payload)
       ? Payload.filter((T) => T && typeof T === 'object').map((T) =>
           NormalizeDashboardTimer(T as Record<string, unknown>)
         )

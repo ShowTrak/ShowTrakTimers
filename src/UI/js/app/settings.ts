@@ -342,13 +342,15 @@ function BuildSettingsNav(): void {
     Sections.map((Section) => Section.getAttribute('data-nav-key') || '')
   );
   ApplySettingsTab();
-  $Nav.off('click.settingstabs').on('click.settingstabs', '.settings-nav-item', function () {
-    const Key = this.getAttribute('data-nav-target');
-    if (Key === ActiveSettingsTab) return;
-    ActiveSettingsTab = Key;
-    ApplySettingsTab();
-    $Content.scrollTop(0);
-  });
+  $Nav
+    .off('click.settingstabs')
+    .on('click.settingstabs', '.settings-nav-item', function (this: HTMLElement) {
+      const Key = this.getAttribute('data-nav-target');
+      if (Key === ActiveSettingsTab) return;
+      ActiveSettingsTab = Key;
+      ApplySettingsTab();
+      $Content.scrollTop(0);
+    });
 }
 
 // Each open of Preferences starts on the first category.

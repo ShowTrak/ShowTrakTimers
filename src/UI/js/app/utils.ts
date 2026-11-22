@@ -4,6 +4,7 @@
 // 1.x escaped only < and >, so a timer name or setting value containing a quote
 // broke out of the attribute it was rendered into.
 import { Settings } from './state';
+import { IsArray } from '../../../common/guards';
 
 // Master alert volume as a 0..1 multiplier, read live from the settings
 // snapshot (ALERT_SOUND_VOLUME, 0-100). Full volume when it is absent or
@@ -35,7 +36,7 @@ export function Safe(Input: unknown): string {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
   }
-  if (Array.isArray(Input)) return Input.map(Safe).join(',');
+  if (IsArray(Input)) return Input.map(Safe).join(',');
   if (Input === null || Input === undefined) return '';
   return Safe(String(Input));
 }

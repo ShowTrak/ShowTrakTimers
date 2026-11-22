@@ -8,6 +8,7 @@ import {
   ParseGroupColumnCount,
   type GroupView,
 } from '../../../../common/groups';
+import { IsArray } from '../../../../common/guards';
 
 export const DASHBOARD_CACHE_KEY = 'showtrak:dashboard:lastTimers';
 
@@ -21,11 +22,9 @@ interface StorageLike {
 // show 00:00 until the first push arrived.
 export function ReadCachedTimers(Storage: StorageLike | null): DashboardTimerLike[] {
   try {
-    const Parsed = JSON.parse(Storage?.getItem(DASHBOARD_CACHE_KEY) || '[]');
-    return Array.isArray(Parsed)
-      ? Parsed.filter(IsDashboardTimer).map((Entry) =>
-          NormalizeDashboardTimer(Entry as unknown as Record<string, unknown>)
-        )
+    const Parsed: unknown = JSON.parse(Storage?.getItem(DASHBOARD_CACHE_KEY) || '[]');
+    return IsArray(Parsed)
+      ? Parsed.filter(IsDashboardTimer).map((Entry) => NormalizeDashboardTimer(Entry))
       : [];
   } catch {
     return [];
@@ -109,7 +108,7 @@ export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayoutLike = {
  * widths sends none: those groups are full width, as groups default to.
  */
 export function NormalizeDashboardGroups(Payload: unknown): DashboardGroupLike[] {
-  if (!Array.isArray(Payload)) return [];
+  if (!IsArray(Payload)) return [];
   return Payload.filter(
     (G): G is Record<string, unknown> =>
       !!G &&
