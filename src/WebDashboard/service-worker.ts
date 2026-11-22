@@ -54,26 +54,30 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Answer from the network, keeping a good response as the offline copy under
+// cacheKey; the cached copy only when the host cannot be reached.
+function networkFirst(request: Request, cacheKey: RequestInfo): Promise<Response> {
+  return fetch(request)
+    .then((networkResponse) => {
+      if (networkResponse && networkResponse.ok && networkResponse.type === 'basic') {
+        const cloned = networkResponse.clone();
+        caches
+          .open(STATIC_CACHE)
+          .then((cache) => cache.put(cacheKey, cloned))
+          .catch(() => {});
+      }
+      return networkResponse;
+    })
+    .catch(() => caches.match(cacheKey).then((cached) => cached || Response.error()));
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
 
   // The page itself: network first, kept as the offline copy of index.html.
   if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.ok && networkResponse.type === 'basic') {
-            const cloned = networkResponse.clone();
-            caches
-              .open(STATIC_CACHE)
-              .then((cache) => cache.put('/index.html', cloned))
-              .catch(() => {});
-          }
-          return networkResponse;
-        })
-        .catch(() => caches.match('/index.html').then((cached) => cached || Response.error()))
-    );
+    event.respondWith(networkFirst(request, '/index.html'));
     return;
   }
 
@@ -84,20 +88,7 @@ self.addEventListener('fetch', (event) => {
   // that has seen an older version is never shown its stale page code (cache
   // first left a returning browser on the old dashboard.js until a second
   // reload, which is how the groups went missing after an update).
-  event.respondWith(
-    fetch(request)
-      .then((networkResponse) => {
-        if (networkResponse && networkResponse.ok && networkResponse.type === 'basic') {
-          const cloned = networkResponse.clone();
-          caches
-            .open(STATIC_CACHE)
-            .then((cache) => cache.put(request, cloned))
-            .catch(() => {});
-        }
-        return networkResponse;
-      })
-      .catch(() => caches.match(request).then((cached) => cached || Response.error()))
-  );
+  event.respondWith(networkFirst(request, request));
 });
 
 // A module, so the `self` declared above is this file's own rather than a
