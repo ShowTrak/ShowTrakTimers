@@ -17,7 +17,14 @@ import {
   WriteCachedTimers,
   type DashboardTimerLike,
 } from './lib/dashboard-cache';
-import type { DashboardGroup, DashboardLayout, TimerView } from '@showtrak/protocol/timers';
+import type {
+  DashboardGroup,
+  DashboardHello,
+  DashboardLayout,
+  DashboardLoginRequest,
+  DashboardLoginResult,
+  TimerView,
+} from '@showtrak/protocol/timers';
 import { IsTicking } from '../../../common/timers';
 import { IsArray } from '../../../common/guards';
 import { GetGroupSpan, GroupTintHex } from '../../../common/groups';
@@ -262,11 +269,22 @@ function ShowLogin(Visible: boolean): void {
   }
 }
 
-type LoginReply = { ok?: boolean; token?: string; error?: string; retryAfterMs?: number };
+// A sign-in answer as the page reads it: any field a DashboardLoginResult can
+// carry, each optional. A host of another version may answer in some other
+// shape (or not at all), which then reads as a failed sign-in.
+type FieldName<T> = T extends unknown ? keyof T : never;
+type FieldType<T, K extends PropertyKey> = T extends unknown
+  ? K extends keyof T
+    ? T[K]
+    : never
+  : never;
+type LoginReply = {
+  [K in FieldName<DashboardLoginResult>]?: FieldType<DashboardLoginResult, K>;
+};
 
 function SendLogin(
-  Credentials: { password: string } | { token: string },
-  OnReply: (Reply: LoginReply) => void
+  Credentials: DashboardLoginRequest,
+  OnReply: (Reply: LoginReply | null | undefined) => void
 ): void {
   if (!Socket) return;
   Socket.emit('auth:login', Credentials, OnReply);
@@ -331,7 +349,7 @@ function WireLogin(): void {
 
 // The host's greeting: straight in, or a passcode is needed. The token this
 // browser was given at its last sign-in is tried first, silently.
-function OnHello(Hello: { PasswordProtection?: boolean; Authed?: boolean } | null): void {
+function OnHello(Hello: Partial<DashboardHello> | null): void {
   if (!Hello || !Hello.PasswordProtection || Hello.Authed) {
     ShowLogin(false);
     return;
@@ -369,7 +387,7 @@ if (typeof io === 'function') {
   Socket.on('connect', () => SetOnline(true));
   Socket.on('disconnect', () => SetOnline(false));
   Socket.on('connect_error', () => SetOnline(false));
-  Socket.on('hello', (Hello: { PasswordProtection?: boolean; Authed?: boolean }) => OnHello(Hello));
+  Socket.on('hello', (Hello: Partial<DashboardHello> | null) => OnHello(Hello));
   Socket.on('layout:update', (Payload: unknown) => {
     Layout = NormalizeDashboardLayout(Payload);
     WriteCachedLayout(Storage, Layout);

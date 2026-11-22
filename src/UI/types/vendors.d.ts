@@ -74,11 +74,24 @@ interface JQuery<TElement = HTMLElement> {
 }
 
 // ---- Socket.IO client (Web Dashboard only) --------------------------------
-// Served by the Web Dashboard at /socket.io/socket.io.js.
+// Served by the Web Dashboard at /socket.io/socket.io.js. The dashboard's own
+// events are typed by its event maps in @showtrak/protocol/timers. The page
+// still treats what arrives as untrusted (a host of another version may send
+// something else), so its handlers take what they read defensively.
+
+type DashboardServerEvents = import('@showtrak/protocol/timers').WebDashboardServerToClientEvents;
+type DashboardClientEvents = import('@showtrak/protocol/timers').WebDashboardClientToServerEvents;
 
 interface DashboardSocket {
-  on(event: string, handler: (...args: never[]) => void): DashboardSocket;
-  emit(event: string, ...args: unknown[]): DashboardSocket;
+  on<E extends keyof DashboardServerEvents>(
+    event: E,
+    handler: DashboardServerEvents[E]
+  ): DashboardSocket;
+  on(event: 'connect' | 'disconnect' | 'connect_error', handler: () => void): DashboardSocket;
+  emit<E extends keyof DashboardClientEvents>(
+    event: E,
+    ...args: Parameters<DashboardClientEvents[E]>
+  ): DashboardSocket;
   io: { on(event: string, handler: (...args: never[]) => void): void };
   connect(): DashboardSocket;
   connected: boolean;

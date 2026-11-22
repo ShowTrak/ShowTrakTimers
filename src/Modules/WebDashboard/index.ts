@@ -8,7 +8,7 @@
 // RemainingReadable and friends) so anything built against it keeps working,
 // and adds ElapsedMs/Warning/EndBehaviour for the 2.0 page. Every event and
 // payload of the socket is declared in @showtrak/protocol/timers
-// (dashboard.d.ts).
+// (dashboard.d.ts), and the Socket.IO server is typed by those event maps.
 import http from 'http';
 import path from 'path';
 import fs from 'fs';
@@ -31,6 +31,8 @@ import type {
   GroupView,
   ResultTuple,
   TimerView,
+  WebDashboardClientToServerEvents,
+  WebDashboardServerToClientEvents,
 } from '@showtrak/protocol/timers';
 import { NormalizeColumnSpan, ParseGroupColumnCount, SortGroups } from '../../common/groups';
 import { DEFAULT_WEB_DASHBOARD_PORT } from '../Config/constants';
@@ -46,6 +48,14 @@ import {
 } from '../../common/timers';
 
 const Logger = CreateLogger('WebDashboard');
+
+// The dashboard's Socket.IO server and its sockets, typed by the protocol's
+// event maps: what the host may send, and what browsers may send it.
+type DashboardServer = SocketServer<
+  WebDashboardClientToServerEvents,
+  WebDashboardServerToClientEvents
+>;
+type DashboardSocket = Socket<WebDashboardClientToServerEvents, WebDashboardServerToClientEvents>;
 
 /** The timers as sent to dashboard browsers ('timers:update'): those on show, in order. */
 export function ToDashboardTimers(Timers: TimerView[]): DashboardTimer[] {
@@ -244,7 +254,7 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
       : Options.SessionKeyFile;
 
   let HttpServer: http.Server | null = null;
-  let IO: SocketServer | null = null;
+  let IO: DashboardServer | null = null;
   let Bound: { Host: string; Port: number } | null = null;
   let PushTimer: ReturnType<typeof setTimeout> | null = null;
   let SweepTimer: ReturnType<typeof setInterval> | null = null;
@@ -365,7 +375,7 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
     return Passcode.length > 0 ? Passcode : null;
   }
 
-  function Admit(Client: Socket): void {
+  function Admit(Client: DashboardSocket): void {
     Client.join(AUTHED_ROOM);
     // Layout and groups first, so the first timers push is drawn in its groups.
     Client.emit('layout:update', LatestLayout);
@@ -376,7 +386,7 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
 
   // Greet a socket: admit it straight away when there is no passcode, otherwise
   // tell it to log in.
-  async function Greet(Client: Socket): Promise<void> {
+  async function Greet(Client: DashboardSocket): Promise<void> {
     const Required = (await RequiredPasscode()) !== null;
     const Authed = !Required;
     Client.emit('hello', {
@@ -440,7 +450,7 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
     return PasscodeMatches(Token, CurrentSessionKey());
   }
 
-  async function Login(Client: Socket, Payload: unknown): Promise<DashboardLoginResult> {
+  async function Login(Client: DashboardSocket, Payload: unknown): Promise<DashboardLoginResult> {
     const Required = await RequiredPasscode();
     const Signed = (): DashboardLoginResult =>
       Required === null ? { ok: true } : { ok: true, token: CurrentSessionKey() };
@@ -556,7 +566,10 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
     const Server = http.createServer(BuildApp());
     Server.headersTimeout = HEADERS_TIMEOUT_MS;
     Server.requestTimeout = REQUEST_TIMEOUT_MS;
-    const Sockets = new SocketServer(Server, {
+    const Sockets: DashboardServer = new SocketServer<
+      WebDashboardClientToServerEvents,
+      WebDashboardServerToClientEvents
+    >(Server, {
       // Open to other origins as 1.x was, so pages built against its socket
       // (a graphics overlay, a custom display) keep working. With a passcode
       // set they need it too.
