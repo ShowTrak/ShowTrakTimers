@@ -18,6 +18,7 @@ import { HandleNonFatalError, Safe } from './utils';
 import type { TimerPatchView, TimerView } from '@showtrak/protocol/timers';
 import { EditorFieldVisibility, TypeHint } from './lib/timer-editor-model';
 import { Groups } from './state';
+import { CancelDebounced, DebounceKey, type DebounceTimers } from './lib/keyed-debounce';
 import { DEFAULT_GROUP_TITLE, EffectiveGroupID } from '../../../common/groups';
 
 // The Group select: every group, then the Default group ('' as its value).
@@ -44,7 +45,7 @@ const FIELD_DEBOUNCE_MS = 600;
 let EditingID: number | null = null;
 let Current: TimerView | null = null;
 let SetTitle: ((Title: string) => void) | null = null;
-const Pending = new Map<string, ReturnType<typeof setTimeout>>();
+const Pending: DebounceTimers<string> = new Map();
 
 function ApplyVisibility(): void {
   if (!Current) return;
@@ -78,14 +79,7 @@ async function Save(Patch: TimerPatchView): Promise<boolean> {
 }
 
 function Debounced(Key: string, Fn: () => void): void {
-  clearTimeout(Pending.get(Key));
-  Pending.set(
-    Key,
-    setTimeout(() => {
-      Pending.delete(Key);
-      Fn();
-    }, FIELD_DEBOUNCE_MS)
-  );
+  DebounceKey(Pending, Key, FIELD_DEBOUNCE_MS, Fn);
 }
 
 // Run any pending field saves now (on close), so nothing typed is lost.
@@ -204,8 +198,7 @@ function SyncFromPush(Timers: readonly TimerView[]): void {
  * which belongs to a timer of the old show (the same ID may be another timer now).
  */
 export function DiscardTimerEditor(): void {
-  for (const Timer of Pending.values()) clearTimeout(Timer);
-  Pending.clear();
+  CancelDebounced(Pending);
   EditingID = null;
   Current = null;
   closeModal(MODAL_ID);
@@ -320,8 +313,7 @@ export function InitTimerEditor(): void {
       ConfirmLabel: 'Delete Timer',
     });
     if (Confirmed !== true || EditingID !== ID) return;
-    Pending.forEach((Timer) => clearTimeout(Timer));
-    Pending.clear();
+    CancelDebounced(Pending);
     const [Err] = await window.API.DeleteTimer(ID);
     if (Err) {
       void Notify(Err, 'error');

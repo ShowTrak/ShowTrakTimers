@@ -8,6 +8,7 @@ import { openModal } from './lib/modal';
 import { CloseAllModals } from './modals';
 import { BuildSoundOptions, FormatSoundSize } from './lib/sound-options';
 import { AlertSound } from './lib/alert-sound';
+import { DebounceKey, type DebounceTimers } from './lib/keyed-debounce';
 import type { LibrarySoundView } from '@showtrak/protocol/timers';
 
 // The built-in sounds: AAC first (small), WAV as the fallback for a browser that
@@ -131,8 +132,8 @@ type SoundOptionGroup = 'none' | 'builtin' | 'library';
 
 // --- Sound Library modal ----------------------------------------------------
 
-const LabelTimers = new Map<string, ReturnType<typeof setTimeout>>();
-const VolumeTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const LabelTimers: DebounceTimers<string> = new Map();
+const VolumeTimers: DebounceTimers<string> = new Map();
 
 export function RenderSoundLibrary(): void {
   const $Host = $('#SOUND_LIBRARY_LIST');
@@ -182,31 +183,21 @@ function WireSoundLibrary(): void {
   $Host.on('input', '[data-sound-label]', function (this: HTMLElement) {
     const ID = RowID(this);
     const Label = String($(this).val() ?? '');
-    clearTimeout(LabelTimers.get(ID));
-    LabelTimers.set(
-      ID,
-      setTimeout(async () => {
-        LabelTimers.delete(ID);
-        const [Err] = await window.API.UpdateSound(ID, { Label });
-        if (Err) void Notify(Err, 'error');
-      }, 600)
-    );
+    DebounceKey(LabelTimers, ID, 600, async () => {
+      const [Err] = await window.API.UpdateSound(ID, { Label });
+      if (Err) void Notify(Err, 'error');
+    });
   });
 
   $Host.on('input', '[data-sound-volume]', function (this: HTMLElement) {
     const ID = RowID(this);
     const Volume = Number($(this).val());
     $(this).closest('[data-sound-id]').find('[data-sound-volume-label]').text(`${Volume}%`);
-    clearTimeout(VolumeTimers.get(ID));
-    VolumeTimers.set(
-      ID,
-      setTimeout(async () => {
-        VolumeTimers.delete(ID);
-        DropAssetHowl(ID);
-        const [Err] = await window.API.UpdateSound(ID, { Volume });
-        if (Err) void Notify(Err, 'error');
-      }, 400)
-    );
+    DebounceKey(VolumeTimers, ID, 400, async () => {
+      DropAssetHowl(ID);
+      const [Err] = await window.API.UpdateSound(ID, { Volume });
+      if (Err) void Notify(Err, 'error');
+    });
   });
 
   $Host.on('click', '[data-sound-play]', function (this: HTMLElement) {

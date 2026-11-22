@@ -9,6 +9,7 @@ import { DiscardTimerEditor } from './timer-editor';
 import { DiscardGroupEditor } from './group-manager';
 import { HandleNonFatalError } from './utils';
 import { ClearSelection } from './selection';
+import { CancelDebounced } from './lib/keyed-debounce';
 import { ShowFileDisplayName } from '../../../common/show-files';
 import type { ShowFileStateView, ShowFileUpgrade } from '@showtrak/protocol/timers';
 
@@ -47,8 +48,7 @@ function ShowChanged(): void {
   ClearSelection();
   DiscardTimerEditor();
   DiscardGroupEditor();
-  for (const Timer of SettingDebounceTimers.values()) clearTimeout(Timer);
-  SettingDebounceTimers.clear();
+  CancelDebounced(SettingDebounceTimers);
   closeAllModals();
 }
 

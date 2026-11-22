@@ -14,6 +14,7 @@ import {
 } from './state';
 import { Notify } from './lib/toasts';
 import { FormatSettingValue, ResolveSettingsTab } from './lib/settings-tabs';
+import { DebounceKey } from './lib/keyed-debounce';
 import { Safe } from './utils';
 import type { SettingGroupView, SettingView } from '@showtrak/protocol/timers';
 
@@ -87,19 +88,6 @@ async function Save(Setting: SettingView, Value: SettingView['Value']): Promise<
     return false;
   }
   return true;
-}
-
-function Debounce(Key: string, Ms: number, Fn: () => void): void {
-  const Pending = SettingDebounceTimers.get(Key);
-  if (Pending) clearTimeout(Pending);
-  SettingDebounceTimers.set(
-    Key,
-    setTimeout(() => {
-      // Clear first: a live timer means "mid-edit, leave this field alone".
-      SettingDebounceTimers.delete(Key);
-      Fn();
-    }, Ms)
-  );
 }
 
 function RenderBoolean($Target: JQuery<HTMLElement>, Setting: SettingView): void {
@@ -196,7 +184,9 @@ function RenderField($Target: JQuery<HTMLElement>, Setting: SettingView): void {
     });
     $Save.on('click', () => void Commit());
   } else {
-    $Input.on('input', () => Debounce(Setting.Key, 600, () => void Commit()));
+    $Input.on('input', () =>
+      DebounceKey(SettingDebounceTimers, Setting.Key, 600, () => void Commit())
+    );
   }
 }
 
@@ -220,7 +210,7 @@ function RenderSlider($Target: JQuery<HTMLElement>, Setting: SettingView): void 
     if (Number.isNaN(Value)) Value = Number(Setting.Value);
     Value = Math.min(Max, Math.max(Min, Value));
     $(`#SETTING_${Setting.Key}_VALUE`).text(FormatSettingValue(Value, Setting.Unit));
-    Debounce(Setting.Key, 400, () => {
+    DebounceKey(SettingDebounceTimers, Setting.Key, 400, () => {
       if (Value !== Setting.Value) void Save(Setting, Value);
     });
   });
