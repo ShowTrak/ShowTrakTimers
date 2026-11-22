@@ -175,6 +175,7 @@ test('sources, tests and build tooling stay out of the package', async () => {
     '/.github/workflows/ci.yml',
     '/tsconfig.json',
     '/tsconfig.renderer.test.json',
+    '/forge.config.ts',
     '/eslint.config.ts',
     '/package-lock.json',
     '/README.md',

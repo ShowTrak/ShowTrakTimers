@@ -87,6 +87,7 @@ const config: ForgeConfig = {
       /^\/\.claude($|\/)/,
       // Config & docs.
       /^\/tsconfig.*\.json$/,
+      /^\/forge\.config\.ts$/,
       /^\/eslint\.config\.ts$/,
       /^\/\.prettier/,
       /^\/\.gitignore$/,
