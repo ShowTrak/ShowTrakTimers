@@ -35,11 +35,13 @@ function ListFiles(Dir, Filter) {
 }
 
 // Everything that can name a class or id: the markup, and the renderer code
-// that builds markup at runtime.
+// that builds markup at runtime, the renderer kit's from shared/ included (the
+// toasts, confirmation dialog, modal titlebar and Software Update modal).
 const Sources = [
   path.join(ROOT, 'src', 'UI', 'index.html'),
   path.join(ROOT, 'src', 'WebDashboard', 'index.html'),
   ...ListFiles(path.join(ROOT, 'src', 'UI', 'js', 'app'), (Name) => Name.endsWith('.ts')),
+  ...ListFiles(path.join(ROOT, 'shared', 'src', 'ui'), (Name) => Name.endsWith('.ts')),
 ];
 
 if (!fs.existsSync(PartsDir)) {
