@@ -14,6 +14,16 @@ import type { ShowFileStateView, ShowFileUpgrade } from '@showtrak/protocol/time
 
 const Cancelled = (Err: unknown) => /cancelled by user/i.test(String(Err));
 
+/**
+ * Whether a show file request failed, telling the operator why unless they
+ * cancelled it themselves (closed the file picker).
+ */
+function Failed(Err: string | null): boolean {
+  if (!Err) return false;
+  if (!Cancelled(Err)) void Notify(Err, 'error');
+  return true;
+}
+
 export function RenderShowFile(State: ShowFileStateView): void {
   if (State.Generation !== ShowFile.Generation) ShowChanged();
   setShowFile(State);
@@ -56,38 +66,23 @@ async function SaveChangesFirst(Doing: string): Promise<boolean> {
   if (Choice === 'alt') return true;
   if (Choice !== true) return false;
   const [Err] = await window.API.SaveShow();
-  if (Err) {
-    if (!Cancelled(Err)) void Notify(Err, 'error');
-    return false;
-  }
-  return true;
+  return !Failed(Err);
 }
 
 export async function SaveShow(): Promise<void> {
   const [Err] = await window.API.SaveShow();
-  if (Err) {
-    if (!Cancelled(Err)) void Notify(Err, 'error');
-    return;
-  }
-  void Notify('Saved show file.', 'success', 2000);
+  if (!Failed(Err)) void Notify('Saved show file.', 'success', 2000);
 }
 
 export async function SaveShowAs(): Promise<void> {
   const [Err] = await window.API.SaveShowAs();
-  if (Err) {
-    if (!Cancelled(Err)) void Notify(Err, 'error');
-    return;
-  }
-  void Notify('Saved show file.', 'success', 2000);
+  if (!Failed(Err)) void Notify('Saved show file.', 'success', 2000);
 }
 
 export async function OpenShow(): Promise<void> {
   if (!(await SaveChangesFirst('opening another show'))) return;
   const [Err, Outcome] = await window.API.OpenShow();
-  if (Err) {
-    if (!Cancelled(Err)) void Notify(Err, 'error');
-    return;
-  }
+  if (Failed(Err)) return;
   if (Outcome && Outcome.Status === 'UpgradeRequired') {
     await PromptShowFileUpgrade(Outcome.Upgrade);
     return;
@@ -99,10 +94,7 @@ export async function OpenShow(): Promise<void> {
 /** A new show file, choosing where it goes first. False when cancelled or it failed. */
 export async function CreateNewShowFile(): Promise<boolean> {
   const [Err] = await window.API.NewShow();
-  if (Err) {
-    if (!Cancelled(Err)) void Notify(Err, 'error');
-    return false;
-  }
+  if (Failed(Err)) return false;
   ClearSelection();
   void Notify('Created new show file.', 'success', 2000);
   return true;
@@ -149,10 +141,7 @@ export function OpenRequestedShow(): Promise<'None' | 'Cancelled' | 'Opened' | '
       if (Choice !== 'alt') {
         if (Choice !== true) return 'Cancelled' as const;
         const [SaveErr] = await window.API.SaveShowAs();
-        if (SaveErr) {
-          if (!Cancelled(SaveErr)) void Notify(SaveErr, 'error');
-          return 'Cancelled' as const;
-        }
+        if (Failed(SaveErr)) return 'Cancelled' as const;
       }
     } else if (Request.Source === 'Running' && ShowFile.FilePath) {
       const Confirmed = await ConfirmationDialog(
@@ -162,10 +151,7 @@ export function OpenRequestedShow(): Promise<'None' | 'Cancelled' | 'Opened' | '
       if (!Confirmed) return 'Cancelled' as const;
     }
     const [Err, Outcome] = await window.API.OpenRequestedShow();
-    if (Err) {
-      if (!Cancelled(Err)) void Notify(Err, 'error');
-      return 'Cancelled' as const;
-    }
+    if (Failed(Err)) return 'Cancelled' as const;
     if (Outcome && Outcome.Status === 'UpgradeRequired') {
       void PromptShowFileUpgrade(Outcome.Upgrade);
       return 'Upgrade' as const;
