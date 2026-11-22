@@ -286,12 +286,15 @@ Used by packaging and CI when signing/notarization is enabled:
 - `src/main/` - main-process wiring: IPC registrars, updater, services, shutdown
 - `src/bridge_main.ts` - preload bridge and IPC channel allowlists
 - `src/bridge_preloader.ts` - the splash window's preload bridge
-- `src/common/` - timer maths and the IPC contract, shared by every surface
+- `src/common/` - timer maths, group rules and the IPC channel allowlists,
+  shared by every surface
 - `src/Modules/` - timers, database, settings, OSC, Web Dashboard, Sound Library
 - `src/UI/` - desktop renderer UI, the splash window (`preloader.ts`), and the
   Web Dashboard's script
 - `src/WebDashboard/` - the Web Dashboard page and its service worker
-- `shared/` - `@showtrak/protocol`, runtime shared with ShowTrak Server (git submodule)
+- `shared/` - `@showtrak/protocol` (git submodule): the types for everything
+  that crosses a process or network boundary (`@showtrak/protocol/timers`), and
+  runtime shared with ShowTrak Server
 - `test/` - Node test runner suite
 - `forge.config.ts` - Electron Forge packaging/maker/signing configuration
 - `eslint.config.ts` - lint rules (type-aware for the TypeScript: no `any`,
@@ -309,6 +312,32 @@ JavaScript. Each surface is type-checked against its own environment by
   Forge and ESLint load through jiti
 
 The browser-side code is bundled by esbuild (`scripts/build-renderer.js`).
+
+### Types
+
+Every type that crosses a process or network boundary is declared in the
+protocol submodule's `@showtrak/protocol/timers` entry point, not in this repo:
+the IPC channels (`InvokeMap`, `PushMap`), `window.API` (`TimersAPI`,
+`PreloaderAPI`), the views the renderer is sent, the Web Dashboard's socket
+events, the show file's version stamps and the self-updater's status. Import
+them with `import type`: the entry point has no runtime code. Types used inside
+one process stay with the code that uses them, and `test/protocol-types.test.js`
+fails on a type declared again here under a protocol name.
+
+Both ends of every channel are typed by the same maps: the main process's
+handlers (`src/main/rpc.ts`) and pushes (`src/main/renderer-bus.ts`), and the
+preload's `invoke()` and `subscribe()` (`src/bridge_main.ts`), so a handler that
+answers the wrong shape does not compile. The Web Dashboard's Socket.IO server
+and page are typed by the protocol's dashboard event maps the same way. The
+channel lists themselves are runtime values in `src/common/api.ts`, inlined
+again by the sandboxed preload, and both copies are checked against the
+protocol's channel unions in both directions. To change a contract, change it
+in ShowTrak-Protocol, then bump the `shared/` submodule.
+
+ESLint lints the TypeScript with type information, and every typescript-eslint
+`no-unsafe-*` rule is an error: a value typed `any` (an untyped `require()`,
+`JSON.parse`, a third-party callback) cannot be used until it is given a type,
+usually `unknown` narrowed with the guards in `src/common/guards.ts`.
 
 ## Support
 
