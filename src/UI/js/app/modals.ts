@@ -2,7 +2,7 @@
 // is open, and the About modal (all as in ShowTrak Server).
 import { closeAllModals, closeModal, openModal } from './lib/modal';
 import { CancelConfirmation } from './lib/toasts';
-import { buildModalHeader } from './lib/modal-header';
+import { buildModalHeader } from '@showtrak/protocol/ui/modal-header';
 import { Config } from './state';
 import { Wait } from './utils';
 import type { DependencyView } from '@showtrak/protocol/timers';

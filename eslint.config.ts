@@ -86,7 +86,7 @@ export default defineConfig([
       // No implicit `any` either. Whatever arrives as `any` (an untyped
       // require(), JSON.parse, an Electron or jQuery callback argument) is typed,
       // as `unknown` or by the contract in @showtrak/protocol/timers, and
-      // narrowed (see src/common/guards.ts) before it is used.
+      // narrowed (IsArray, IsRecord from @showtrak/protocol/common) before it is used.
       '@typescript-eslint/no-unsafe-assignment': 'error',
       '@typescript-eslint/no-unsafe-member-access': 'error',
       '@typescript-eslint/no-unsafe-call': 'error',

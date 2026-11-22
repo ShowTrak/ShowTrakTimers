@@ -29,9 +29,17 @@ const DASHBOARD_HTML = readText('src', 'WebDashboard', 'index.html');
 const DESKTOP_IDS = new Set(htmlIds(DESKTOP_HTML));
 const DASHBOARD_IDS = new Set(htmlIds(DASHBOARD_HTML));
 
-/** The desktop renderer's sources (every module but the dashboard entry). */
+/**
+ * The desktop renderer's sources: every module but the dashboard entry, and the
+ * renderer kit it bundles from shared/ (the toasts, dialogs and Software Update
+ * modal build and look up their ids there).
+ */
 const DESKTOP_SOURCES = new Map(
-  [...listFiles(APP_DIR, /\.ts$/), ...listFiles(path.join(APP_DIR, 'lib'), /\.ts$/)]
+  [
+    ...listFiles(APP_DIR, /\.ts$/),
+    ...listFiles(path.join(APP_DIR, 'lib'), /\.ts$/),
+    ...listFiles(path.join('shared', 'src', 'ui'), /(?<!\.d)\.ts$/),
+  ]
     .filter((File) => path.basename(File) !== 'dashboard-main.ts')
     .map((File) => [File, readText(File)])
 );

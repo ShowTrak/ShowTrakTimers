@@ -8,7 +8,7 @@ import {
   NormalizeColumnSpan,
   ParseGroupColumnCount,
 } from '../../../../common/groups';
-import { IsArray } from '../../../../common/guards';
+import { IsArray } from '@showtrak/protocol/common/guards';
 
 export const DASHBOARD_CACHE_KEY = 'showtrak:dashboard:lastTimers';
 

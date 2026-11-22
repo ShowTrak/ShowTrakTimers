@@ -1,6 +1,6 @@
 // The Web Dashboard modal: whether it is on, the addresses to open it at, and a
 // QR code for a phone (the QR generator is ShowTrak Server's).
-import { QrToSvg } from './lib/qr-svg';
+import { QrToSvg } from '@showtrak/protocol/ui/qr-svg';
 import { openModal } from './lib/modal';
 import { CloseAllModals } from './modals';
 import { Services, setServices } from './state';

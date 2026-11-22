@@ -12,7 +12,7 @@
 // never shipped. It is rebuilt by `pretest`.
 //
 // Note the deliberate module settings: CommonJS + classic node resolution, so
-// the renderer's extensionless relative imports ('./lib/qr-svg') resolve
+// the renderer's extensionless relative imports ('./lib/modal') resolve
 // without rewriting a single source file. Type-checking of the renderer still
 // happens against tsconfig.renderer.json (bundler resolution), which is what
 // the real build uses.
@@ -27,10 +27,21 @@
     "types": ["jquery", "node"],
     "paths": {
       // As tsconfig.json: the protocol's type entry points straight from the
-      // submodule's source (the runtime entry point is main-process only).
+      // submodule's source (the runtime entry point is main-process only), and
+      // the compiled code the renderers share from its BUILT declarations: the
+      // renderer kit, and single modules of the common entry point (a page
+      // bundle takes only the module it uses).
       "@showtrak/protocol": ["./shared/src/index.d.ts"],
+      "@showtrak/protocol/common/*": ["./shared/dist/common/*"],
+      "@showtrak/protocol/ui/*": ["./shared/dist/ui/*"],
       "@showtrak/protocol/*": ["./shared/src/*"]
     }
   },
-  "include": ["src/UI/js/app/**/*", "src/UI/types/**/*", "src/common/**/*"]
+  "include": [
+    "src/UI/js/app/**/*",
+    "src/UI/types/**/*",
+    "src/common/**/*",
+    // Bootstrap and Howler, page globals the renderer kit uses too.
+    "shared/src/ui/vendors.d.ts"
+  ]
 }

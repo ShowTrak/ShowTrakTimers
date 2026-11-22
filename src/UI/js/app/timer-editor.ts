@@ -9,7 +9,7 @@ import {
   FormatDurationInput,
   ParseDuration,
 } from '../../../common/timers';
-import { buildModalHeader } from './lib/modal-header';
+import { buildModalHeader } from '@showtrak/protocol/ui/modal-header';
 import { closeModal, openModal } from './lib/modal';
 import { ConfirmationDialog, Notify } from './lib/toasts';
 import { CloseAllModals } from './modals';

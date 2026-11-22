@@ -12,8 +12,8 @@ import {
   type ContextMenuActionID,
   type ContextMenuRow,
 } from './lib/context-menu-model';
-import { PlaceMenu, ResolveMenuAnchor } from './lib/menu-placement';
-import { FindTypeaheadMatch, NextTypeaheadBuffer } from './lib/menu-typeahead';
+import { PlaceMenu, ResolveMenuAnchor } from '@showtrak/protocol/ui/menu-placement';
+import { FindTypeaheadMatch, NextTypeaheadBuffer } from '@showtrak/protocol/ui/menu-typeahead';
 import {
   ClearSelection,
   IsSelected,

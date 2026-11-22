@@ -337,7 +337,8 @@ in ShowTrak-Protocol, then bump the `shared/` submodule.
 ESLint lints the TypeScript with type information, and every typescript-eslint
 `no-unsafe-*` rule is an error: a value typed `any` (an untyped `require()`,
 `JSON.parse`, a third-party callback) cannot be used until it is given a type,
-usually `unknown` narrowed with the guards in `src/common/guards.ts`.
+usually `unknown` narrowed with the guards `IsArray` and `IsRecord`
+(`@showtrak/protocol/common`).
 
 ### Shared code
 
@@ -351,11 +352,18 @@ compiled by `npm run build:shared`, the first step of `npm run build`:
 - `@showtrak/protocol/electron-main` - the self-updater, show file
   associations, the window guards and zoom shortcuts, the first-paint signal,
   dev reload and the renderer push bus
+- `@showtrak/protocol/ui/<module>` - the renderer kit: the Software Update
+  modal, toasts and the confirmation dialog, the modal titlebar, release-notes
+  Markdown, QR codes, the right-click menu's placement and type-to-search, the
+  Preferences tabs, the HTML escaper and the error reporter
 
-What is Timers' own (its name, release repository, file type, push channels)
-is passed in by a few lines of configuration: `src/Modules/Logger`,
-`src/main/app-updater.ts`, `src/main/file-associations.ts` and
-`src/main/renderer-bus.ts`. A fix to the shared code is made in
+What is Timers' own (its name, release repository, file type, push channels,
+filled icons, update-channel note) is passed in by a few lines of
+configuration: `src/Modules/Logger`, `src/main/app-updater.ts`,
+`src/main/file-associations.ts`, `src/main/renderer-bus.ts`,
+`src/UI/js/app/lib/toasts.ts` and `src/UI/js/app/wire-app-updates.ts`. The
+Web Dashboard's page imports single modules (`@showtrak/protocol/common/guards`)
+so that it carries nothing it does not use. A fix to the shared code is made in
 ShowTrak-Protocol, then picked up by bumping the submodule.
 
 ## Support

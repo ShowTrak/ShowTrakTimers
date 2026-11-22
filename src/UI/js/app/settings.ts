@@ -13,7 +13,7 @@ import {
   SettingValue as CurrentValue,
 } from './state';
 import { Notify } from './lib/toasts';
-import { FormatSettingValue, ResolveSettingsTab } from './lib/settings-tabs';
+import { FormatSettingValue, ResolveSettingsTab } from '@showtrak/protocol/ui/settings-tabs';
 import { DebounceKey } from './lib/keyed-debounce';
 import { Safe } from './utils';
 import type { SettingGroupView, SettingView } from '@showtrak/protocol/timers';

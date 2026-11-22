@@ -26,7 +26,7 @@ import type {
   TimerView,
 } from '@showtrak/protocol/timers';
 import { IsTicking } from '../../../common/timers';
-import { IsArray } from '../../../common/guards';
+import { IsArray } from '@showtrak/protocol/common/guards';
 import { GetGroupSpan, GroupTintHex } from '../../../common/groups';
 import { BuildGroupSections, SectionsKey } from './lib/group-layout';
 
