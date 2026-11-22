@@ -9,7 +9,7 @@ import { CreateLogger } from '../Logger';
 import { Manager as BroadcastManager } from '../Broadcast';
 import { Manager as AppDb, type Database } from '../DB';
 import { Manager as AppShowLock, LockMethods, type ShowLock } from '../ShowLock';
-import { IsArray } from '../../common/guards';
+import { IsArray } from '@showtrak/protocol/common';
 import { CreateLoadOnce } from '../Utils';
 import type { GroupView, ResultTuple } from '@showtrak/protocol/timers';
 import {

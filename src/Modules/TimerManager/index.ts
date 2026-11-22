@@ -38,7 +38,7 @@ import { Timer, type Clock, type TimeOfDayClock } from './timer';
 import { AppClock } from './clock';
 import { NormalizeSoundRef } from '../../common/sounds';
 import { Manager as AppShowLock, LockMethods, type ShowLock } from '../ShowLock';
-import { IsArray } from '../../common/guards';
+import { IsArray } from '@showtrak/protocol/common';
 import { CreateLoadOnce } from '../Utils';
 
 export { Timer } from './timer';

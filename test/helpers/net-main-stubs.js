@@ -71,22 +71,26 @@ function installMainStubs({ realAppUpdater = false } = {}) {
   const appUpdater = recordingManager({ Register: () => undefined });
   const squirrel = new EventEmitter();
 
+  const app = {
+    get isPackaged() {
+      return state.isPackaged;
+    },
+    getAppPath: () => state.appPath,
+  };
+
   const mocks = [
     {
       match: matchesModule('electron/main'),
       value: {
         ipcMain: { handle: (Channel) => ipcHandled.push(Channel) },
-        app: {
-          get isPackaged() {
-            return state.isPackaged;
-          },
-          getAppPath: () => state.appPath,
-        },
+        app,
       },
     },
     {
+      // The shared updater (@showtrak/protocol/electron-main) reads `app` here.
       match: (r) => r === 'electron',
       value: {
+        app,
         autoUpdater: squirrel,
         shell: { openExternal: async (Url) => opened.push(Url) },
         dialog: {

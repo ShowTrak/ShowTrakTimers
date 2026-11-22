@@ -1,56 +1,15 @@
 // src/Modules/Utils/index.ts and src/Modules/Config: small shared helpers and
-// the app's identity. CompareVersions picks the newest Squirrel package to
-// report download progress against (main/squirrel-releases.ts), and the
-// version in Config is what the About modal, the updater and the Web Dashboard
-// report, so it must be the one in package.json.
+// the app's identity. The version in Config is what the About modal, the
+// updater and the Web Dashboard report, so it must be the one in package.json.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
-const { Wait, CompareVersions } = require('../dist/Modules/Utils');
+const { Wait } = require('../dist/Modules/Utils');
 const { Config } = require('../dist/Modules/Config');
 const Constants = require('../dist/Modules/Config/constants');
 const { DIST_ROOT } = require('../dist/Modules/Config/dist-root');
 const Package = require('../package.json');
-
-const Sign = (Value) => Math.sign(Value);
-
-// --- CompareVersions ---------------------------------------------------------
-
-test('CompareVersions orders dotted versions numerically, part by part', () => {
-  assert.equal(CompareVersions('1.2.3', '1.2.3'), 0);
-  assert.equal(Sign(CompareVersions('1.2.3', '1.2.4')), -1);
-  assert.equal(Sign(CompareVersions('1.2.4', '1.2.3')), 1);
-  assert.equal(Sign(CompareVersions('1.10.0', '1.9.0')), 1, 'not a string comparison');
-  assert.equal(Sign(CompareVersions('2.0.0', '1.99.99')), 1);
-  assert.equal(Sign(CompareVersions('0.9', '1.0')), -1);
-});
-
-test('CompareVersions treats missing parts as zero', () => {
-  assert.equal(CompareVersions('2.0', '2.0.0'), 0);
-  assert.equal(CompareVersions('2', '2.0.0'), 0);
-  assert.equal(Sign(CompareVersions('2.0.1', '2.0')), 1);
-});
-
-test('CompareVersions compares a dotted pre-release number as a further part', () => {
-  assert.equal(Sign(CompareVersions('2.0.0-beta.2', '2.0.0-beta.1')), 1);
-  assert.equal(Sign(CompareVersions('2.0.0-beta.10', '2.0.0-beta.9')), 1);
-  assert.equal(CompareVersions('2.0.0-beta.1', '2.0.0-beta.1'), 0);
-});
-
-test('CompareVersions never throws on text that is not a version', () => {
-  assert.equal(CompareVersions('', ''), 0);
-  assert.equal(CompareVersions('abc', '0.0.0'), 0);
-  assert.equal(Sign(CompareVersions('not-a-version', '0.0.1')), -1);
-});
-
-test('CompareVersions orders Squirrel pre-release names (2.0.0-beta1 < 2.0.0-beta2)', () => {
-  // The doc comment names these Squirrel-rewritten names as the input this
-  // lenient comparison exists for.
-  assert.equal(Sign(CompareVersions('2.0.0-beta2', '2.0.0-beta1')), 1);
-  assert.equal(Sign(CompareVersions('2.0.0-beta10', '2.0.0-beta9')), 1);
-  assert.equal(Sign(CompareVersions('2.0.0-beta1', '2.0.0-beta2')), -1);
-});
 
 // --- Wait --------------------------------------------------------------------
 

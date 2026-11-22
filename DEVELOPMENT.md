@@ -294,7 +294,7 @@ Used by packaging and CI when signing/notarization is enabled:
 - `src/WebDashboard/` - the Web Dashboard page and its service worker
 - `shared/` - `@showtrak/protocol` (git submodule): the types for everything
   that crosses a process or network boundary (`@showtrak/protocol/timers`), and
-  runtime shared with ShowTrak Server
+  the code shared with ShowTrak Server (see [Shared code](#shared-code))
 - `test/` - Node test runner suite
 - `forge.config.ts` - Electron Forge packaging/maker/signing configuration
 - `eslint.config.ts` - lint rules (type-aware for the TypeScript: no `any`,
@@ -338,6 +338,25 @@ ESLint lints the TypeScript with type information, and every typescript-eslint
 `no-unsafe-*` rule is an error: a value typed `any` (an untyped `require()`,
 `JSON.parse`, a third-party callback) cannot be used until it is given a type,
 usually `unknown` narrowed with the guards in `src/common/guards.ts`.
+
+### Shared code
+
+Code that ShowTrak Server runs too is not copied here: it comes from the
+`shared/` submodule (its README's "Shared code" section describes each part),
+compiled by `npm run build:shared`, the first step of `npm run build`:
+
+- `@showtrak/protocol/runtime` - the logger, the process guards, durable file
+  writes (`ReplaceFileSync`) and the update-channel rules
+- `@showtrak/protocol/common` - the type guards and the lenient version order
+- `@showtrak/protocol/electron-main` - the self-updater, show file
+  associations, the window guards and zoom shortcuts, the first-paint signal,
+  dev reload and the renderer push bus
+
+What is Timers' own (its name, release repository, file type, push channels)
+is passed in by a few lines of configuration: `src/Modules/Logger`,
+`src/main/app-updater.ts`, `src/main/file-associations.ts` and
+`src/main/renderer-bus.ts`. A fix to the shared code is made in
+ShowTrak-Protocol, then picked up by bumping the submodule.
 
 ## Support
 

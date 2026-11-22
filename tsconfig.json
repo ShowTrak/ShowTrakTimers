@@ -6,11 +6,13 @@
     "types": ["node"],
     "paths": {
       "@showtrak/protocol": ["./shared/src/index.d.ts"],
-      // The runtime entry point is real emitted JavaScript, so it resolves to
-      // the BUILT declarations rather than to source (see ShowTrakServer's
+      // The compiled entry points are real emitted JavaScript, so they resolve
+      // to the BUILT declarations rather than to source (see ShowTrakServer's
       // tsconfig.json for the full reasoning). Requires `npm run build:shared`,
       // which is the first step of `build` and also runs on postinstall.
       "@showtrak/protocol/runtime": ["./shared/dist/runtime/index.d.ts"],
+      "@showtrak/protocol/common": ["./shared/dist/common/index.d.ts"],
+      "@showtrak/protocol/electron-main": ["./shared/dist/electron-main/index.d.ts"],
       "@showtrak/protocol/*": ["./shared/src/*"]
     }
   },

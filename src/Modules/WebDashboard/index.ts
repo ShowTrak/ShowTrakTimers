@@ -18,7 +18,7 @@ import { Server as SocketServer, type Socket } from 'socket.io';
 import { CreateLogger } from '../Logger';
 import { Manager as BroadcastManager } from '../Broadcast';
 import { Manager as AppDataManager } from '../AppData';
-import { ReplaceFileSync } from '../Utils';
+import { ReplaceFileSync } from '@showtrak/protocol/runtime';
 import { Manager as AppSettings, type SettingsManagerShape } from '../SettingsManager';
 import { Manager as AppTimers, type TimerManager } from '../TimerManager';
 import { Manager as AppGroups, type GroupManager } from '../GroupManager';
@@ -36,7 +36,7 @@ import type {
 } from '@showtrak/protocol/timers';
 import { NormalizeColumnSpan, ParseGroupColumnCount, SortGroups } from '../../common/groups';
 import { DEFAULT_WEB_DASHBOARD_PORT } from '../Config/constants';
-import { IsRecord } from '../../common/guards';
+import { IsRecord } from '@showtrak/protocol/common';
 import { DIST_ROOT } from '../Config/dist-root';
 import { Config } from '../Config';
 import {

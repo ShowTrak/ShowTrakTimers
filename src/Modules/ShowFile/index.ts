@@ -18,11 +18,12 @@ import { Manager as AppDb, type WorkingDatabase, ReadShowFileInfo } from '../DB'
 import { Manager as AppDataManager } from '../AppData';
 import { Manager as BroadcastManager } from '../Broadcast';
 import { Config } from '../Config';
-import { CompareVersions, IsSamePath, ReplaceFileSync, SamePathKey } from '../Utils';
+import { IsSamePath, SamePathKey } from '../Utils';
+import { ReplaceFileSync } from '@showtrak/protocol/runtime';
 import { DefaultSettings } from '../SettingsManager/DefaultSettings';
 import { LATEST_SCHEMA_VERSION } from '../DB/schema';
 import { Manager as AppShowLock, type ShowLock } from '../ShowLock';
-import { IsRecord } from '../../common/guards';
+import { CompareLooseVersions, IsRecord } from '@showtrak/protocol/common';
 import { SHOW_FILE_EXTENSION } from '../../common/show-files';
 import type {
   ResultTuple,
@@ -213,7 +214,7 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
         null,
       ];
     }
-    const NeedsUpgrade = !FileVersion || CompareVersions(FileVersion, Version()) < 0;
+    const NeedsUpgrade = !FileVersion || CompareLooseVersions(FileVersion, Version()) < 0;
     return [null, { NeedsUpgrade, FileVersion }];
   }
 

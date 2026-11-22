@@ -7,7 +7,7 @@ import type {
   SettingValue as SettingValueType,
   TimerPlacementView,
 } from '@showtrak/protocol/timers';
-import { IsArray, IsRecord } from '../../common/guards';
+import { IsArray, IsRecord } from '@showtrak/protocol/common';
 
 export class ValidationError extends Error {}
 

@@ -11,9 +11,9 @@
 //   markup / CSS / static assets  copy on change  -> reload the window
 //   protocol runtime (shared/)    build:shared    -> tsc picks it up
 //
-// The window reload is done by the app itself (src/main/dev-reload.ts) when it
-// sees dist/UI change, so the main process, and everything connected to it,
-// survives a renderer edit. Renderer type errors are reported by --noEmit
+// The window reload is done by the app itself (StartDevReload, from
+// @showtrak/protocol/electron-main) when it sees dist/UI change, so the main
+// process, and everything connected to it, survives a renderer edit. Renderer type errors are reported by --noEmit
 // watchers but never block a reload; CI and the pre-commit hook enforce them.
 //
 // `npm start -- --no-app` builds and watches without launching Electron, for when

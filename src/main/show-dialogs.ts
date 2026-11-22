@@ -6,7 +6,7 @@ import type { OpenDialogOptions, SaveDialogOptions } from 'electron';
 import { Manager as AppDataManager } from '../Modules/AppData';
 import { SHOW_FILE_EXTENSION, WithShowFileExtension } from '../Modules/ShowFile';
 import { getMainWindow, hasMainWindow } from './app-window';
-import { IsRecord } from '../common/guards';
+import { IsRecord } from '@showtrak/protocol/common';
 
 const SHOW_FILE_FILTER = { name: 'ShowTrak Timers Show File', extensions: [SHOW_FILE_EXTENSION] };
 

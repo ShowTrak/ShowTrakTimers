@@ -5,8 +5,8 @@
 import path from 'path';
 import fs from 'fs';
 import { Manager as AppDataManager } from '../AppData';
-import { ReplaceFileSync } from '../Utils';
-import { IsRecord } from '../../common/guards';
+import { ReplaceFileSync } from '@showtrak/protocol/runtime';
+import { IsRecord } from '@showtrak/protocol/common';
 
 export interface InstallSettingsStore {
   /** Every stored value. An unreadable or corrupt file reads as empty. */

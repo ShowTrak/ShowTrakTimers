@@ -17,8 +17,8 @@ import { Manager as AppDataManager } from './Modules/AppData';
 AppDataManager.Initialize();
 import { CreateLogger } from './Modules/Logger';
 const Logger = CreateLogger('Main');
-import { installProcessGuards } from './main/process-guards';
-installProcessGuards();
+import { InstallProcessGuards } from '@showtrak/protocol/runtime';
+InstallProcessGuards(CreateLogger('ProcessGuard'));
 
 // The arguments go across as additionalData too: Chromium adds its own switches
 // to the argv that 'second-instance' reports, and can reorder it.
@@ -48,7 +48,7 @@ app.on('open-file', (Event, FilePath) => {
 }
 
 import path from 'path';
-import { IsArray } from './common/guards';
+import { IsArray } from '@showtrak/protocol/common';
 import {
   MAIN_WINDOW_READY_TIMEOUT_MS,
   PRELOADER_MIN_DISPLAY_MS,
@@ -63,11 +63,15 @@ import { Manager as BroadcastManager } from './Modules/Broadcast';
 import { Wait } from './Modules/Utils';
 import { RegisterRendererSink, PushToRenderers } from './main/renderer-bus';
 import { getMainWindow, hasMainWindow, setMainWindow } from './main/app-window';
-import { markInitialStateDelivered, whenInitialStateDelivered } from './main/first-paint';
-import { StartDevReload } from './main/dev-reload';
+import {
+  applyWindowSecurityGuards,
+  applyWindowZoomShortcuts,
+  markInitialStateDelivered,
+  StartDevReload,
+  whenInitialStateDelivered,
+} from '@showtrak/protocol/electron-main';
+import { DIST_ROOT } from './Modules/Config/dist-root';
 import { configureApplicationMenu } from './main/app-menu';
-import { applyWindowSecurityGuards } from './main/window-guards';
-import { applyWindowZoomShortcuts } from './main/window-zoom';
 import { CLOSE_DIALOG_OPTIONS, CreateShutdownCoordinator } from './main/shutdown';
 import { ModeManager } from './main/mode';
 import { RegisterAllHandlers } from './main/registrars';
@@ -301,7 +305,12 @@ async function OnReady(): Promise<void> {
     ...WINDOW_CHROME_OPTIONS,
   });
   setMainWindow(MainWindow);
-  StartDevReload();
+  // Development only (`npm start`): reload the window when dist/UI is rebuilt.
+  StartDevReload({
+    Root: path.join(DIST_ROOT, 'UI'),
+    GetWindow: getMainWindow,
+    Logger: CreateLogger('DevReload'),
+  });
 
   MainWindow.loadFile(path.join(__dirname, 'UI', 'index.html'))
     .catch((Err) => {

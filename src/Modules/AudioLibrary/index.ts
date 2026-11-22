@@ -8,8 +8,8 @@ import path from 'path';
 import crypto from 'crypto';
 import { CreateLogger } from '../Logger';
 import { Manager as AppData } from '../AppData';
-import { ReplaceFileSync } from '../Utils';
-import { IsArray, IsRecord } from '../../common/guards';
+import { ReplaceFileSync } from '@showtrak/protocol/runtime';
+import { IsArray, IsRecord } from '@showtrak/protocol/common';
 import type { LibrarySoundView, ResultTuple, SoundDataView } from '@showtrak/protocol/timers';
 
 const Logger = CreateLogger('AudioLibrary');

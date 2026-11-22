@@ -10,7 +10,7 @@ import { Manager as AppSettings, type SettingsManagerShape } from '../SettingsMa
 import { Manager as AppTimers, type TimerManager } from '../TimerManager';
 import { Manager as AppGroups, type GroupManager } from '../GroupManager';
 import { DEFAULT_GROUP_SLUG, DEFAULT_GROUP_TITLE, EffectiveGroupID } from '../../common/groups';
-import { IsArray } from '../../common/guards';
+import { IsArray } from '@showtrak/protocol/common';
 import { DEFAULT_OSC_PORT } from '../Config/constants';
 import { DescribeError, IsTransientNetworkError } from '@showtrak/protocol/runtime';
 import { MatchRoute, ROUTES, type OscRouteContext } from './routes';

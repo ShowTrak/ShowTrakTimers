@@ -306,10 +306,17 @@ test('the Node version agrees between .nvmrc, engines and CI', () => {
   }
 });
 
-/** Every non-type import/require specifier in the app's TypeScript and JS sources. */
+/**
+ * Every non-type import/require specifier in the app's TypeScript and JS
+ * sources, and in the shared code it runs (shared/src: the updater there loads
+ * electron-updater).
+ */
 function sourceSpecifiers() {
   const Specs = new Set();
-  const Files = walkFiles('src', new Set(['vendors'])).filter((File) => /\.(ts|js)$/.test(File));
+  const Files = [
+    ...walkFiles('src', new Set(['vendors'])),
+    ...walkFiles(path.join('shared', 'src')),
+  ].filter((File) => /\.(ts|js)$/.test(File));
   for (const File of Files) {
     const Text = readText(File);
     for (const M of Text.matchAll(/^\s*import\s+(?!type\b)[^'"]*?from\s+'([^']+)'/gm))
