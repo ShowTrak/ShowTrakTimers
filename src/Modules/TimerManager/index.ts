@@ -168,6 +168,28 @@ export function ApplyPatch(Current: TimerConfig, Patch: TimerPatch): TimerConfig
   return Next;
 }
 
+// A configuration as its row stores it (flags as 0/1), by column: every column
+// a create or an update writes besides Weight. One list for both statements, so
+// a column added to one cannot be left out of the other.
+function StoredColumns(Config: TimerConfig): Record<string, string | number | null> {
+  return {
+    Type: Config.Type,
+    Name: Config.Name,
+    Description: Config.Description,
+    Duration: Config.Duration,
+    ShowOnWeb: Config.ShowOnWeb ? 1 : 0,
+    EndBehaviour: Config.EndBehaviour,
+    CompletionSound: Config.CompletionSound,
+    CompletionToast: Config.CompletionToast ? 1 : 0,
+    WarningMs: Config.WarningMs,
+    WarningSound: Config.WarningSound,
+    WarningToast: Config.WarningToast ? 1 : 0,
+    ShowHundredths: Config.ShowHundredths ? 1 : 0,
+    ClockFormat: Config.ClockFormat,
+    GroupID: Config.GroupID,
+  };
+}
+
 function DefaultConfig(): Omit<TimerConfig, 'ID' | 'Weight'> {
   return {
     Type: 'TIMER',
@@ -315,28 +337,11 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
   const Load = Loader.Ensure;
 
   async function Persist(Config: TimerConfig): Promise<string | null> {
+    const Columns = StoredColumns(Config);
+    const Names = Object.keys(Columns);
     const [Err] = await Db.Run(
-      `UPDATE Timers SET Type = ?, Name = ?, Description = ?, Duration = ?, ShowOnWeb = ?,
-        EndBehaviour = ?, CompletionSound = ?, CompletionToast = ?, WarningMs = ?,
-        WarningSound = ?, WarningToast = ?, ShowHundredths = ?, ClockFormat = ?, GroupID = ?
-        WHERE ID = ?`,
-      [
-        Config.Type,
-        Config.Name,
-        Config.Description,
-        Config.Duration,
-        Config.ShowOnWeb ? 1 : 0,
-        Config.EndBehaviour,
-        Config.CompletionSound,
-        Config.CompletionToast ? 1 : 0,
-        Config.WarningMs,
-        Config.WarningSound,
-        Config.WarningToast ? 1 : 0,
-        Config.ShowHundredths ? 1 : 0,
-        Config.ClockFormat,
-        Config.GroupID,
-        Config.ID,
-      ]
+      `UPDATE Timers SET ${Names.map((Name) => `${Name} = ?`).join(', ')} WHERE ID = ?`,
+      [...Object.values(Columns), Config.ID]
     );
     return Err ? Err.message || 'Failed to save the timer' : null;
   }
@@ -377,28 +382,17 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
       if (Config.Duration === null && HasDuration(Config.Type) && Patch.Duration === undefined) {
         Config.Duration = DEFAULT_DURATION_MS;
       }
+      // 1.x's TextAlert and AudioAlert flags, unused since (see DB/schema.ts), are stored as 0.
+      const Columns = {
+        ...StoredColumns(Config),
+        Weight: Config.Weight,
+        TextAlert: 0,
+        AudioAlert: 0,
+      };
+      const Names = Object.keys(Columns);
       const [Err, Res] = await Db.Run(
-        `INSERT INTO Timers (Type, Name, Description, Duration, Weight, TextAlert, AudioAlert,
-          ShowOnWeb, EndBehaviour, CompletionSound, CompletionToast, WarningMs, WarningSound,
-          WarningToast, ShowHundredths, ClockFormat, GroupID)
-          VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          Config.Type,
-          Config.Name,
-          Config.Description,
-          Config.Duration,
-          Config.Weight,
-          Config.ShowOnWeb ? 1 : 0,
-          Config.EndBehaviour,
-          Config.CompletionSound,
-          Config.CompletionToast ? 1 : 0,
-          Config.WarningMs,
-          Config.WarningSound,
-          Config.WarningToast ? 1 : 0,
-          Config.ShowHundredths ? 1 : 0,
-          Config.ClockFormat,
-          Config.GroupID,
-        ]
+        `INSERT INTO Timers (${Names.join(', ')}) VALUES (${Names.map(() => '?').join(', ')})`,
+        Object.values(Columns)
       );
       if (Err || !Res) return [Err?.message || 'Failed to create the timer', null];
       Config.ID = Res.lastID;
