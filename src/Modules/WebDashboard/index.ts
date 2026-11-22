@@ -18,7 +18,7 @@ import { Server as SocketServer, type Socket } from 'socket.io';
 import { CreateLogger } from '../Logger';
 import { Manager as BroadcastManager } from '../Broadcast';
 import { Manager as AppDataManager } from '../AppData';
-import { WriteAndSyncFileSync } from '../Utils';
+import { ReplaceFileSync } from '../Utils';
 import { Manager as AppSettings, type SettingsManagerShape } from '../SettingsManager';
 import { Manager as AppTimers, type TimerManager } from '../TimerManager';
 import { Manager as AppGroups, type GroupManager } from '../GroupManager';
@@ -287,11 +287,7 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
   function WriteSessionKey(Key: string): void {
     if (!SessionKeyFile) return;
     try {
-      const FilePath = SessionKeyFile();
-      fs.mkdirSync(path.dirname(FilePath), { recursive: true });
-      const Temp = `${FilePath}.tmp`;
-      WriteAndSyncFileSync(Temp, JSON.stringify({ Key }));
-      fs.renameSync(Temp, FilePath);
+      ReplaceFileSync(SessionKeyFile(), JSON.stringify({ Key }));
     } catch (Err) {
       // Browsers then sign in again after the next restart; nothing worse.
       Logger.warn('Web Dashboard: could not keep the sign-in key', Err);

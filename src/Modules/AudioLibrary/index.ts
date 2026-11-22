@@ -8,7 +8,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { CreateLogger } from '../Logger';
 import { Manager as AppData } from '../AppData';
-import { WriteAndSyncFileSync } from '../Utils';
+import { ReplaceFileSync } from '../Utils';
 import { IsArray, IsRecord } from '../../common/guards';
 import type { LibrarySoundView, ResultTuple, SoundDataView } from '@showtrak/protocol/timers';
 
@@ -133,11 +133,8 @@ export function CreateAudioLibrary(Directory: () => string = () => AppData.GetAu
 
   function Save(): boolean {
     try {
-      fs.mkdirSync(Directory(), { recursive: true });
-      // Write then rename, so a crash mid-write never leaves a torn manifest.
-      const Temp = `${ManifestPath()}.tmp`;
-      WriteAndSyncFileSync(Temp, JSON.stringify(Sounds, null, 2));
-      fs.renameSync(Temp, ManifestPath());
+      // Replaced whole, so a crash mid-write never leaves a torn manifest.
+      ReplaceFileSync(ManifestPath(), JSON.stringify(Sounds, null, 2));
       return true;
     } catch (Err) {
       Logger.error('Failed to save the sound library manifest', Err);

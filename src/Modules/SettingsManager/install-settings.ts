@@ -5,7 +5,7 @@
 import path from 'path';
 import fs from 'fs';
 import { Manager as AppDataManager } from '../AppData';
-import { WriteAndSyncFileSync } from '../Utils';
+import { ReplaceFileSync } from '../Utils';
 import { IsRecord } from '../../common/guards';
 
 export interface InstallSettingsStore {
@@ -33,16 +33,12 @@ export function CreateInstallSettingsStore(
 
   return {
     ReadAll,
-    // Written to a temp file then renamed, so a crash mid-write never leaves a
-    // truncated file that would silently reset every install setting.
+    // Replaced whole, so a crash mid-write never leaves a truncated file that
+    // would silently reset every install setting.
     Write(Values) {
       try {
-        const FilePath = GetFilePath();
         const All = { ...ReadAll(), ...Values };
-        fs.mkdirSync(path.dirname(FilePath), { recursive: true });
-        const TempPath = `${FilePath}.tmp`;
-        WriteAndSyncFileSync(TempPath, JSON.stringify(All, null, 2));
-        fs.renameSync(TempPath, FilePath);
+        ReplaceFileSync(GetFilePath(), JSON.stringify(All, null, 2));
         return null;
       } catch (Err) {
         return Err instanceof Error ? Err.message : String(Err);

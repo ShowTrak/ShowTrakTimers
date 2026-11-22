@@ -18,7 +18,7 @@ import { Manager as AppDb, type WorkingDatabase, ReadShowFileInfo } from '../DB'
 import { Manager as AppDataManager } from '../AppData';
 import { Manager as BroadcastManager } from '../Broadcast';
 import { Config } from '../Config';
-import { CompareVersions, WriteAndSyncFileSync } from '../Utils';
+import { CompareVersions, ReplaceFileSync } from '../Utils';
 import { DefaultSettings } from '../SettingsManager/DefaultSettings';
 import { LATEST_SCHEMA_VERSION } from '../DB/schema';
 import { Manager as AppShowLock, type ShowLock } from '../ShowLock';
@@ -150,14 +150,10 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
 
   function WriteState(): void {
     try {
-      const StatePath = StateFilePath();
-      fs.mkdirSync(path.dirname(StatePath), { recursive: true });
       const State: PersistedState = { CurrentFilePath, Unsaved: Db.HasUnsavedChanges() };
-      // Through a temp file, so a crash mid-write never leaves a torn file
-      // (which would read as no show open, and prompt as if for a first run).
-      const TempPath = `${StatePath}.tmp`;
-      WriteAndSyncFileSync(TempPath, JSON.stringify(State, null, 2));
-      fs.renameSync(TempPath, StatePath);
+      // Replaced whole, so a crash mid-write never leaves a torn file (which
+      // would read as no show open, and prompt as if for a first run).
+      ReplaceFileSync(StateFilePath(), JSON.stringify(State, null, 2));
     } catch (Err) {
       Logger.error('Failed to remember which show file is open:', Err);
     }

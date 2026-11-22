@@ -1,5 +1,6 @@
 // Small helpers shared by the main-process modules.
 import fs from 'fs';
+import path from 'path';
 
 export function Wait(Ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, Ms));
@@ -62,4 +63,16 @@ export function WriteAndSyncFileSync(FilePath: string, Text: string): void {
   } finally {
     fs.closeSync(Fd);
   }
+}
+
+/**
+ * Replace a file's contents so that a crash mid-write leaves the old file or the
+ * new one, never a torn one: the text goes to a temp file beside it, flushed to
+ * the disk, which is then renamed over it. Creates the folder when missing.
+ */
+export function ReplaceFileSync(FilePath: string, Text: string): void {
+  fs.mkdirSync(path.dirname(FilePath), { recursive: true });
+  const TempPath = `${FilePath}.tmp`;
+  WriteAndSyncFileSync(TempPath, Text);
+  fs.renameSync(TempPath, FilePath);
 }
