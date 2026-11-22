@@ -34,7 +34,7 @@ import {
 // Minimal shape of the RPC registrar handed to Register(): just the typed
 // `handle(channel, fn)` used to wire the AppUpdate:* invoke channels.
 interface RpcRegistrar {
-  handle(channel: InvokeChannel, fn: IpcHandler): unknown;
+  handle<C extends InvokeChannel>(channel: C, fn: IpcHandler<C>): unknown;
 }
 
 // Options accepted by Register(); `getMainWindow` provides the lazily-created

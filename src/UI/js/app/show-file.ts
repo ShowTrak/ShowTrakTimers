@@ -224,7 +224,7 @@ export function PromptShowFileUpgrade(Upgrade: ShowFileUpgrade): Promise<void> {
       $Buttons.off('click.showUpgrade');
       closeModal('SHOWTRAK_MODAL_UPGRADE_SHOW');
       if (!Err && Accept) void Notify(`Backed up and upgraded ${Upgrade.FileName}.`, 'success');
-      const Cleared = !Accept && !!(Result as { Cleared?: boolean } | null)?.Cleared;
+      const Cleared = !Accept && !!Result && 'Cleared' in Result && Result.Cleared;
       if (!Err && Cleared) await CreateNewShowFile();
       if (!(await window.API.GetCurrentShowFile())) OpenNoShowPrompt();
       resolve();

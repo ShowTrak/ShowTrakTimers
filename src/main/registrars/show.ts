@@ -8,6 +8,10 @@ import { Manager as ShowFile, ShowFileDisplayName } from '../../Modules/ShowFile
 import { Manager as AppData } from '../../Modules/AppData';
 import { PickShowFileToOpen, PickShowFileToSave } from '../show-dialogs';
 import { Guard } from './validate';
+import type {
+  ShowFileUpgradeAcceptedView,
+  ShowFileUpgradeDeclinedView,
+} from '@showtrak/protocol/timers';
 
 export const CANCELLED = 'Cancelled By User';
 
@@ -94,7 +98,7 @@ export function register(): void {
   RPC.handle('Show:CheckUpgrade', () => Guard(() => ShowFile.CheckCurrentFile()));
 
   RPC.handle('Show:ResolveUpgrade', (_E, Accept) =>
-    Guard<unknown>(async () =>
+    Guard<ShowFileUpgradeAcceptedView | ShowFileUpgradeDeclinedView>(async () =>
       Accept === true ? ShowFile.AcceptUpgrade() : ShowFile.DeclineUpgrade()
     )
   );

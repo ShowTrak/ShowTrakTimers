@@ -8,13 +8,18 @@
 //
 // Sinks decide for themselves which channels they care about (e.g. the web sink
 // applies an allowlist + per-channel serialization); the bus is a dumb fan-out.
+//
+// Pushes are typed by @showtrak/protocol/timers' PushMap, the same map the
+// preload's subscribe() hands to the page: a channel can only be pushed with
+// the arguments its subscribers are declared to receive.
+import type { PushChannel, PushMap, Unsubscribe } from '@showtrak/protocol/timers';
 
-type RendererSink = (channel: string, ...args: unknown[]) => void;
+type RendererSink = <C extends PushChannel>(channel: C, ...args: PushMap[C]) => void;
 
 const Sinks = new Set<RendererSink>();
 
 // Register a sink. Returns an unsubscribe handle.
-function RegisterRendererSink(sink: RendererSink): () => void {
+function RegisterRendererSink(sink: RendererSink): Unsubscribe {
   Sinks.add(sink);
   return () => {
     Sinks.delete(sink);
@@ -23,7 +28,7 @@ function RegisterRendererSink(sink: RendererSink): () => void {
 
 // Push a channel + payload to every registered sink. A throwing sink is isolated
 // so one misbehaving surface can never break delivery to the others.
-function PushToRenderers(channel: string, ...args: unknown[]): void {
+function PushToRenderers<C extends PushChannel>(channel: C, ...args: PushMap[C]): void {
   for (const sink of Sinks) {
     try {
       sink(channel, ...args);

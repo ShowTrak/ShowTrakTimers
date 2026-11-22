@@ -23,7 +23,13 @@ import { DefaultSettings } from '../SettingsManager/DefaultSettings';
 import { LATEST_SCHEMA_VERSION } from '../DB/schema';
 import { Manager as AppShowLock, type ShowLock } from '../ShowLock';
 import { IsRecord } from '../../common/guards';
-import type { ResultTuple, ShowFileOpenOutcome, ShowFileUpgrade } from '@showtrak/protocol/timers';
+import type {
+  ResultTuple,
+  ShowFileOpenOutcome,
+  ShowFileUpgrade,
+  ShowFileUpgradeAcceptedView,
+  ShowFileUpgradeDeclinedView,
+} from '@showtrak/protocol/timers';
 
 // Machine settings 2.0 betas stored in the database: not show data, so they
 // alone never call for a Save As.
@@ -453,8 +459,8 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
     // file itself is upgraded. When it is the file already open from last
     // session, the working data (which may hold unsaved changes) is kept and the
     // file is upgraded on its next save.
-    AcceptUpgrade(): Promise<ResultTuple<{ FilePath: string; BackupPath: string }>> {
-      return Exclusive(async (): Promise<ResultTuple<{ FilePath: string; BackupPath: string }>> => {
+    AcceptUpgrade(): Promise<ResultTuple<ShowFileUpgradeAcceptedView>> {
+      return Exclusive(async (): Promise<ResultTuple<ShowFileUpgradeAcceptedView>> => {
         const Upgrade = PendingUpgrade;
         if (!Upgrade) return ['No show file upgrade is waiting for confirmation', null];
         if (!fs.existsSync(Upgrade.FilePath)) {
@@ -481,8 +487,8 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
     // left open last session, there is no show to go on with: the working data
     // is cleared (kept in Backups if unsaved) for a new show. When it was only
     // being opened, the show already open simply stays open.
-    DeclineUpgrade(): Promise<ResultTuple<{ Cleared: boolean }>> {
-      return Exclusive(async (): Promise<ResultTuple<{ Cleared: boolean }>> => {
+    DeclineUpgrade(): Promise<ResultTuple<ShowFileUpgradeDeclinedView>> {
+      return Exclusive(async (): Promise<ResultTuple<ShowFileUpgradeDeclinedView>> => {
         const Upgrade = PendingUpgrade;
         if (!Upgrade) return ['No show file upgrade is waiting for confirmation', null];
         PendingUpgrade = null;

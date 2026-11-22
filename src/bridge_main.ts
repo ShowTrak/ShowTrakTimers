@@ -5,14 +5,19 @@
 // than imported from src/common/api.ts. Drift is a COMPILE error: the imports
 // below are type-only (erased from the emitted JS), and each list is checked
 // against @showtrak/protocol/timers' channel unions in both directions, as
-// src/common/api.ts checks its own.
+// src/common/api.ts checks its own. invoke() and subscribe() are typed by the
+// protocol's InvokeMap and PushMap, so each window.API method must take and
+// answer what its channel does.
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
   AssertTrue,
   ChannelListCheck,
   InvokeChannel,
+  InvokeMap,
   PushChannel,
+  PushMap,
   TimersAPI,
+  Unsubscribe,
 } from '@showtrak/protocol/timers';
 
 const INVOKE_CHANNEL_LIST = [
@@ -89,23 +94,26 @@ const PUSH_CHANNEL_LIST = [
 type _PushChannelsMatch = AssertTrue<ChannelListCheck<PushChannel, typeof PUSH_CHANNEL_LIST>>;
 const PUSH_CHANNELS = new Set<string>(PUSH_CHANNEL_LIST);
 
-function invoke<T = unknown>(Channel: InvokeChannel, ...Args: unknown[]): Promise<T> {
+function invoke<C extends InvokeChannel>(
+  Channel: C,
+  ...Args: InvokeMap[C]['Args']
+): Promise<InvokeMap[C]['Result']> {
   if (!INVOKE_CHANNELS.has(Channel)) throw new Error(`Blocked invoke channel: ${Channel}`);
-  // Electron leaves the reply untyped; what each channel resolves to is the
-  // contract's (T is inferred from TimersAPI at each call below).
-  return ipcRenderer.invoke(Channel, ...Args) as Promise<T>;
+  // Electron leaves the reply untyped; what each channel answers is the
+  // contract's (InvokeMap), which the main process's handlers are typed by too.
+  return ipcRenderer.invoke(Channel, ...Args) as Promise<InvokeMap[C]['Result']>;
 }
 
 // Subscribe to a push channel; returns the unsubscribe function. The Electron
 // event object is never handed to the page.
-function subscribe<Args extends unknown[]>(
-  Channel: PushChannel,
-  Callback: (...Args: Args) => void
-): () => void {
+function subscribe<C extends PushChannel>(
+  Channel: C,
+  Callback: (...Args: PushMap[C]) => void
+): Unsubscribe {
   if (!PUSH_CHANNELS.has(Channel)) throw new Error(`Blocked push channel: ${Channel}`);
   if (typeof Callback !== 'function')
     throw new TypeError(`Callback for ${Channel} must be a function`);
-  const Handler = (_Event: unknown, ...Payload: unknown[]) => Callback(...(Payload as Args));
+  const Handler = (_Event: unknown, ...Payload: unknown[]) => Callback(...(Payload as PushMap[C]));
   ipcRenderer.on(Channel, Handler);
   return () => ipcRenderer.removeListener(Channel, Handler);
 }
