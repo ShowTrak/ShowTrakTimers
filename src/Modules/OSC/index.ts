@@ -14,6 +14,7 @@ import { IsArray } from '../../common/guards';
 import { DEFAULT_OSC_PORT } from '../Config/constants';
 import { DescribeError, IsTransientNetworkError } from '@showtrak/protocol/runtime';
 import { MatchRoute, ROUTES, type OscRouteContext } from './routes';
+import type { OscRouteView, ResultTuple } from '@showtrak/protocol/timers';
 
 export { ROUTES, MatchRoute } from './routes';
 
@@ -44,12 +45,6 @@ export interface OscOptions {
   Broadcast?: { emit(Event: string, ...Args: unknown[]): unknown };
   ServerClass?: OscServerConstructor;
   Quit?: () => void;
-}
-
-/** A route as listed in the OSC Reference modal. */
-export interface OscRouteInfo {
-  Path: string;
-  Title: string;
 }
 
 export function CreateOSC(Options: OscOptions = {}) {
@@ -174,7 +169,7 @@ export function CreateOSC(Options: OscOptions = {}) {
 
   const OSC = {
     /** Start (or restart) the listener from the current settings. */
-    async Start(): Promise<[string | null, boolean | null]> {
+    async Start(): Promise<ResultTuple<boolean>> {
       await OSC.Stop();
       if (!(await Settings.GetValue('OSC_ENABLE'))) {
         Logger.log('OSC disabled in settings');
@@ -216,7 +211,7 @@ export function CreateOSC(Options: OscOptions = {}) {
       }
     },
 
-    async Stop(): Promise<[string | null, boolean | null]> {
+    async Stop(): Promise<ResultTuple<boolean>> {
       if (!Server) return [null, true];
       const Closing = Server;
       Server = null;
@@ -240,7 +235,8 @@ export function CreateOSC(Options: OscOptions = {}) {
       return Bound ? { ...Bound } : null;
     },
 
-    GetRoutes(): OscRouteInfo[] {
+    /** The routes as the OSC Reference modal lists them. */
+    GetRoutes(): OscRouteView[] {
       return ROUTES.map((Route) => ({ Path: Route.Path, Title: Route.Title }));
     },
 

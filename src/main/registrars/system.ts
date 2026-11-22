@@ -6,7 +6,7 @@ import { Config } from '../../Modules/Config';
 import { DISCORD_INVITE_URL, GITHUB_URL, WEBSITE_URL } from '../../Modules/Config/constants';
 import { Manager as AppData } from '../../Modules/AppData';
 import { CreateLogger } from '../../Modules/Logger';
-import type { AppConfigView, ExternalLink } from '../../common/api';
+import type { AppConfigView, ExternalLink } from '@showtrak/protocol/timers';
 
 const Logger = CreateLogger('System');
 

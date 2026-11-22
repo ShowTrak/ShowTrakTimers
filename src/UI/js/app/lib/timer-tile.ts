@@ -6,15 +6,13 @@
 // RUNNING green (online), PAUSED orange (degraded), COMPLETE and OVERRUN red
 // (offline). A timer inside its warning window keeps its colour and gains the
 // WARNING class (an amber pulse).
-import type { TimerEventView } from '../../../../common/api';
+import type { TimerEventView, TimerStatus, TimerView } from '@showtrak/protocol/timers';
 import {
   ComputeTimerDisplay,
   FormatRemaining,
   IsClock,
   IsTicking,
   StatusLabel,
-  type TimerStatus,
-  type TimerView,
 } from '../../../../common/timers';
 
 export type TileState = 'STANDBY' | 'RUNNING' | 'PAUSED' | 'COMPLETE' | 'OVERRUN';

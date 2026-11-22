@@ -604,3 +604,66 @@ test('a Linux package (not an AppImage) is told at once that in-app updates are 
   assert.equal(statuses()[0].info.reason, 'linux_updates_unavailable');
   settle();
 });
+
+test('a Squirrel download is named by its release name, or else by the version RELEASES lists', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] });
+  // RELEASES names the incoming package; the release notes come from its GitHub release.
+  const Fetches = [];
+  t.mock.method(globalThis, 'fetch', async (Url) => {
+    Fetches.push(Url);
+    const Body = Url.endsWith('/RELEASES')
+      ? 'ABCDEF0123 ShowTrakTimers-2.1.0-full.nupkg 1000\n'
+      : JSON.stringify({ body: 'What is new in 2.1.0' });
+    return { ok: true, status: 200, text: async () => Body };
+  });
+  // A Squirrel install: Update.exe in the folder above the running app-<version>.
+  const Root = fs.mkdtempSync(path.join(os.tmpdir(), 'showtrak-squirrel-'));
+  fs.writeFileSync(path.join(Root, 'Update.exe'), '');
+  fs.mkdirSync(path.join(Root, 'app-2.0.0'));
+  const SquirrelFeeds = [];
+  squirrel.setFeedURL = (Feed) => SquirrelFeeds.push(Feed);
+  squirrel.checkForUpdates = () => {};
+  const WasPackaged = appState.isPackaged;
+  const ExecPath = process.execPath;
+  appState.isPackaged = true;
+  Manager.SetUpdateChannel('stable');
+  settle();
+  try {
+    // The check picks the Squirrel flow before its first await.
+    process.execPath = path.join(Root, 'app-2.0.0', 'ShowTrak Timers.exe');
+    const Checked = withPlatform('win32', () => handlers['AppUpdate:Check']());
+    process.execPath = ExecPath;
+    await Checked;
+    assert.deepEqual(SquirrelFeeds, [
+      { url: 'https://github.com/ShowTrak/ShowTrakTimers/releases/latest/download/' },
+    ]);
+
+    // Squirrel's own release name, when it gives one.
+    squirrel.emit('update-downloaded', {}, '', '2.1.0', new Date(), '');
+    assert.deepEqual(statuses().at(-1), { state: 'downloaded', info: { version: '2.1.0' } });
+
+    // With none, the version read from RELEASES when the update became available.
+    squirrel.emit('update-available');
+    await flush();
+    assert.deepEqual(statuses().at(-1), {
+      state: 'available',
+      info: { version: '2.1.0', releaseNotes: 'What is new in 2.1.0' },
+    });
+    squirrel.emit('update-downloaded', {}, '', '', new Date(), '');
+    assert.deepEqual(statuses().at(-1), {
+      state: 'downloaded',
+      info: { version: '2.1.0', releaseNotes: 'What is new in 2.1.0' },
+    });
+    assert.deepEqual(Fetches, [
+      'https://github.com/ShowTrak/ShowTrakTimers/releases/latest/download/RELEASES',
+      'https://api.github.com/repos/ShowTrak/ShowTrakTimers/releases/tags/v2.1.0',
+    ]);
+  } finally {
+    process.execPath = ExecPath;
+    appState.isPackaged = WasPackaged;
+    delete squirrel.setFeedURL;
+    delete squirrel.checkForUpdates;
+    fs.rmSync(Root, { recursive: true, force: true });
+    settle();
+  }
+});

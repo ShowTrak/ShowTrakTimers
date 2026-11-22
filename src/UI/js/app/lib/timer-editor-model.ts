@@ -1,6 +1,7 @@
 // Which parts of the timer editor apply to a timer, and the hint under its
 // type. Pure, for the tests.
-import { HasDuration, IsClock, type TimerType, type TimerView } from '../../../../common/timers';
+import type { TimerType, TimerView } from '@showtrak/protocol/timers';
+import { HasDuration, IsClock } from '../../../../common/timers';
 
 export interface EditorVisibility {
   /** The duration field. */

@@ -13,6 +13,14 @@ import { CreateLogger } from '../Logger';
 import { Manager as BroadcastManager } from '../Broadcast';
 import { Manager as AppDb, type Database } from '../DB';
 import { TIMER_RESYNC_INTERVAL_MS } from '../Config/constants';
+import type {
+  ControlAction,
+  ResultTuple,
+  TimerConfig,
+  TimerEventView,
+  TimerPlacementView,
+  TimerView,
+} from '@showtrak/protocol/timers';
 import {
   DEFAULT_CLOCK_FORMAT,
   DEFAULT_DURATION_MS,
@@ -25,18 +33,15 @@ import {
   NormalizeGroupID,
   NormalizeTimerType,
   NormalizeWarningMs,
-  type TimerConfig,
-  type TimerType,
-  type TimerView,
 } from '../../common/timers';
-import { Timer, type Clock, type TimeOfDayClock, type TimerEvent } from './timer';
+import { Timer, type Clock, type TimeOfDayClock } from './timer';
 import { AppClock } from './clock';
 import { NormalizeSoundRef } from '../../common/sounds';
 import { Manager as AppShowLock, LockMethods, type ShowLock } from '../ShowLock';
 import { IsArray } from '../../common/guards';
 
 export { Timer } from './timer';
-export type { Clock, TimeOfDayClock, TimerEvent } from './timer';
+export type { Clock, TimeOfDayClock } from './timer';
 
 const Logger = CreateLogger('Timers');
 
@@ -81,16 +86,6 @@ export interface TimerPatch {
   /** A group ID, or null for the Default group. Callers check the group exists. */
   GroupID?: unknown;
 }
-
-/** One timer's place in an arrangement: its group, in display order. */
-export interface TimerPlacement {
-  ID: number;
-  GroupID: number | null;
-}
-
-export type Result<T> = [string | null, T | null];
-
-export type ControlAction = 'Start' | 'Stop' | 'Pause' | 'Unpause';
 
 export interface TimerManagerOptions {
   Db?: Database;
@@ -224,7 +219,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
     Broadcast.emit('TimersUpdated', Views());
   }
 
-  function Emit(Events: TimerEvent[] | null | undefined): void {
+  function Emit(Events: TimerEventView[] | null | undefined): void {
     for (const Event of Events || []) {
       Logger.log(`Timer ${Event.TimerID} (${Event.Name}): ${Event.Kind}`);
       Broadcast.emit('TimerEvent', Event);
@@ -381,7 +376,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
       return Find(ID) ?? null;
     },
 
-    async Create(Patch: TimerPatch = {}): Promise<Result<TimerView>> {
+    async Create(Patch: TimerPatch = {}): Promise<ResultTuple<TimerView>> {
       await Load();
       const [WeightErr, Row] = await Db.Get<{ MaxWeight: number | null }>(
         'SELECT MAX(Weight) AS MaxWeight FROM Timers'
@@ -427,7 +422,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
       return [null, T.ToView()];
     },
 
-    async Update(ID: unknown, Patch: TimerPatch): Promise<Result<TimerView>> {
+    async Update(ID: unknown, Patch: TimerPatch): Promise<ResultTuple<TimerView>> {
       await Load();
       const T = Find(ID);
       if (!T) return ['Timer not found', null];
@@ -445,7 +440,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
       return [null, T.ToView()];
     },
 
-    async Delete(ID: unknown): Promise<Result<true>> {
+    async Delete(ID: unknown): Promise<ResultTuple<true>> {
       await Load();
       const T = Find(ID);
       if (!T) return ['Timer not found', null];
@@ -458,7 +453,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
     },
 
     /** Swap a timer with its neighbour. Resolves false when already at that end. */
-    async Move(ID: unknown, Direction: unknown): Promise<Result<boolean>> {
+    async Move(ID: unknown, Direction: unknown): Promise<ResultTuple<boolean>> {
       await Load();
       const Index = Timers.findIndex((T) => T.ID === Number(ID));
       if (Index === -1) return ['Timer not found', null];
@@ -471,7 +466,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
     },
 
     /** Put the timers in the given order (IDs not listed keep their place after). */
-    async Reorder(IDs: unknown): Promise<Result<true>> {
+    async Reorder(IDs: unknown): Promise<ResultTuple<true>> {
       await Load();
       if (!IsArray(IDs)) return ['Invalid order', null];
       const Wanted = IDs.map(Number).filter((ID) => Timers.some((T) => T.ID === ID));
@@ -491,7 +486,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
 
     // --- Run control ---------------------------------------------------------
 
-    async Control(ID: unknown, Action: ControlAction): Promise<Result<TimerView>> {
+    async Control(ID: unknown, Action: ControlAction): Promise<ResultTuple<TimerView>> {
       await Load();
       const T = Find(ID);
       if (!T) return ['Timer not found', null];
@@ -502,7 +497,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
       return [null, T.ToView()];
     },
 
-    async JumpTo(ID: unknown, Ms: unknown): Promise<Result<TimerView>> {
+    async JumpTo(ID: unknown, Ms: unknown): Promise<ResultTuple<TimerView>> {
       await Load();
       const T = Find(ID);
       if (!T) return ['Timer not found', null];
@@ -559,7 +554,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
      * order (as dragging tiles between groups produces). Timers not listed keep
      * their group and follow, in their current order.
      */
-    async Arrange(Layout: readonly TimerPlacement[]): Promise<Result<true>> {
+    async Arrange(Layout: readonly TimerPlacementView[]): Promise<ResultTuple<true>> {
       await Load();
       // IsArray rather than Array.isArray, which would retype the entries as any.
       if (!IsArray(Layout)) return ['Invalid arrangement', null];
@@ -594,12 +589,15 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
     },
 
     /** Move the listed timers to the end of a group (null: the Default group). */
-    async MoveToGroup(IDs: readonly number[], GroupID: number | null): Promise<Result<number>> {
+    async MoveToGroup(
+      IDs: readonly number[],
+      GroupID: number | null
+    ): Promise<ResultTuple<number>> {
       await Load();
       const Moving = new Set(IDs.map(Number).filter((ID) => Find(ID)));
       if (!Moving.size) return ['No timers to move', null];
       const Target = NormalizeGroupID(GroupID);
-      const Layout: TimerPlacement[] = [
+      const Layout: TimerPlacementView[] = [
         ...Timers.filter((T) => !Moving.has(T.ID)).map((T) => ({
           ID: T.ID,
           GroupID: T.Config.GroupID,
@@ -611,7 +609,7 @@ export function CreateTimerManager(Options: TimerManagerOptions = {}) {
     },
 
     /** A group is going: every timer in it moves to the Default group. */
-    async ClearGroup(GroupID: number): Promise<Result<number>> {
+    async ClearGroup(GroupID: number): Promise<ResultTuple<number>> {
       await Load();
       const Affected = Timers.filter((T) => T.Config.GroupID === GroupID);
       if (!Affected.length) return [null, 0];
@@ -703,6 +701,3 @@ export type TimerManager = ReturnType<typeof CreateTimerManager>;
 
 // Measured against the app clock, which counts time the computer spent asleep.
 export const Manager: TimerManager = CreateTimerManager({ Now: () => AppClock.Now() });
-
-// The timer types, for callers that only need the vocabulary.
-export type { TimerType };

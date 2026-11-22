@@ -8,7 +8,6 @@ import {
   END_BEHAVIOUR_LABELS,
   FormatDurationInput,
   ParseDuration,
-  type TimerView,
 } from '../../../common/timers';
 import { buildModalHeader } from './lib/modal-header';
 import { closeModal, openModal } from './lib/modal';
@@ -16,7 +15,7 @@ import { ConfirmationDialog, Notify } from './lib/toasts';
 import { CloseAllModals } from './modals';
 import { FillSoundSelect, PreviewSoundRef } from './sounds';
 import { HandleNonFatalError, Safe } from './utils';
-import type { TimerPatchView } from '../../../common/api';
+import type { TimerPatchView, TimerView } from '@showtrak/protocol/timers';
 import { EditorFieldVisibility, TypeHint } from './lib/timer-editor-model';
 import { Groups } from './state';
 import { DEFAULT_GROUP_TITLE, EffectiveGroupID } from '../../../common/groups';

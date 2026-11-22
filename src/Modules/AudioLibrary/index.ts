@@ -10,11 +10,12 @@ import { CreateLogger } from '../Logger';
 import { Manager as AppData } from '../AppData';
 import { WriteAndSyncFileSync } from '../Utils';
 import { IsArray, IsRecord } from '../../common/guards';
+import type { LibrarySoundView, ResultTuple, SoundDataView } from '@showtrak/protocol/timers';
 
 const Logger = CreateLogger('AudioLibrary');
 
-export type Result<T> = [string | null, T | null];
-
+// A manifest.json entry. The renderer is sent a LibrarySoundView instead (no
+// file name; flags a missing file).
 interface StoredSound {
   ID: string;
   Label: string;
@@ -24,25 +25,6 @@ interface StoredSound {
   Volume: number;
   Size: number;
   Timestamp: number;
-}
-
-/** A sound as shown to the renderer (no file name; flags a missing file). */
-export interface LibrarySound {
-  ID: string;
-  Label: string;
-  OriginalName: string;
-  Extension: string;
-  Volume: number;
-  Size: number;
-  Timestamp: number;
-  Missing: boolean;
-}
-
-export interface SoundData {
-  ID: string;
-  Label: string;
-  Volume: number;
-  DataURL: string;
 }
 
 export const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
@@ -163,7 +145,7 @@ export function CreateAudioLibrary(Directory: () => string = () => AppData.GetAu
     }
   }
 
-  const Public = (Sound: StoredSound): LibrarySound => ({
+  const Public = (Sound: StoredSound): LibrarySoundView => ({
     ID: Sound.ID,
     Label: Sound.Label,
     OriginalName: Sound.OriginalName || '',
@@ -198,7 +180,7 @@ export function CreateAudioLibrary(Directory: () => string = () => AppData.GetAu
   }
 
   const Library = {
-    List(): LibrarySound[] {
+    List(): LibrarySoundView[] {
       Load();
       return Sounds.map(Public);
     },
@@ -211,7 +193,7 @@ export function CreateAudioLibrary(Directory: () => string = () => AppData.GetAu
 
     Inspect,
 
-    Import(SourcePath: unknown, Label?: unknown): Result<LibrarySound> {
+    Import(SourcePath: unknown, Label?: unknown): ResultTuple<LibrarySoundView> {
       Load();
       const Source = String(SourcePath ?? '');
       if (!Source) return ['No file was chosen.', null];
@@ -248,7 +230,10 @@ export function CreateAudioLibrary(Directory: () => string = () => AppData.GetAu
       return [null, Public(Sound)];
     },
 
-    Update(ID: unknown, Patch: { Label?: unknown; Volume?: unknown }): Result<LibrarySound> {
+    Update(
+      ID: unknown,
+      Patch: { Label?: unknown; Volume?: unknown }
+    ): ResultTuple<LibrarySoundView> {
       Load();
       const Sound = Sounds.find((S) => S.ID === ID);
       if (!Sound) return ['Sound not found.', null];
@@ -262,7 +247,7 @@ export function CreateAudioLibrary(Directory: () => string = () => AppData.GetAu
       return [null, Public(Sound)];
     },
 
-    Delete(ID: unknown): Result<true> {
+    Delete(ID: unknown): ResultTuple<true> {
       Load();
       const Sound = Sounds.find((S) => S.ID === ID);
       if (!Sound) return ['Sound not found.', null];
@@ -276,7 +261,7 @@ export function CreateAudioLibrary(Directory: () => string = () => AppData.GetAu
       return [null, true];
     },
 
-    GetData(ID: unknown): Result<SoundData> {
+    GetData(ID: unknown): ResultTuple<SoundDataView> {
       Load();
       const Sound = Sounds.find((S) => S.ID === ID);
       if (!Sound) return ['Sound not found.', null];

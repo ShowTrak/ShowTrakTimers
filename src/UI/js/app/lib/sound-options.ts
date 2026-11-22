@@ -2,7 +2,7 @@
 // imported library. A reference to a library sound that no longer exists stays
 // selectable (marked missing) so opening an editor never silently changes it.
 import { BUILTIN_SOUNDS, ParseSoundRef } from '../../../../common/sounds';
-import type { LibrarySoundView } from '../../../../common/api';
+import type { LibrarySoundView } from '@showtrak/protocol/timers';
 
 export interface SoundOption {
   Value: string;

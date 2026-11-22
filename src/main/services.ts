@@ -6,7 +6,7 @@ import { Manager as BroadcastManager } from '../Modules/Broadcast';
 import { Manager as SettingsManager } from '../Modules/SettingsManager';
 import { Manager as OSC } from '../Modules/OSC';
 import { Manager as WebDashboard } from '../Modules/WebDashboard';
-import type { ServicesStatusView } from '../common/api';
+import type { ServicesStatusView } from '@showtrak/protocol/timers';
 import { PushToRenderers } from './renderer-bus';
 
 const Logger = CreateLogger('Services');

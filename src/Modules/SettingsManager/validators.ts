@@ -3,7 +3,7 @@
 // which is the only reliable test (and the one the real listener will face).
 import net from 'net';
 import dgram from 'dgram';
-import type { SettingValue } from './DefaultSettings';
+import type { SettingValue } from '@showtrak/protocol/timers';
 
 export type Transport = 'tcp' | 'udp';
 

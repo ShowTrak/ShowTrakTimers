@@ -2,14 +2,18 @@
 //
 // This is a SANDBOXED preload script. Its `require` can only resolve Electron
 // built-ins, not local files, so the channel allowlists are inlined here rather
-// than imported from src/common/api.ts. That file stays the source of truth and
-// drift is a COMPILE error: the imports from it below are type-only (erased from
-// the emitted JS), `satisfies` rejects an entry that is not a known channel, and
-// the _Missing* aliases reject a known channel missing from these lists.
+// than imported from src/common/api.ts. Drift is a COMPILE error: the imports
+// below are type-only (erased from the emitted JS), and each list is checked
+// against @showtrak/protocol/timers' channel unions in both directions, as
+// src/common/api.ts checks its own.
 import { contextBridge, ipcRenderer } from 'electron';
-import type { InvokeChannel, PushChannel, TimersAPI } from './common/api';
-
-type AssertAllChannelsListed<T extends never> = T;
+import type {
+  AssertTrue,
+  ChannelListCheck,
+  InvokeChannel,
+  PushChannel,
+  TimersAPI,
+} from '@showtrak/protocol/timers';
 
 const INVOKE_CHANNEL_LIST = [
   'Config:Get',
@@ -61,10 +65,8 @@ const INVOKE_CHANNEL_LIST = [
   'AppUpdate:Check',
   'AppUpdate:Install',
   'Shutdown',
-] as const satisfies readonly InvokeChannel[];
-type _MissingInvokeChannels = AssertAllChannelsListed<
-  Exclude<InvokeChannel, (typeof INVOKE_CHANNEL_LIST)[number]>
->;
+] as const;
+type _InvokeChannelsMatch = AssertTrue<ChannelListCheck<InvokeChannel, typeof INVOKE_CHANNEL_LIST>>;
 const INVOKE_CHANNELS = new Set<string>(INVOKE_CHANNEL_LIST);
 
 const PUSH_CHANNEL_LIST = [
@@ -83,10 +85,8 @@ const PUSH_CHANNEL_LIST = [
   'AppMenuAction',
   'ShutdownRequested',
   'MainWindowFullscreenChanged',
-] as const satisfies readonly PushChannel[];
-type _MissingPushChannels = AssertAllChannelsListed<
-  Exclude<PushChannel, (typeof PUSH_CHANNEL_LIST)[number]>
->;
+] as const;
+type _PushChannelsMatch = AssertTrue<ChannelListCheck<PushChannel, typeof PUSH_CHANNEL_LIST>>;
 const PUSH_CHANNELS = new Set<string>(PUSH_CHANNEL_LIST);
 
 function invoke<T = unknown>(Channel: InvokeChannel, ...Args: unknown[]): Promise<T> {

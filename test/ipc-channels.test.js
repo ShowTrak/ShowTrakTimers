@@ -4,17 +4,18 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { installMainStubs } = require('./helpers/net-main-stubs');
 
-// Exercises the IPC contract between src/common/api.ts, the sandboxed preload
-// (src/bridge_main.ts) and the main-process registrars.
+// Exercises the IPC channel allowlists between src/common/api.ts, the sandboxed
+// preload (src/bridge_main.ts) and the main-process registrars. What each
+// channel carries is declared in @showtrak/protocol/timers.
 //
 // The preload cannot import api.ts at runtime (a sandboxed preload's require
 // only resolves Electron built-ins), so it inlines the channel lists. The
-// compiler checks that copy against the types; this checks the values: the
-// lists must match exactly, every channel the main process registers must be
-// declared (an undeclared one is unreachable from the page), every declared
-// invoke channel must be registered (otherwise the call hangs or rejects in the
-// renderer), and every channel the main process pushes on must be one the
-// preload lets through.
+// compiler checks both copies against the protocol's channel unions; this
+// checks the values: the lists must match exactly, every channel the main
+// process registers must be declared (an undeclared one is unreachable from the
+// page), every declared invoke channel must be registered (otherwise the call
+// hangs or rejects in the renderer), and every channel the main process pushes
+// on must be one the preload lets through.
 
 const ROOT = path.join(__dirname, '..');
 const BRIDGE = fs.readFileSync(path.join(ROOT, 'src', 'bridge_main.ts'), 'utf8');

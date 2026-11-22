@@ -3,11 +3,11 @@
 // version under the logo while the main window loads.
 //
 // The splash window has its own preload, src/bridge_preloader.ts, whose
-// window.API is only PreloaderAPI (src/common/api.ts), not the desktop window's
-// whole API. tsconfig.preloader.json typechecks this file on its own, so the
-// desktop renderer's declaration of window.API (src/UI/types/global.d.ts) never
-// applies here.
-import type { PreloaderAPI } from '../common/api';
+// window.API is only PreloaderAPI (@showtrak/protocol/timers), not the desktop
+// window's whole API. tsconfig.preloader.json typechecks this file on its own,
+// so the desktop renderer's declaration of window.API
+// (src/UI/types/global.d.ts) never applies here.
+import type { PreloaderAPI } from '@showtrak/protocol/timers';
 
 declare global {
   interface Window {

@@ -2,9 +2,9 @@
 // a callback, so the rules are tested without a DOM
 // (test/renderer-context-menu-model.test.js). context-menu.ts draws the rows
 // and runs the actions. The row shapes are ShowTrak Server's.
-import { IsClock, type TimerView } from '../../../../common/timers';
-import { DEFAULT_GROUP_TITLE, type GroupView } from '../../../../common/groups';
-import type { AppMode } from '../../../../common/api';
+import { IsClock } from '../../../../common/timers';
+import { DEFAULT_GROUP_TITLE } from '../../../../common/groups';
+import type { AppMode, GroupView, TimerView } from '@showtrak/protocol/timers';
 import { SHORTCUT_KEYS } from './shortcuts';
 
 export type ContextMenuActionID =

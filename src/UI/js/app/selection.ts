@@ -6,7 +6,7 @@
 import { SelectionModel, DescribeSelection } from './lib/selection-model';
 import { TimerIDsInGroup } from './lib/group-layout';
 import { Groups } from './state';
-import type { TimerView } from '../../../common/timers';
+import type { TimerView } from '@showtrak/protocol/timers';
 
 const Model = new SelectionModel();
 const Listeners = new Set<() => void>();

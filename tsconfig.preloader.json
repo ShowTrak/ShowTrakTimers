@@ -14,7 +14,13 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "rootDir": "./src",
     "noEmit": true,
-    "types": []
+    "types": [],
+    "paths": {
+      // As tsconfig.json: the protocol's type entry points straight from the
+      // submodule's source (the runtime entry point is main-process only).
+      "@showtrak/protocol": ["./shared/src/index.d.ts"],
+      "@showtrak/protocol/*": ["./shared/src/*"]
+    }
   },
   "include": ["src/UI/preloader.ts"]
 }

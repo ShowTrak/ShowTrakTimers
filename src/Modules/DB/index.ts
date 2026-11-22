@@ -18,6 +18,7 @@ import fs from 'fs';
 import { CreateLogger } from '../Logger';
 import { Manager as AppDataManager } from '../AppData';
 import { BaseTables, Migrations, type MigrationContext } from './schema';
+import type { ShowFileInfo } from '@showtrak/protocol/timers';
 
 const Logger = CreateLogger('DB');
 
@@ -198,13 +199,6 @@ export function CreateDatabase(FilePath: string): Database {
 }
 
 // --- Show files -------------------------------------------------------------------
-
-export interface ShowFileInfo {
-  CreatedWithVersion: string | null;
-  SavedWithVersion: string | null;
-  /** The file's schema version (SQLite user_version), when it could be read. */
-  SchemaVersion?: number | null;
-}
 
 // Read-only probe of a file on disk: [Error, Value] from Fn, the probe always closed.
 function Probe<T>(FilePath: string, Fn: (Db: SqliteDatabase) => Promise<T>): Promise<DbResult<T>> {

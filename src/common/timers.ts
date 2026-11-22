@@ -1,24 +1,19 @@
-// Timer types and pure timer maths shared by the main process, the desktop
-// renderer and the Web Dashboard, so every surface agrees on what a timer
-// shows. No Node, Electron or DOM dependencies: this file is compiled into the
-// main process by tsc and bundled into both renderers by esbuild.
-
-// CLOCK is a World Clock: the host computer's time of day. It has no run
-// control and is always RUNNING.
-export type TimerType = 'TIMER' | 'COUNTDOWN' | 'STOPWATCH' | 'CLOCK';
-
-// How a World Clock shows the time.
-export type ClockFormat = '24H' | '12H';
-
-// OVERRUN is a timer still running past its duration (EndBehaviour OVERRUN).
-export type TimerStatus = 'STANDBY' | 'RUNNING' | 'PAUSED' | 'COMPLETE' | 'OVERRUN';
-
-// What a Timer or Countdown does when it reaches its duration:
-//   HOLD     stop there and show it as complete (1.x behaviour)
-//   OVERRUN  keep counting past it, shown as +mm:ss
-//   RESET    go straight back to standby
-//   LOOP     start again from zero
-export type EndBehaviour = 'HOLD' | 'OVERRUN' | 'RESET' | 'LOOP';
+// The pure timer maths shared by the main process, the desktop renderer and the
+// Web Dashboard, so every surface agrees on what a timer shows. No Node,
+// Electron or DOM dependencies: this file is compiled into the main process by
+// tsc and bundled into both renderers by esbuild.
+//
+// The timer types themselves (TimerType, TimerStatus, TimerConfig, TimerView
+// ...) cross every process boundary, so they are declared in
+// @showtrak/protocol/timers; this file holds the runtime half that goes with
+// them.
+import type {
+  ClockFormat,
+  EndBehaviour,
+  TimerStatus,
+  TimerType,
+  TimerView,
+} from '@showtrak/protocol/timers';
 
 export const TIMER_TYPES: readonly TimerType[] = ['TIMER', 'COUNTDOWN', 'STOPWATCH', 'CLOCK'];
 export const CLOCK_FORMATS: readonly ClockFormat[] = ['24H', '12H'];
@@ -42,49 +37,6 @@ export const END_BEHAVIOUR_LABELS: Readonly<Record<EndBehaviour, string>> = {
 export const DEFAULT_DURATION_MS = 5 * 60 * 1000;
 // Longest duration a timer accepts: just under 100 hours, the most hh:mm:ss shows.
 export const MAX_DURATION_MS = (99 * 3600 + 59 * 60 + 59) * 1000;
-
-/** The editable configuration of a timer (what is stored in the database). */
-export interface TimerConfig {
-  ID: number;
-  Type: TimerType;
-  Name: string;
-  Description: string;
-  /** Milliseconds; null for stopwatches. */
-  Duration: number | null;
-  Weight: number;
-  ShowOnWeb: boolean;
-  EndBehaviour: EndBehaviour;
-  /** "builtin:<name>", "asset:<id>", or null for none. */
-  CompletionSound: string | null;
-  CompletionToast: boolean;
-  /** Warn this many milliseconds before the end; null for no warning. */
-  WarningMs: number | null;
-  WarningSound: string | null;
-  WarningToast: boolean;
-  /** Show hundredths of a second (mm:ss.cc). */
-  ShowHundredths: boolean;
-  /** 12 or 24 hour time, for a World Clock (kept, but unused, by other types). */
-  ClockFormat: ClockFormat;
-  /** The group the timer is in; null for the Default group. */
-  GroupID: number | null;
-}
-
-/**
- * A timer as pushed to the renderers: its configuration plus its run state at
- * the moment the snapshot was taken. Surfaces animate a RUNNING/OVERRUN timer
- * locally from ElapsedMs, re-anchoring on every push.
- */
-export interface TimerView extends TimerConfig {
-  Status: TimerStatus;
-  /**
-   * Elapsed running time when the snapshot was taken. For a World Clock, the
-   * host's time of day (ms since its local midnight), so every surface animates
-   * the host's clock rather than its own.
-   */
-  ElapsedMs: number;
-  /** True while inside the warning window before the end. */
-  Warning: boolean;
-}
 
 export function NormalizeTimerType(Value: unknown): TimerType {
   const Upper = String(Value || '').toUpperCase();

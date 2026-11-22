@@ -9,7 +9,7 @@ import { DiscardTimerEditor } from './timer-editor';
 import { DiscardGroupEditor } from './group-manager';
 import { HandleNonFatalError } from './utils';
 import { ClearSelection } from './selection';
-import type { ShowFileStateView, ShowFileUpgradeView } from '../../../common/api';
+import type { ShowFileStateView, ShowFileUpgrade } from '@showtrak/protocol/timers';
 
 const EXTENSION = /\.showtraktimers$/i;
 
@@ -197,7 +197,7 @@ export function OpenNoShowPrompt(Message: string = NO_SHOW_DEFAULT_MESSAGE): voi
 // Upgrade an older show file? Accepting backs the original up first. Declining
 // leaves it untouched: when it was being opened, the show already open stays;
 // when it is the show left open last session, a new show file is started.
-export function PromptShowFileUpgrade(Upgrade: ShowFileUpgradeView): Promise<void> {
+export function PromptShowFileUpgrade(Upgrade: ShowFileUpgrade): Promise<void> {
   const SavedWith = Upgrade.FileVersion
     ? `ShowTrak Timers v${Upgrade.FileVersion}`
     : 'an earlier version of ShowTrak Timers';

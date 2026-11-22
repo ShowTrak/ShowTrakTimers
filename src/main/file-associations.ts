@@ -22,21 +22,17 @@
 import path from 'path';
 import fs from 'fs';
 import { spawnSync } from 'child_process';
+import type { ShowFileRequest } from '@showtrak/protocol/timers';
 
 // The same as Modules/ShowFile's, which cannot be imported this early.
 export const SHOW_FILE_EXTENSION = 'showtraktimers';
 
 // --- Requests ----------------------------------------------------------------
-
-// Launch: the file started ShowTrak Timers, so it replaces the last session's
-// show without asking (unless that has unsaved changes). Running: the operator
-// opened a file while a show was already up, which asks first.
-export type ShowFileRequestSource = 'Launch' | 'Running';
-
-export interface ShowFileRequest {
-  FilePath: string;
-  Source: ShowFileRequestSource;
-}
+//
+// A request's Source (ShowFileRequestSource) says how it arrived. Launch: the
+// file started ShowTrak Timers, so it replaces the last session's show without
+// asking (unless that has unsaved changes). Running: the operator opened a file
+// while a show was already up, which asks first.
 
 // Only the latest request counts: one show is open at a time, so opening
 // several files at once ends up on the last one anyway.

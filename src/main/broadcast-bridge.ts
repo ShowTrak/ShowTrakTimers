@@ -8,8 +8,7 @@ import { Manager as AudioLibrary } from '../Modules/AudioLibrary';
 import { CreateLogger } from '../Modules/Logger';
 import { PushToRenderers } from './renderer-bus';
 import { ModeManager } from './mode';
-import type { TimerView } from '../common/timers';
-import type { GroupView } from '../common/groups';
+import type { GroupView, TimerEventView, TimerView } from '@showtrak/protocol/timers';
 
 const Logger = CreateLogger('Bridge');
 
@@ -69,7 +68,7 @@ export function RegisterBroadcastBridge(): void {
   BroadcastManager.on('GroupsUpdated', (Views: GroupView[]) => {
     PushToRenderers('Groups:Updated', Views);
   });
-  BroadcastManager.on('TimerEvent', (Event: unknown) => {
+  BroadcastManager.on('TimerEvent', (Event: TimerEventView) => {
     PushToRenderers('Timer:Event', Event);
   });
   BroadcastManager.on('SettingsUpdated', Guard('settings', PushSettings));

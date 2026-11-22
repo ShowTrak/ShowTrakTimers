@@ -14,6 +14,7 @@ import {
   ResolveDefaultLevel,
   SerializeArg,
   StripAnsi,
+  type LoggerConfigureOptions,
 } from '@showtrak/protocol/runtime';
 import { Manager as AppDataManager } from '../AppData';
 
@@ -224,12 +225,6 @@ class Logger {
 
 export function CreateLogger(Alias: string): Logger {
   return new Logger(Alias);
-}
-
-interface LoggerConfigureOptions {
-  level?: string;
-  toConsole?: boolean;
-  toFile?: boolean;
 }
 
 export function configure(options: LoggerConfigureOptions = {}): void {

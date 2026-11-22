@@ -8,13 +8,8 @@
 // against the manifest size gives a real percentage.
 import path from 'path';
 import fs from 'fs';
+import type { SquirrelPackage } from '@showtrak/protocol/timers';
 import { CompareVersions as compareVersions } from '../Modules/Utils';
-
-export interface SquirrelPackage {
-  fileName: string;
-  version: string;
-  size: number;
-}
 
 // Squirrel package names end in `-<version>-full.nupkg` or `-<version>-delta.nupkg`.
 const PACKAGE_NAME = /^.+?-(\d+(?:\.\d+)*(?:-[0-9A-Za-z.]+)?)-(?:full|delta)\.nupkg$/i;

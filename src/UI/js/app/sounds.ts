@@ -8,7 +8,7 @@ import { openModal } from './lib/modal';
 import { CloseAllModals } from './modals';
 import { BuildSoundOptions, FormatSoundSize } from './lib/sound-options';
 import { AlertSound } from './lib/alert-sound';
-import type { LibrarySoundView } from '../../../common/api';
+import type { LibrarySoundView } from '@showtrak/protocol/timers';
 
 // The built-in sounds: AAC first (small), WAV as the fallback for a browser that
 // cannot play AAC. Howler plays the first source it can.

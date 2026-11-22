@@ -1,36 +1,13 @@
-// Groups: their shape and the pure rules about them, shared by the main
-// process, the desktop renderer and the Web Dashboard. Modelled on ShowTrak
-// Server's groups: a title, a slug for OSC, a colour that tints the group's box,
-// a width on the group column grid, and an optional number key that toggles the
-// group's selection. Timers in no group are in the Default group, which always
-// exists, sits last, and cannot be edited, renamed or deleted.
+// Groups: the pure rules about them, shared by the main process, the desktop
+// renderer and the Web Dashboard. Modelled on ShowTrak Server's groups: a
+// title, a slug for OSC, a colour that tints the group's box, a width on the
+// group column grid, and an optional number key that toggles the group's
+// selection. Timers in no group are in the Default group, which always exists,
+// sits last, and cannot be edited, renamed or deleted.
 //
-// No Node, Electron or DOM dependencies (see ./timers.ts).
-
-export interface GroupView {
-  GroupID: number;
-  Title: string;
-  /** The group's OSC address segment: /ShowTrak/Group/<Slug>/Start. Unique, any case. */
-  Slug: string;
-  Weight: number;
-  /** Full width spans every column of the group grid; otherwise ColumnSpan columns. */
-  isFullWidth: boolean;
-  ColumnSpan: number;
-  /** Index into GROUP_COLOURS, or null for an untinted box. */
-  Colour: number | null;
-  /** KeyboardEvent.code of the key that toggles the group's selection, or null. */
-  KeyBind: string | null;
-}
-
-/** Fields a group create/update may carry (all optional). */
-export interface GroupPatchView {
-  Title?: string;
-  Slug?: string;
-  /** 'full', or a number of columns. */
-  Width?: 'full' | number;
-  Colour?: number | null;
-  KeyBind?: string | null;
-}
+// No Node, Electron or DOM dependencies (see ./timers.ts). GroupView, the shape
+// every surface receives, is declared in @showtrak/protocol/timers.
+import type { GroupView } from '@showtrak/protocol/timers';
 
 // The Default group: what a timer with no GroupID belongs to. It is addressed
 // over OSC as /ShowTrak/Group/Default/..., so no real group may take that slug.

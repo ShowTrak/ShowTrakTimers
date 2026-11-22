@@ -10,6 +10,7 @@ import { Manager as BroadcastManager } from '../Broadcast';
 import { Manager as AppDb, type Database } from '../DB';
 import { Manager as AppShowLock, LockMethods, type ShowLock } from '../ShowLock';
 import { IsArray } from '../../common/guards';
+import type { GroupView, ResultTuple } from '@showtrak/protocol/timers';
 import {
   DEFAULT_GROUP_SLUG,
   NormalizeColour,
@@ -20,12 +21,9 @@ import {
   SlugProblem,
   SortGroups,
   UniqueSlug,
-  type GroupView,
 } from '../../common/groups';
 
 const Logger = CreateLogger('Groups');
-
-export type Result<T> = [string | null, T | null];
 
 interface GroupRow {
   GroupID: number;
@@ -217,7 +215,7 @@ export function CreateGroupManager(Options: GroupManagerOptions = {}) {
       return G ? Copy(G) : null;
     },
 
-    async Create(Patch: GroupPatch = {}): Promise<Result<GroupView>> {
+    async Create(Patch: GroupPatch = {}): Promise<ResultTuple<GroupView>> {
       await Load();
       const Title = NormalizeGroupTitle(Patch.Title ?? 'New Group') || 'New Group';
       const Weight = Groups.reduce((Max, G) => Math.max(Max, G.Weight), 0) + 10;
@@ -259,7 +257,7 @@ export function CreateGroupManager(Options: GroupManagerOptions = {}) {
       return [null, Copy(Next)];
     },
 
-    async Update(ID: unknown, Patch: GroupPatch): Promise<Result<GroupView>> {
+    async Update(ID: unknown, Patch: GroupPatch): Promise<ResultTuple<GroupView>> {
       await Load();
       const Current = Find(ID);
       if (!Current) return ['Group not found', null];
@@ -279,7 +277,7 @@ export function CreateGroupManager(Options: GroupManagerOptions = {}) {
     },
 
     /** Delete a group. Its timers must already have been moved out (TimerManager.ClearGroup). */
-    async Delete(ID: unknown): Promise<Result<true>> {
+    async Delete(ID: unknown): Promise<ResultTuple<true>> {
       await Load();
       const Current = Find(ID);
       if (!Current) return ['Group not found', null];
@@ -292,7 +290,7 @@ export function CreateGroupManager(Options: GroupManagerOptions = {}) {
     },
 
     /** Put the groups in this order (IDs not listed keep their place after). */
-    async Reorder(IDs: unknown): Promise<Result<true>> {
+    async Reorder(IDs: unknown): Promise<ResultTuple<true>> {
       await Load();
       if (!IsArray(IDs)) return ['Invalid order', null];
       const Wanted = [...new Set(IDs.map(Number))].filter((ID) => Find(ID));

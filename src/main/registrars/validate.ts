@@ -1,7 +1,12 @@
 // Validation of IPC arguments. Everything arriving from the renderer is
 // `unknown`; these narrow it or throw a ValidationError, which the registrars
 // turn into an `[Error, null]` result rather than an exception in the renderer.
-import type { ControlAction } from '../../common/api';
+import type {
+  ControlAction,
+  ResultTuple,
+  SettingValue as SettingValueType,
+  TimerPlacementView,
+} from '@showtrak/protocol/timers';
 import { IsArray, IsRecord } from '../../common/guards';
 
 export class ValidationError extends Error {}
@@ -59,7 +64,7 @@ export function GroupIDList(Value: unknown): number[] {
 }
 
 /** Timers in their groups, in order (dragging tiles between groups). */
-export function Placements(Value: unknown): Array<{ ID: number; GroupID: number | null }> {
+export function Placements(Value: unknown): TimerPlacementView[] {
   if (!IsArray(Value) || Value.length > 10000) {
     throw new ValidationError('Invalid arrangement');
   }
@@ -76,7 +81,7 @@ export function SettingKey(Value: unknown): string {
   return Value;
 }
 
-export function SettingValue(Value: unknown): boolean | number | string {
+export function SettingValue(Value: unknown): SettingValueType {
   if (typeof Value === 'boolean' || typeof Value === 'number' || typeof Value === 'string') {
     if (typeof Value === 'string' && Value.length > 1000)
       throw new ValidationError('Value too long');
@@ -94,11 +99,11 @@ export function SoundID(Value: unknown): string {
 
 // Run a handler body, mapping a ValidationError (or any throw) to a result tuple.
 export async function Guard<T>(
-  Fn: () => Promise<[string | null, T | null]> | [string | null, T | null]
-) {
+  Fn: () => Promise<ResultTuple<T>> | ResultTuple<T>
+): Promise<ResultTuple<T>> {
   try {
     return await Fn();
   } catch (Err) {
-    return [Err instanceof Error ? Err.message : String(Err), null] as [string, null];
+    return [Err instanceof Error ? Err.message : String(Err), null];
   }
 }

@@ -23,6 +23,7 @@ import { DefaultSettings } from '../SettingsManager/DefaultSettings';
 import { LATEST_SCHEMA_VERSION } from '../DB/schema';
 import { Manager as AppShowLock, type ShowLock } from '../ShowLock';
 import { IsRecord } from '../../common/guards';
+import type { ResultTuple, ShowFileOpenOutcome, ShowFileUpgrade } from '@showtrak/protocol/timers';
 
 // Machine settings 2.0 betas stored in the database: not show data, so they
 // alone never call for a Save As.
@@ -31,20 +32,6 @@ const INSTALL_SETTING_KEYS = DefaultSettings.filter((S) => S.Scope === 'INSTALL'
 const Logger = CreateLogger('ShowFile');
 
 export const SHOW_FILE_EXTENSION = 'showtraktimers';
-
-export type Result<T> = [string | null, T | null];
-
-/** A show file an older version saved, waiting on the operator to agree to upgrade it. */
-export interface ShowFileUpgrade {
-  FilePath: string;
-  FileName: string;
-  /** null for a file saved before versions were stamped (a 1.x database, a 2.0 beta). */
-  FileVersion: string | null;
-  CurrentVersion: string;
-}
-
-export type OpenOutcome =
-  { Status: 'Opened'; FilePath: string } | { Status: 'UpgradeRequired'; Upgrade: ShowFileUpgrade };
 
 export interface ShowFileManagerOptions {
   Db?: WorkingDatabase;
@@ -226,7 +213,7 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
 
   async function InspectFile(
     FilePath: string
-  ): Promise<Result<{ NeedsUpgrade: boolean; FileVersion: string | null }>> {
+  ): Promise<ResultTuple<{ NeedsUpgrade: boolean; FileVersion: string | null }>> {
     const [Err, Info] = await ReadInfo(FilePath);
     if (Err || !Info) return [ErrorText(Err), null];
     const FileVersion = Info.SavedWithVersion;
@@ -248,7 +235,7 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
 
   // Copy a file, untouched, into the Backups folder, named after it and the
   // version that last saved it (or what it was, for a working copy).
-  async function BackupFile(FilePath: string, Label: string): Promise<Result<string>> {
+  async function BackupFile(FilePath: string, Label: string): Promise<ResultTuple<string>> {
     try {
       const Dir = BackupsDirectory();
       fs.mkdirSync(Dir, { recursive: true });
@@ -277,7 +264,7 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
     return 'Save your existing timers to a show file first (Save Show File As).';
   }
 
-  async function Save(FilePath: string): Promise<Result<string>> {
+  async function Save(FilePath: string): Promise<ResultTuple<string>> {
     Logger.log('Saving the show file to:', FilePath);
     if (PendingUpgrade && IsSamePath(FilePath, PendingUpgrade.FilePath)) {
       return ['Confirm the show file upgrade before saving', null];
@@ -306,7 +293,7 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
     return [null, 'Saved'];
   }
 
-  async function Open(FilePath: string): Promise<Result<string>> {
+  async function Open(FilePath: string): Promise<ResultTuple<string>> {
     Logger.log('Opening the show file:', FilePath);
     if (!fs.existsSync(FilePath)) return ['The show file does not exist', null];
     const [Err] = await Db.ReplaceWithFile(FilePath);
@@ -318,7 +305,7 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
     return [null, 'Opened'];
   }
 
-  async function New(FilePath: string): Promise<Result<string>> {
+  async function New(FilePath: string): Promise<ResultTuple<string>> {
     Logger.log('Creating a new show at:', FilePath);
     // The new file's folder must take a file before the open show is put away:
     // a read-only or unplugged folder would otherwise leave an empty show with
@@ -367,7 +354,10 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
   // Clear the working show with no file open (the operator is then asked to
   // open or create one). Changes never saved are kept in the Backups folder
   // first: the file they belong to is gone, but they need not be.
-  async function ClearWorkingShow(Reason: string, LostFile: string | null): Promise<Result<true>> {
+  async function ClearWorkingShow(
+    Reason: string,
+    LostFile: string | null
+  ): Promise<ResultTuple<true>> {
     if (Db.HasUnsavedChanges()) {
       const Name = LostFile ? path.basename(LostFile, path.extname(LostFile)) : 'Show';
       const Stem = `${Name} (unsaved changes) ${BackupTimestamp(new Date())}`;
@@ -409,14 +399,14 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
     /** Whether the file was last saved by an older version (or before versions were stamped). */
     InspectFile,
 
-    BackupFile(FilePath: string, FileVersion: string | null): Promise<Result<string>> {
+    BackupFile(FilePath: string, FileVersion: string | null): Promise<ResultTuple<string>> {
       return Exclusive(() => BackupFile(FilePath, VersionLabel(FileVersion)));
     },
 
     // "Open" from the UI. A file saved by this version (or a newer one) opens
     // straight away; an older one is held until the operator answers.
-    RequestOpen(FilePath: string): Promise<Result<OpenOutcome>> {
-      return Exclusive(async (): Promise<Result<OpenOutcome>> => {
+    RequestOpen(FilePath: string): Promise<ResultTuple<ShowFileOpenOutcome>> {
+      return Exclusive(async (): Promise<ResultTuple<ShowFileOpenOutcome>> => {
         if (!fs.existsSync(FilePath)) return ['The show file does not exist', null];
         const Guard = await GuardUnsavedWorkingData();
         if (Guard) return [Guard, null];
@@ -439,8 +429,8 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
 
     // Boot check of the file left open last session: after an update it was
     // saved by an older version, so it is held until the operator answers.
-    CheckCurrentFile(): Promise<Result<ShowFileUpgrade | null>> {
-      return Exclusive(async (): Promise<Result<ShowFileUpgrade | null>> => {
+    CheckCurrentFile(): Promise<ResultTuple<ShowFileUpgrade | null>> {
+      return Exclusive(async (): Promise<ResultTuple<ShowFileUpgrade | null>> => {
         if (PendingUpgrade) return [null, PendingUpgrade];
         const FilePath = CurrentFilePath;
         if (!FilePath || !fs.existsSync(FilePath)) return [null, null];
@@ -463,8 +453,8 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
     // file itself is upgraded. When it is the file already open from last
     // session, the working data (which may hold unsaved changes) is kept and the
     // file is upgraded on its next save.
-    AcceptUpgrade(): Promise<Result<{ FilePath: string; BackupPath: string }>> {
-      return Exclusive(async (): Promise<Result<{ FilePath: string; BackupPath: string }>> => {
+    AcceptUpgrade(): Promise<ResultTuple<{ FilePath: string; BackupPath: string }>> {
+      return Exclusive(async (): Promise<ResultTuple<{ FilePath: string; BackupPath: string }>> => {
         const Upgrade = PendingUpgrade;
         if (!Upgrade) return ['No show file upgrade is waiting for confirmation', null];
         if (!fs.existsSync(Upgrade.FilePath)) {
@@ -491,8 +481,8 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
     // left open last session, there is no show to go on with: the working data
     // is cleared (kept in Backups if unsaved) for a new show. When it was only
     // being opened, the show already open simply stays open.
-    DeclineUpgrade(): Promise<Result<{ Cleared: boolean }>> {
-      return Exclusive(async (): Promise<Result<{ Cleared: boolean }>> => {
+    DeclineUpgrade(): Promise<ResultTuple<{ Cleared: boolean }>> {
+      return Exclusive(async (): Promise<ResultTuple<{ Cleared: boolean }>> => {
         const Upgrade = PendingUpgrade;
         if (!Upgrade) return ['No show file upgrade is waiting for confirmation', null];
         PendingUpgrade = null;
@@ -506,8 +496,8 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
     // Boot check: the file open last session has since been deleted or moved,
     // so the working data no longer belongs to a real file. It is cleared
     // (unsaved changes kept in Backups) and the operator asked to open one.
-    EnsureCurrentFileExists(): Promise<Result<{ Missing: boolean; FilePath?: string }>> {
-      return Exclusive(async (): Promise<Result<{ Missing: boolean; FilePath?: string }>> => {
+    EnsureCurrentFileExists(): Promise<ResultTuple<{ Missing: boolean; FilePath?: string }>> {
+      return Exclusive(async (): Promise<ResultTuple<{ Missing: boolean; FilePath?: string }>> => {
         if (!CurrentFilePath) return [null, { Missing: false }];
         if (fs.existsSync(CurrentFilePath)) return [null, { Missing: false }];
         const MissingPath = CurrentFilePath;
@@ -532,7 +522,7 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
     },
 
     /** Write the whole show to FilePath (Save As, or Save with a file open). */
-    Save(FilePath: string): Promise<Result<string>> {
+    Save(FilePath: string): Promise<ResultTuple<string>> {
       return Exclusive(() => Save(FilePath));
     },
 
@@ -542,9 +532,9 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
      * do: no file open, no changes, or an upgrade still waiting for an answer.
      */
     SaveCurrent({ OnlyIfUnsaved = false }: { OnlyIfUnsaved?: boolean } = {}): Promise<
-      Result<string | null>
+      ResultTuple<string | null>
     > {
-      return Exclusive(async (): Promise<Result<string | null>> => {
+      return Exclusive(async (): Promise<ResultTuple<string | null>> => {
         const FilePath = CurrentFilePath;
         if (!FilePath || PendingUpgrade) return [null, null];
         if (OnlyIfUnsaved && !Db.HasUnsavedChanges()) return [null, null];
@@ -554,15 +544,15 @@ export function CreateShowFileManager(Options: ShowFileManagerOptions = {}) {
     },
 
     // Replace the working database with the file and reload everything from it.
-    Open(FilePath: string): Promise<Result<string>> {
+    Open(FilePath: string): Promise<ResultTuple<string>> {
       return Exclusive(() => Open(FilePath));
     },
 
     // An empty show (keeping this show's network settings), saved straight away to FilePath.
-    New(FilePath: string): Promise<Result<string>> {
+    New(FilePath: string): Promise<ResultTuple<string>> {
       return Exclusive(async () => {
         const Guard = await GuardUnsavedWorkingData();
-        if (Guard) return [Guard, null] as Result<string>;
+        if (Guard) return [Guard, null] as ResultTuple<string>;
         return New(FilePath);
       });
     },

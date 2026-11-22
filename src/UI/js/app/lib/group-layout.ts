@@ -5,12 +5,8 @@
 // As in ShowTrak Server: groups in their order, the Default group last. A real
 // group is drawn even when empty (so timers can be dropped into it); the
 // Default group only when something is in it.
-import {
-  DEFAULT_GROUP_TITLE,
-  EffectiveGroupID,
-  SortGroups,
-  type GroupView,
-} from '../../../../common/groups';
+import type { GroupView } from '@showtrak/protocol/timers';
+import { DEFAULT_GROUP_TITLE, EffectiveGroupID, SortGroups } from '../../../../common/groups';
 
 export type GroupLike = Pick<GroupView, 'GroupID' | 'Title' | 'Weight' | 'Colour'> &
   Partial<Pick<GroupView, 'Slug' | 'isFullWidth' | 'ColumnSpan' | 'KeyBind'>>;

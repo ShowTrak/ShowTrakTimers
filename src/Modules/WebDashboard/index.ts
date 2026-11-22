@@ -6,7 +6,9 @@
 //
 // The `timers:update` payload keeps every field 1.x sent (State.ElapsedTime,
 // RemainingReadable and friends) so anything built against it keeps working,
-// and adds ElapsedMs/Warning/EndBehaviour for the 2.0 page.
+// and adds ElapsedMs/Warning/EndBehaviour for the 2.0 page. Every event and
+// payload of the socket is declared in @showtrak/protocol/timers
+// (dashboard.d.ts).
 import http from 'http';
 import path from 'path';
 import fs from 'fs';
@@ -20,12 +22,17 @@ import { WriteAndSyncFileSync } from '../Utils';
 import { Manager as AppSettings, type SettingsManagerShape } from '../SettingsManager';
 import { Manager as AppTimers, type TimerManager } from '../TimerManager';
 import { Manager as AppGroups, type GroupManager } from '../GroupManager';
-import {
-  NormalizeColumnSpan,
-  ParseGroupColumnCount,
-  SortGroups,
-  type GroupView,
-} from '../../common/groups';
+import type {
+  DashboardGroup,
+  DashboardHello,
+  DashboardLayout,
+  DashboardLoginResult,
+  DashboardTimer,
+  GroupView,
+  ResultTuple,
+  TimerView,
+} from '@showtrak/protocol/timers';
+import { NormalizeColumnSpan, ParseGroupColumnCount, SortGroups } from '../../common/groups';
 import { DEFAULT_WEB_DASHBOARD_PORT } from '../Config/constants';
 import { IsRecord } from '../../common/guards';
 import { DIST_ROOT } from '../Config/dist-root';
@@ -36,37 +43,11 @@ import {
   FormatRemaining,
   IsTicking,
   NormalizeClockFormat,
-  type TimerView,
 } from '../../common/timers';
 
 const Logger = CreateLogger('WebDashboard');
 
-/** A timer as sent to dashboard browsers. */
-export interface DashboardTimer {
-  ID: number;
-  Weight: number;
-  Type: TimerView['Type'];
-  Name: string;
-  Description: string;
-  Duration: number | null;
-  TotalTimeReadable: string;
-  Status: TimerView['Status'];
-  EndBehaviour: TimerView['EndBehaviour'];
-  ElapsedMs: number;
-  Warning: boolean;
-  ShowHundredths: boolean;
-  /** 12 or 24 hour time, for a World Clock. */
-  ClockFormat: TimerView['ClockFormat'];
-  /** The timer's group; null for the Default group. */
-  GroupID: number | null;
-  State: {
-    ElapsedTime: number;
-    ElapsedTimeReadable: string;
-    RemainingMs: number | null;
-    RemainingReadable: string | null;
-  };
-}
-
+/** The timers as sent to dashboard browsers ('timers:update'): those on show, in order. */
 export function ToDashboardTimers(Timers: TimerView[]): DashboardTimer[] {
   return Timers.filter((T) => T.ShowOnWeb)
     .sort((A, B) => A.Weight - B.Weight || A.ID - B.ID)
@@ -98,17 +79,6 @@ export function ToDashboardTimers(Timers: TimerView[]): DashboardTimer[] {
     });
 }
 
-/** A group as sent to dashboard browsers ('groups:update'). */
-export interface DashboardGroup {
-  GroupID: number;
-  Title: string;
-  Weight: number;
-  Colour: number | null;
-  /** The group's width on the column grid, as the desktop lays it out. */
-  isFullWidth: boolean;
-  ColumnSpan: number;
-}
-
 /**
  * The groups as sent to dashboard browsers. Given the timers on show, only the
  * groups holding at least one of them: a group whose timers are all hidden from
@@ -134,11 +104,6 @@ export function ToDashboardGroups(
  * its groups out the same way: the column count, and how strongly group
  * colours tint (0-100).
  */
-export interface DashboardLayout {
-  GroupColumns: number;
-  GroupColourSaturation: number;
-}
-
 export async function ReadDashboardLayout(
   Settings: Pick<SettingsManagerShape, 'GetValue'>
 ): Promise<DashboardLayout> {
@@ -210,19 +175,6 @@ interface LoginAttempts {
   LockedUntil: number;
 }
 
-/** What a browser is told on connecting (and again when the passcode changes). */
-export interface DashboardHello {
-  Name: string;
-  Version: string;
-  PasswordProtection: boolean;
-  Authed: boolean;
-}
-
-export type LoginResult =
-  | { ok: true; token?: string }
-  | { error: 'invalid_password' }
-  | { error: 'rate_limited'; retryAfterMs: number };
-
 // The browser's address for rate limiting. An IPv4 client reaching a dual-stack
 // socket shows up as ::ffff:a.b.c.d; it is the same client as a.b.c.d.
 export function ClientAddress(Raw: string | undefined | null): string {
@@ -232,7 +184,7 @@ export function ClientAddress(Raw: string | undefined | null): string {
 
 // Socket.IO passes an acknowledgement callback as the last argument when the
 // browser asked for a reply (anything else there is just what it sent).
-function IsAck(Value: unknown): Value is (Result: LoginResult) => void {
+function IsAck(Value: unknown): Value is (Result: DashboardLoginResult) => void {
   return typeof Value === 'function';
 }
 
@@ -488,9 +440,9 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
     return PasscodeMatches(Token, CurrentSessionKey());
   }
 
-  async function Login(Client: Socket, Payload: unknown): Promise<LoginResult> {
+  async function Login(Client: Socket, Payload: unknown): Promise<DashboardLoginResult> {
     const Required = await RequiredPasscode();
-    const Signed = (): LoginResult =>
+    const Signed = (): DashboardLoginResult =>
       Required === null ? { ok: true } : { ok: true, token: CurrentSessionKey() };
     // Already signed in (a browser repeating itself): nothing to do, and no
     // second greeting or viewer count for every repeat.
@@ -584,7 +536,7 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
     });
   }
 
-  async function StartNow(): Promise<[string | null, boolean | null]> {
+  async function StartNow(): Promise<ResultTuple<boolean>> {
     await StopNow();
     if (!(await Settings.GetValue('WEB_ENABLE_DASHBOARD'))) {
       Logger.log('Web Dashboard disabled in settings');
@@ -667,7 +619,7 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
     return [null, true];
   }
 
-  async function StopNow(): Promise<[string | null, boolean | null]> {
+  async function StopNow(): Promise<ResultTuple<boolean>> {
     Broadcast.off('TimersUpdated', OnTimersUpdated);
     Broadcast.off('GroupsUpdated', OnGroupsUpdated);
     Broadcast.off('SettingsUpdated', OnSettingsUpdated);
@@ -699,11 +651,11 @@ export function CreateWebDashboard(Options: WebDashboardOptions = {}) {
   }
 
   const Dashboard = {
-    Start(): Promise<[string | null, boolean | null]> {
+    Start(): Promise<ResultTuple<boolean>> {
       return OneAtATime(StartNow);
     },
 
-    Stop(): Promise<[string | null, boolean | null]> {
+    Stop(): Promise<ResultTuple<boolean>> {
       return OneAtATime(StopNow);
     },
 

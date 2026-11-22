@@ -1,12 +1,12 @@
 // The Web Dashboard keeps the last list it received in localStorage, so a
 // browser that reloads while the host is unreachable still shows the timers
 // (greyed out, as offline) instead of a blank page. As in 1.x.
-import { NormalizeClockFormat, TIMER_TYPES, type TimerView } from '../../../../common/timers';
+import type { DashboardGroup, DashboardLayout, DashboardTimer } from '@showtrak/protocol/timers';
+import { NormalizeClockFormat, TIMER_TYPES } from '../../../../common/timers';
 import {
   DEFAULT_GROUP_COLUMN_COUNT,
   NormalizeColumnSpan,
   ParseGroupColumnCount,
-  type GroupView,
 } from '../../../../common/groups';
 import { IsArray } from '../../../../common/guards';
 
@@ -39,13 +39,16 @@ export function WriteCachedTimers(Storage: StorageLike | null, Timers: unknown[]
   }
 }
 
-/** The subset of a dashboard payload entry the page needs to draw a tile. */
+/**
+ * The part of a 'timers:update' entry (DashboardTimer) the page needs to draw a
+ * tile. Older hosts send less (see NormalizeDashboardTimer), hence the
+ * optional fields.
+ */
 export type DashboardTimerLike = Pick<
-  TimerView,
+  DashboardTimer,
   'ID' | 'Name' | 'Type' | 'Duration' | 'Status' | 'ElapsedMs' | 'Warning' | 'ShowHundredths'
 > &
-  Partial<Pick<TimerView, 'ClockFormat'>> &
-  Partial<Pick<TimerView, 'Weight' | 'GroupID'>>;
+  Partial<Pick<DashboardTimer, 'ClockFormat' | 'Weight' | 'GroupID'>>;
 
 export function IsDashboardTimer(Value: unknown): Value is DashboardTimerLike {
   if (!Value || typeof Value !== 'object') return false;
@@ -62,11 +65,11 @@ export function NormalizeDashboardTimer(Value: Record<string, unknown>): Dashboa
   return {
     ID: Number(Value.ID),
     Name: String(Value.Name ?? ''),
-    Type: (TIMER_TYPES.includes(String(Value.Type) as TimerView['Type'])
+    Type: (TIMER_TYPES.includes(String(Value.Type) as DashboardTimer['Type'])
       ? Value.Type
-      : 'TIMER') as TimerView['Type'],
+      : 'TIMER') as DashboardTimer['Type'],
     Duration: typeof Value.Duration === 'number' ? Value.Duration : null,
-    Status: String(Value.Status || 'STANDBY') as TimerView['Status'],
+    Status: String(Value.Status || 'STANDBY') as DashboardTimer['Status'],
     ElapsedMs: Number.isFinite(Elapsed) ? Elapsed : 0,
     Warning: Value.Warning === true,
     ShowHundredths: Value.ShowHundredths === true,
@@ -87,18 +90,7 @@ export function NormalizeDashboardTimer(Value: Record<string, unknown>): Dashboa
 export const DASHBOARD_GROUPS_CACHE_KEY = 'showtrak:dashboard:lastGroups';
 export const DASHBOARD_LAYOUT_CACHE_KEY = 'showtrak:dashboard:lastLayout';
 
-export type DashboardGroupLike = Pick<
-  GroupView,
-  'GroupID' | 'Title' | 'Weight' | 'Colour' | 'isFullWidth' | 'ColumnSpan'
->;
-
-export interface DashboardLayoutLike {
-  GroupColumns: number;
-  /** 0-100: how strongly group colours tint their boxes. */
-  GroupColourSaturation: number;
-}
-
-export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayoutLike = {
+export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayout = {
   GroupColumns: DEFAULT_GROUP_COLUMN_COUNT,
   GroupColourSaturation: 100,
 };
@@ -107,7 +99,7 @@ export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayoutLike = {
  * A 'groups:update' payload as the page uses it. A host from before group
  * widths sends none: those groups are full width, as groups default to.
  */
-export function NormalizeDashboardGroups(Payload: unknown): DashboardGroupLike[] {
+export function NormalizeDashboardGroups(Payload: unknown): DashboardGroup[] {
   if (!IsArray(Payload)) return [];
   return Payload.filter(
     (G): G is Record<string, unknown> =>
@@ -126,7 +118,7 @@ export function NormalizeDashboardGroups(Payload: unknown): DashboardGroupLike[]
 }
 
 /** A 'layout:update' payload, with anything missing or out of range defaulted. */
-export function NormalizeDashboardLayout(Payload: unknown): DashboardLayoutLike {
+export function NormalizeDashboardLayout(Payload: unknown): DashboardLayout {
   const Value = (Payload && typeof Payload === 'object' ? Payload : {}) as Record<string, unknown>;
   const Saturation = Number(Value.GroupColourSaturation);
   return {
@@ -156,18 +148,18 @@ function WriteJson(Storage: StorageLike | null, Key: string, Value: unknown): vo
   }
 }
 
-export function ReadCachedGroups(Storage: StorageLike | null): DashboardGroupLike[] {
+export function ReadCachedGroups(Storage: StorageLike | null): DashboardGroup[] {
   return NormalizeDashboardGroups(ReadJson(Storage, DASHBOARD_GROUPS_CACHE_KEY));
 }
 
-export function WriteCachedGroups(Storage: StorageLike | null, Groups: DashboardGroupLike[]): void {
+export function WriteCachedGroups(Storage: StorageLike | null, Groups: DashboardGroup[]): void {
   WriteJson(Storage, DASHBOARD_GROUPS_CACHE_KEY, Groups);
 }
 
-export function ReadCachedLayout(Storage: StorageLike | null): DashboardLayoutLike {
+export function ReadCachedLayout(Storage: StorageLike | null): DashboardLayout {
   return NormalizeDashboardLayout(ReadJson(Storage, DASHBOARD_LAYOUT_CACHE_KEY));
 }
 
-export function WriteCachedLayout(Storage: StorageLike | null, Layout: DashboardLayoutLike): void {
+export function WriteCachedLayout(Storage: StorageLike | null, Layout: DashboardLayout): void {
   WriteJson(Storage, DASHBOARD_LAYOUT_CACHE_KEY, Layout);
 }

@@ -3,7 +3,7 @@
 // Every handler is also recorded in a registry, so the test suite can invoke a
 // registrar's handlers directly (without Electron) and check that only
 // declared channels are ever registered.
-import type { InvokeChannel } from '../common/api';
+import type { InvokeChannel } from '@showtrak/protocol/timers';
 
 export type IpcHandler = (Event: unknown, ...Args: unknown[]) => unknown;
 

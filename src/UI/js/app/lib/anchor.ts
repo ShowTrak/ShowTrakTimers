@@ -7,7 +7,8 @@
 // is used, so the clocks of the host and of a dashboard browser never need to
 // agree. 1.x redrew from each throttled push instead, so seconds ticked over at
 // uneven intervals.
-import { IsTicking, type TimerView } from '../../../../common/timers';
+import type { TimerView } from '@showtrak/protocol/timers';
+import { IsTicking } from '../../../../common/timers';
 
 export interface AnchoredTimer<T extends Pick<TimerView, 'Status' | 'ElapsedMs'>> {
   Timer: T;

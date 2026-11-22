@@ -9,7 +9,7 @@
 // (rendered via the shared safe renderer). While a check or download is in
 // flight, reopening the modal shows its progress rather than starting another,
 // and a floating progress bar tracks it whenever the modal is closed.
-import type { AppUpdateStatus } from '../../../common/api';
+import type { AppUpdateStatus } from '@showtrak/protocol/timers';
 import { IsArray, IsRecord } from '../../../common/guards';
 import { SettingValue } from './state';
 import { HandleNonFatalError } from './utils';

@@ -6,8 +6,14 @@
 // validation still reported the old value as saved, and `isDefault` compared a
 // stored value against an uncoerced default.
 import { CreateLogger } from '../Logger';
+import type {
+  ResultTuple,
+  SettingGroupView,
+  SettingValue,
+  SettingView,
+} from '@showtrak/protocol/timers';
 import { DefaultSettings, Groups } from './DefaultSettings';
-import type { SettingDefinition, SettingGroup, SettingValue } from './DefaultSettings';
+import type { SettingDefinition } from './DefaultSettings';
 import { Manager as BroadcastManager } from '../Broadcast';
 import { Manager as AppDb, type Database } from '../DB';
 import { CreateInstallSettingsStore, type InstallSettingsStore } from './install-settings';
@@ -18,35 +24,15 @@ const Logger = CreateLogger('Settings');
 // Settings whose values must never be logged.
 export const SECRET_SETTING_KEYS: ReadonlySet<string> = new Set(['WEB_DASHBOARD_PASSWORD']);
 
-/** A setting as held in memory and sent to the renderer (no functions). */
-export interface Setting {
-  Group: string;
-  Key: string;
-  Title: string;
-  Description: string;
-  Type: SettingDefinition['Type'];
-  Value: SettingValue;
-  isDefault: boolean;
-  DefaultValue: SettingValue;
-  OnUpdateEvent: string | null;
-  Options: string[] | null;
-  Min: number | null;
-  Max: number | null;
-  Unit: string | null;
-  ShowWhen: string[] | null;
-  RequiresSave: boolean;
-  /** 'INSTALL' for a machine setting (kept with this installation), else null. */
-  Scope: 'INSTALL' | null;
-}
-
 export interface SettingsManagerShape {
   Initialized: boolean;
   Init(): Promise<void>;
-  GetGroups(): Promise<SettingGroup[]>;
-  GetAll(): Promise<Setting[]>;
+  GetGroups(): Promise<SettingGroupView[]>;
+  /** Every setting, as held in memory and sent to the renderer (copies). */
+  GetAll(): Promise<SettingView[]>;
   GetValue(Key: string): Promise<SettingValue | null>;
-  Get(Key: string): Promise<Setting | undefined>;
-  Set(Key: string, Value: unknown): Promise<[string | null, Setting | null]>;
+  Get(Key: string): Promise<SettingView | undefined>;
+  Set(Key: string, Value: unknown): Promise<ResultTuple<SettingView>>;
   /**
    * Re-read every setting (another show file was opened). Announces the change,
    * and fires the OnUpdateEvent of every setting whose value moved, so the
@@ -95,18 +81,18 @@ export function CoerceValue(
 export function CreateSettingsManager(
   Db: Database,
   Definitions: SettingDefinition[] = DefaultSettings,
-  SettingGroups: SettingGroup[] = Groups,
+  SettingGroups: SettingGroupView[] = Groups,
   Broadcast: { emit(Event: string, ...Args: unknown[]): unknown } = BroadcastManager,
   Install: InstallSettingsStore = CreateInstallSettingsStore(),
   Lock: ShowLock = AppShowLock
 ): SettingsManagerShape {
-  const Settings = new Map<string, Setting>();
+  const Settings = new Map<string, SettingView>();
   const DefinitionsByKey = new Map(Definitions.map((Def) => [Def.Key, Def]));
   let Initializing: Promise<void> | null = null;
 
   // A copy a caller may change freely: the arrays too, since Options is what
   // CoerceValue validates against.
-  const Snapshot = (S: Setting): Setting => ({
+  const Snapshot = (S: SettingView): SettingView => ({
     ...S,
     Options: S.Options ? [...S.Options] : null,
     ShowWhen: S.ShowWhen ? [...S.ShowWhen] : null,

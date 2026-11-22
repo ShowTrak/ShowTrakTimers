@@ -3,13 +3,13 @@
 import type {
   AppConfigView,
   AppMode,
+  GroupView,
   LibrarySoundView,
   ServicesStatusView,
   SettingGroupView,
   SettingView,
   ShowFileStateView,
-} from '../../../common/api';
-import type { GroupView } from '../../../common/groups';
+} from '@showtrak/protocol/timers';
 
 export let Config: AppConfigView | null = null;
 export let Settings: SettingView[] = [];

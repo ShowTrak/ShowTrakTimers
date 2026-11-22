@@ -5,7 +5,7 @@
 // argument instead of a path segment ("/ShowTrak/Timer/3/SetLabel" with the
 // string argument "Walk In"), which is the only way to send a value containing
 // characters an OSC address cannot (spaces, slashes).
-import type { ControlAction } from '../TimerManager';
+import type { ControlAction, OscRouteView, ResultTuple } from '@showtrak/protocol/timers';
 import { MAX_DURATION_MS } from '../../common/timers';
 
 export type OscParams = Record<string, string>;
@@ -26,7 +26,7 @@ export interface OscRouteContext {
   ControlGroup(
     Slug: string,
     Action: ControlAction
-  ): Promise<[string | null, { Title: string; Count: number } | null]>;
+  ): Promise<ResultTuple<{ Title: string; Count: number }>>;
   Quit(): void;
 }
 
@@ -36,9 +36,8 @@ export interface OscOutcome {
   Message: string;
 }
 
-export interface OscRoute {
-  Path: string;
-  Title: string;
+/** A route: its address and title, as the OSC Reference lists them, and what it does. */
+export interface OscRoute extends OscRouteView {
   Handler(Params: OscParams, Context: OscRouteContext): Promise<OscOutcome>;
 }
 

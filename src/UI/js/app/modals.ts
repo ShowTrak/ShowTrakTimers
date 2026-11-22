@@ -5,7 +5,7 @@ import { CancelConfirmation } from './lib/toasts';
 import { buildModalHeader } from './lib/modal-header';
 import { Config } from './state';
 import { Wait } from './utils';
-import type { DependencyView } from '../../../common/api';
+import type { DependencyView } from '@showtrak/protocol/timers';
 
 // Build the shared header (title + close) for each modal. Runs once at boot:
 // the placeholders are static markup.

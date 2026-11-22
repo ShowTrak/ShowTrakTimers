@@ -13,12 +13,14 @@
 // migration "Settings renamed in 2.0"): SYSTEM_AUTO_UPDATE is now
 // SYSTEM_AUTO_UPDATE_ENABLED, and SYSTEM_PREVENT_DISPLAY_SLEEP is gone because
 // display sleep is now always prevented.
+import type {
+  SettingDefinition as ProtocolSettingDefinition,
+  SettingGroupView,
+  SettingType,
+  SettingValue,
+} from '@showtrak/protocol/timers';
 import { DEFAULT_OSC_PORT, DEFAULT_WEB_DASHBOARD_PORT } from '../Config/constants';
 import { ValidateBindAddress, ValidatePasscode, ValidatePort } from './validators';
-
-// STRING is free text; OPTION one of Options; SLIDER an INTEGER drawn as a range.
-export type SettingType = 'BOOLEAN' | 'INTEGER' | 'STRING' | 'OPTION' | 'SLIDER';
-export type SettingValue = boolean | number | string;
 
 // A validator returns null when the value is acceptable, or the message to show.
 export type SettingValidator = (
@@ -26,34 +28,21 @@ export type SettingValidator = (
   Current: SettingValue
 ) => Promise<string | null> | string | null;
 
-export interface SettingDefinition {
-  Group: string;
-  Key: string;
-  Title: string;
-  Description: string;
-  Type: SettingType;
-  DefaultValue: SettingValue;
-  Min?: number;
-  Max?: number;
-  Options?: string[];
-  // Unit label shown alongside numeric/slider values in the UI (e.g. '%').
-  Unit?: string;
-  // Broadcast after the value changes, so the owning service can re-apply it.
-  OnUpdateEvent?: string;
-  // Shown only while every BOOLEAN setting named here is on (presentational).
-  ShowWhen?: string[];
-  // Edited with an explicit Save button rather than applied as typed: used for
-  // network settings, where every intermediate keystroke would rebind a socket.
+/**
+ * One entry of the settings table: the definition ShowTrak Server and ShowTrak
+ * Timers share (@showtrak/protocol), over the setting types Timers uses, plus
+ * what only Timers' main process reads. A Scope of 'INSTALL' keeps the value
+ * with this installation (install-settings.ts) instead of in the open show
+ * file.
+ */
+export interface SettingDefinition extends ProtocolSettingDefinition<SettingType> {
+  /**
+   * Edited with an explicit Save button rather than applied as typed: used for
+   * network settings, where every intermediate keystroke would rebind a socket.
+   * Sent to the renderer as SettingView.RequiresSave.
+   */
   RequiresSave?: boolean;
   Validate?: SettingValidator;
-  // 'INSTALL' keeps the value with this installation (install-settings.ts)
-  // instead of in the open show file. Omitted means per show file.
-  Scope?: 'INSTALL';
-}
-
-export interface SettingGroup {
-  Name: string;
-  Title: string;
 }
 
 export const DefaultSettings: SettingDefinition[] = [
@@ -285,7 +274,7 @@ export const DefaultSettings: SettingDefinition[] = [
   },
 ];
 
-export const Groups: SettingGroup[] = [
+export const Groups: SettingGroupView[] = [
   { Name: 'Machine', Title: 'Machine Settings' },
   { Name: 'Layout', Title: 'Layout' },
   { Name: 'Alerts', Title: 'Alerts' },

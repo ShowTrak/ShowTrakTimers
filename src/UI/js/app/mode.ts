@@ -1,7 +1,7 @@
 // The SHOW / EDIT segmented toggle in the bottom bar (ShowTrak Server's), and
 // the body class the rest of the UI keys edit-only controls off.
 import { Mode, setMode } from './state';
-import type { AppMode } from '../../../common/api';
+import type { AppMode } from '@showtrak/protocol/timers';
 import { HandleNonFatalError } from './utils';
 
 const Listeners = new Set<(Mode: AppMode) => void>();

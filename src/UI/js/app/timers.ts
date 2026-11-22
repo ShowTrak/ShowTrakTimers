@@ -7,7 +7,7 @@ import { Anchor, ElapsedAt, NextPaintDelay, type AnchoredTimer } from './lib/anc
 import { PaintTileElement } from './lib/tile-dom';
 import { CreatePaintLoop } from './lib/paint-loop';
 import { BuildTileModel, DescribeTimerEvent, SummariseTimers } from './lib/timer-tile';
-import { IsTicking, type TimerView } from '../../../common/timers';
+import { IsTicking } from '../../../common/timers';
 import {
   GetGroupSpan,
   GroupTintHex,
@@ -31,7 +31,7 @@ import { PlaySoundRef } from './sounds';
 import { OpenTimerEditor } from './timer-editor';
 import { OnModeChange } from './mode';
 import { CanCreateTimer } from './lib/timer-editor-model';
-import type { ControlAction, TimerEventView } from '../../../common/api';
+import type { ControlAction, TimerEventView, TimerView } from '@showtrak/protocol/timers';
 
 let Anchored: AnchoredTimer<TimerView>[] = [];
 let RenderedKey = '';

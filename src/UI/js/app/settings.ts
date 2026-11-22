@@ -15,7 +15,7 @@ import {
 import { Notify } from './lib/toasts';
 import { FormatSettingValue, ResolveSettingsTab } from './lib/settings-tabs';
 import { Safe } from './utils';
-import type { SettingGroupView, SettingView } from '../../../common/api';
+import type { SettingGroupView, SettingView } from '@showtrak/protocol/timers';
 
 // An OPTION whose every choice is at most this long sits beside its label.
 const SHORT_OPTION_LENGTH = 20;

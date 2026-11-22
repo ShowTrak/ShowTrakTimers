@@ -1,7 +1,7 @@
 // The application mode: SHOW (operate) or EDIT (add, edit and reorder timers).
 // Held in the main process so every window and the app menu agree on it.
 import { Manager as BroadcastManager } from '../Modules/Broadcast';
-import type { AppMode } from '../common/api';
+import type { AppMode } from '@showtrak/protocol/timers';
 
 let Mode: AppMode = 'SHOW';
 

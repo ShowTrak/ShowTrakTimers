@@ -9,6 +9,7 @@ import { Groups, Mode, SettingValue } from './state';
 import { Safe } from './utils';
 import { CurrentTimers } from './timers';
 import { TimerIDsInGroup } from './lib/group-layout';
+import type { GroupPatchView, GroupView } from '@showtrak/protocol/timers';
 import {
   BuildGroupWidthOptions,
   DescribeKeyBind,
@@ -17,8 +18,6 @@ import {
   GROUP_COLOURS,
   GROUP_KEYBINDS,
   ParseGroupColumnCount,
-  type GroupPatchView,
-  type GroupView,
 } from '../../../common/groups';
 
 const MANAGER_ID = 'SHOWTRAK_MODAL_GROUPMANAGER';

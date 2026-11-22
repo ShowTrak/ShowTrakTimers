@@ -14,7 +14,7 @@ import os from 'os';
 import { spawnSync } from 'child_process';
 
 import type { BrowserWindow, FeedURLOptions } from 'electron';
-import type { AppUpdater } from 'electron-updater';
+import type { AppUpdater, UpdateInfo } from 'electron-updater';
 import { CreateLogger } from '../Modules/Logger';
 import { IsRecord } from '../common/guards';
 import {
@@ -22,7 +22,7 @@ import {
   ResolveChannelRelease,
   type UpdateChannel,
 } from '@showtrak/protocol/runtime';
-import type { InvokeChannel } from '../common/api';
+import type { AppUpdateInfo, AppUpdateStatus, InvokeChannel } from '@showtrak/protocol/timers';
 import type { IpcHandler } from './rpc';
 import { RELEASE_OWNER, RELEASE_REPO } from '../Modules/Config/constants';
 import {
@@ -45,17 +45,6 @@ interface RegisterOptions {
 
 const Logger = CreateLogger('AppUpdater');
 
-// Status payload forwarded to the renderer on the 'AppUpdate:Status' channel.
-// `info` intentionally stays open (electron-updater UpdateInfo, simulated
-// descriptors, or diagnostic `{ reason, details }` objects all flow through it).
-interface AppUpdateStatusPayload {
-  state: string;
-  error?: string;
-  info?: unknown;
-  simulated?: boolean;
-  percent?: number;
-}
-
 let autoUpdater: AppUpdater | null = null;
 let squirrelUpdaterInitialized = false;
 let getMainWindow: () => BrowserWindow | null = () => null;
@@ -65,8 +54,8 @@ let cachedMacDeveloperIdSigned: boolean | null = null;
 // The most recent status sent to the renderer, and the release info of the
 // update currently being fetched. A check requested while one is already in
 // flight replays these instead of restarting the updater mid-download.
-let lastStatus: AppUpdateStatusPayload | null = null;
-let activeInfo: unknown = null;
+let lastStatus: AppUpdateStatus | null = null;
+let activeInfo: AppUpdateInfo | null = null;
 const CHECK_TIMEOUT_MS = 20000;
 
 const SQUIRREL_FEED_URL = `https://github.com/${RELEASE_OWNER}/${RELEASE_REPO}/releases/latest/download/`;
@@ -147,7 +136,7 @@ function linuxUpdatesUnavailable(): boolean {
   return process.platform === 'linux' && !process.env.APPIMAGE;
 }
 
-const LINUX_UPDATES_UNAVAILABLE_STATUS: AppUpdateStatusPayload = {
+const LINUX_UPDATES_UNAVAILABLE_STATUS: AppUpdateStatus = {
   state: 'error',
   error:
     'In-app updates are not available for Linux packages. Download the new version from the GitHub releases page.',
@@ -236,7 +225,7 @@ function isUpdateInProgress() {
   );
 }
 
-function forwardToRenderer(payload: AppUpdateStatusPayload) {
+function forwardToRenderer(payload: AppUpdateStatus) {
   try {
     const MainWindow = getMainWindow();
     if (MainWindow && !MainWindow.isDestroyed()) {
@@ -247,7 +236,7 @@ function forwardToRenderer(payload: AppUpdateStatusPayload) {
   }
 }
 
-function sendAppUpdateStatus(payload: AppUpdateStatusPayload) {
+function sendAppUpdateStatus(payload: AppUpdateStatus) {
   const state = payload && payload.state;
   if (state === 'checking') {
     activeInfo = null;
@@ -285,7 +274,7 @@ function sendAppUpdateStatus(payload: AppUpdateStatusPayload) {
   forwardToRenderer(payload);
 }
 
-function normalizeUpdaterError(err: unknown): AppUpdateStatusPayload {
+function normalizeUpdaterError(err: unknown): AppUpdateStatus {
   const message = toErrorMessage(err);
   const isMac = process.platform === 'darwin';
   // electron-updater words a 404 several ways ("status 404", "HttpError: 404"),
@@ -509,7 +498,7 @@ function initSquirrelUpdater() {
       'update-downloaded',
       (_e: unknown, _notes: unknown, _name: unknown, _date: unknown, _url: unknown) => {
         endSquirrelTracking();
-        const version = (_name && String(_name)) || squirrelReleaseInfo?.version;
+        const version = (_name ? String(_name) : '') || squirrelReleaseInfo?.version;
         sendAppUpdateStatus({ state: 'downloaded', info: { ...squirrelReleaseInfo, version } });
       }
     );
@@ -599,17 +588,17 @@ async function handleCheck() {
       autoUpdater.autoDownload = true;
       autoUpdater.autoInstallOnAppQuit = automaticUpdatesEnabled;
       autoUpdater.on('checking-for-update', () => sendAppUpdateStatus({ state: 'checking' }));
-      autoUpdater.on('update-available', (info: unknown) =>
+      autoUpdater.on('update-available', (info: UpdateInfo) =>
         sendAppUpdateStatus({ state: 'available', info })
       );
-      autoUpdater.on('update-not-available', (info: unknown) =>
+      autoUpdater.on('update-not-available', (info: UpdateInfo) =>
         sendAppUpdateStatus({ state: 'none', info })
       );
       autoUpdater.on('error', (err: unknown) => sendAppUpdateStatus(normalizeUpdaterError(err)));
       autoUpdater.on('download-progress', (p: { percent?: number }) =>
         sendAppUpdateStatus({ state: 'downloading', percent: p && p.percent ? p.percent : 0 })
       );
-      autoUpdater.on('update-downloaded', (info: unknown) =>
+      autoUpdater.on('update-downloaded', (info: UpdateInfo) =>
         sendAppUpdateStatus({ state: 'downloaded', info })
       );
     } catch (e) {

@@ -15,11 +15,10 @@ import {
   WriteCachedGroups,
   WriteCachedLayout,
   WriteCachedTimers,
-  type DashboardGroupLike,
-  type DashboardLayoutLike,
   type DashboardTimerLike,
 } from './lib/dashboard-cache';
-import { IsTicking, type TimerView } from '../../../common/timers';
+import type { DashboardGroup, DashboardLayout, TimerView } from '@showtrak/protocol/timers';
+import { IsTicking } from '../../../common/timers';
 import { IsArray } from '../../../common/guards';
 import { GetGroupSpan, GroupTintHex } from '../../../common/groups';
 import { BuildGroupSections, SectionsKey } from './lib/group-layout';
@@ -41,8 +40,8 @@ const Storage = (() => {
 })();
 
 // The last groups and layout seen, so an offline reload still draws the groups.
-let Groups: DashboardGroupLike[] = ReadCachedGroups(Storage);
-let Layout: DashboardLayoutLike = ReadCachedLayout(Storage);
+let Groups: DashboardGroup[] = ReadCachedGroups(Storage);
+let Layout: DashboardLayout = ReadCachedLayout(Storage);
 
 // The desktop's Group Colour Saturation, as its grid applies it.
 function ApplyLayout(): void {
@@ -133,7 +132,7 @@ function Render(Timers: DashboardTimerLike[], Reanchor = true): void {
       for (const Section of Sections) {
         const El = document.createElement('section');
         El.className = 'dashboard-group';
-        El.style.gridColumn = `span ${GetGroupSpan(Section.Group as DashboardGroupLike | null, Columns)}`;
+        El.style.gridColumn = `span ${GetGroupSpan(Section.Group as DashboardGroup | null, Columns)}`;
         const Tint = GroupTintHex(Section.Group);
         if (Tint) {
           El.classList.add('group-tinted');

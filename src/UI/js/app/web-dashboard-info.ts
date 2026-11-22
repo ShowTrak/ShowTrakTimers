@@ -5,7 +5,7 @@ import { openModal } from './lib/modal';
 import { CloseAllModals } from './modals';
 import { Services, setServices } from './state';
 import { HandleNonFatalError, Safe } from './utils';
-import type { ServicesStatusView } from '../../../common/api';
+import type { ServicesStatusView } from '@showtrak/protocol/timers';
 import { RefreshBottomBar } from './timers';
 
 function Render(): void {

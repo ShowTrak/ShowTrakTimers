@@ -6,15 +6,13 @@
 // other. Here a running timer only records when its current run segment began;
 // elapsed time is always `Accumulated + (now - SegmentStart)`, so it is exactly
 // as accurate as the clock, however often (or rarely) anything looks at it.
-import {
-  HasDuration,
-  IsClock,
-  IsTicking,
-  LocalTimeOfDayMs,
-  type TimerConfig,
-  type TimerStatus,
-  type TimerView,
-} from '../../common/timers';
+import type {
+  TimerConfig,
+  TimerEventView,
+  TimerStatus,
+  TimerView,
+} from '@showtrak/protocol/timers';
+import { HasDuration, IsClock, IsTicking, LocalTimeOfDayMs } from '../../common/timers';
 
 export type Clock = () => number;
 
@@ -23,15 +21,6 @@ export type TimeOfDayClock = () => number;
 
 /** The shortest duration a LOOP timer loops at; shorter ones hold at the end. */
 export const MIN_LOOP_MS = 1000;
-
-/** Something that happened as a timer ran past a threshold. */
-export interface TimerEvent {
-  Kind: 'warning' | 'complete';
-  TimerID: number;
-  Name: string;
-  Sound: string | null;
-  Toast: boolean;
-}
 
 export class Timer {
   Config: TimerConfig;
@@ -142,7 +131,7 @@ export class Timer {
   }
 
   /** Start from zero, whatever the timer was doing (the 1.x Start semantics). */
-  Start(At: number = this.Now()): TimerEvent[] {
+  Start(At: number = this.Now()): TimerEventView[] {
     if (this.IsClock) return [];
     this.ResetRun();
     this.Status = 'RUNNING';
@@ -169,7 +158,7 @@ export class Timer {
    * Resume a paused timer. Anything else is left alone: 1.x "unpaused" timers in
    * standby or complete, starting them with no start time.
    */
-  Unpause(At: number = this.Now()): TimerEvent[] | null {
+  Unpause(At: number = this.Now()): TimerEventView[] | null {
     if (this.Status !== 'PAUSED') return null;
     this.SegmentStart = At;
     this.Status =
@@ -182,7 +171,7 @@ export class Timer {
    * one stays paused there, and one in standby or complete is paused there, ready
    * to be resumed (1.x set the time but left it in standby, where Start wiped it).
    */
-  JumpTo(Ms: number, At: number = this.Now()): TimerEvent[] {
+  JumpTo(Ms: number, At: number = this.Now()): TimerEventView[] {
     if (this.IsClock) return [];
     const Target = Number.isFinite(Ms) && Ms > 0 ? Math.floor(Ms) : 0;
     const WasTicking = IsTicking(this.Status);
@@ -231,8 +220,8 @@ export class Timer {
    * the events crossed (each fires once per run). Safe to call as often as
    * wanted.
    */
-  Evaluate(At: number = this.Now()): TimerEvent[] {
-    const Events: TimerEvent[] = [];
+  Evaluate(At: number = this.Now()): TimerEventView[] {
+    const Events: TimerEventView[] = [];
     if (!IsTicking(this.Status)) return Events;
     const Target = this.TargetMs();
     if (Target === null) return Events;
@@ -264,7 +253,7 @@ export class Timer {
   }
 
   // Do what the timer's end behaviour says, now that it is at (or past) its end.
-  private ApplyEnd(Target: number, Elapsed: number, At: number, Events: TimerEvent[]): void {
+  private ApplyEnd(Target: number, Elapsed: number, At: number, Events: TimerEventView[]): void {
     switch (this.Config.EndBehaviour) {
       case 'OVERRUN':
         this.Status = 'OVERRUN';
@@ -302,7 +291,7 @@ export class Timer {
     this.Status = 'COMPLETE';
   }
 
-  private MakeEvent(Kind: TimerEvent['Kind']): TimerEvent {
+  private MakeEvent(Kind: TimerEventView['Kind']): TimerEventView {
     const Warning = Kind === 'warning';
     return {
       Kind,

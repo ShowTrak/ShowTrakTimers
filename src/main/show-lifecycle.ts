@@ -8,7 +8,7 @@ import { Manager as SettingsManager } from '../Modules/SettingsManager';
 import { Manager as GroupManager } from '../Modules/GroupManager';
 import { Manager as TimerManager } from '../Modules/TimerManager';
 import { Manager as ShowFile } from '../Modules/ShowFile';
-import type { ShowFileStateView } from '../common/api';
+import type { ShowFileStateView } from '@showtrak/protocol/timers';
 import { PushToRenderers } from './renderer-bus';
 
 const Logger = CreateLogger('Show');
