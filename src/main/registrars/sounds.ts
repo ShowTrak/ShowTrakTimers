@@ -4,6 +4,13 @@ import { Manager as AudioLibrary, ALLOWED_EXTENSIONS } from '../../Modules/Audio
 import { Manager as BroadcastManager } from '../../Modules/Broadcast';
 import { getMainWindow, hasMainWindow } from '../app-window';
 import { Guard, PlainObject, SoundID } from './validate';
+import type { ResultTuple } from '@showtrak/protocol/timers';
+
+/** A library change's result, after telling every surface when it went through. */
+function Announced<T>(Result: ResultTuple<T>): ResultTuple<T> {
+  if (!Result[0]) BroadcastManager.emit('SoundsUpdated');
+  return Result;
+}
 
 export function register(): void {
   RPC.handle('Sounds:List', async () => AudioLibrary.List());
@@ -23,26 +30,16 @@ export function register(): void {
         ? await dialog.showOpenDialog(Window, Options)
         : await dialog.showOpenDialog(Options);
       if (Picked.canceled || !Picked.filePaths[0]) return [null, null];
-      const Result = AudioLibrary.Import(Picked.filePaths[0]);
-      if (!Result[0]) BroadcastManager.emit('SoundsUpdated');
-      return Result;
+      return Announced(AudioLibrary.Import(Picked.filePaths[0]));
     })
   );
 
   RPC.handle('Sounds:Update', (_E, ID, Patch) =>
-    Guard(async () => {
-      const Result = AudioLibrary.Update(SoundID(ID), PlainObject(Patch, 'sound'));
-      if (!Result[0]) BroadcastManager.emit('SoundsUpdated');
-      return Result;
-    })
+    Guard(async () => Announced(AudioLibrary.Update(SoundID(ID), PlainObject(Patch, 'sound'))))
   );
 
   RPC.handle('Sounds:Delete', (_E, ID) =>
-    Guard(async () => {
-      const Result = AudioLibrary.Delete(SoundID(ID));
-      if (!Result[0]) BroadcastManager.emit('SoundsUpdated');
-      return Result;
-    })
+    Guard(async () => Announced(AudioLibrary.Delete(SoundID(ID))))
   );
 
   RPC.handle('Sounds:GetData', (_E, ID) => Guard(async () => AudioLibrary.GetData(SoundID(ID))));
