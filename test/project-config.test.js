@@ -172,6 +172,8 @@ test('sources, tests and build tooling stay out of the package', async () => {
     '/dist-test/UI/js/app/utils.js',
     '/scripts/build-css.js',
     '/coverage/lcov.info',
+    '/out',
+    '/out/make/zip/darwin/arm64/ShowTrak Timers.zip',
     '/.github/workflows/ci.yml',
     '/tsconfig.json',
     '/tsconfig.renderer.test.json',
