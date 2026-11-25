@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.0.2-beta.3] - 2026-11-25
+
+### Fixed
+
+- A leftover build folder can no longer end up inside the app when it is
+  built. Nothing changes for you.
+
 ## [2.0.2-beta.2] - 2026-11-22
 
 ### Changed
@@ -377,7 +384,8 @@ test, lint and release tooling, the same update system, and the same look.
 - Data storage:
   - SQLite-backed persistence layer and DB module foundation.
 
-[Unreleased]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.2-beta.2...HEAD
+[Unreleased]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.2-beta.3...HEAD
+[2.0.2-beta.3]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.2-beta.2...v2.0.2-beta.3
 [2.0.2-beta.2]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.2-beta.1...v2.0.2-beta.2
 [2.0.2-beta.1]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.1...v2.0.2-beta.1
 [2.0.1]: https://github.com/ShowTrak/ShowTrakTimers/compare/v2.0.0...v2.0.1
